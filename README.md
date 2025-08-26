@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CMG Prediction System - Pudidi
 
 Production-ready system for predicting Marginal Cost (CMG) values for Chiloé 220kV node in Chile's electrical grid.
@@ -145,3 +146,7 @@ For issues or questions, please open an issue in this repository.
 ## 📄 License
 
 This project is proprietary - all rights reserved.
+=======
+# pudidi_cmg_prediction
+CMG Predictive ML Models
+>>>>>>> a4fc72e3c38712c8c1c814e772004e6c3a837cec
