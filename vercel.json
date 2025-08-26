@@ -2,12 +2,23 @@
   "functions": {
     "api/predictions.py": {
       "maxDuration": 10
+    },
+    "api/predictions_live.py": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api/predictions/live",
+      "destination": "/api/predictions_live"
+    },
+    {
+      "source": "/api/predictions",
       "destination": "/api/predictions"
+    },
+    {
+      "source": "/",
+      "destination": "/api/predictions_live"
     }
   ]
 }
