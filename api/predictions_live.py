@@ -1,30 +1,21 @@
-"""
-Live API Handler - Ultra-safe version for Vercel
-"""
+from http.server import BaseHTTPRequestHandler
+import json
+from datetime import datetime, timedelta
 
-def handler(request):
-    """
-    Vercel serverless function - Cannot crash version
-    """
-    # Start with a guaranteed working response
-    response = {
-        'statusCode': 200,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-        },
-        'body': ''
-    }
-    
-    # Build predictions in the safest way possible
-    predictions_list = []
-    
-    # Try to do the actual work
-    try:
-        import json
-        from datetime import datetime, timedelta
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Handle GET requests"""
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
         
-        # Get current time (safest way)
+        # Initialize response data
+        predictions = []
+        data_source = "Synthetic"
+        avg_value = 60.0
+        success = False
+        
         try:
             import pytz
             santiago_tz = pytz.timezone('America/Santiago')
@@ -32,15 +23,10 @@ def handler(request):
         except:
             now = datetime.now()
         
-        # Try to fetch data (but don't let it crash)
-        data_source = "Synthetic"
-        avg_value = 60.0
-        
+        # Try to fetch real data
         try:
             import requests
-            import numpy as np
             
-            # Only if we can import everything, try to fetch
             SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
             SIP_BASE_URL = 'https://sipub.api.coordinador.cl:443'
             CHILOE_NODE = 'CHILOE________220'
@@ -52,73 +38,85 @@ def handler(request):
                 'startDate': yesterday,
                 'endDate': yesterday,
                 'page': 1,
-                'limit': 100,  # Smaller limit
+                'limit': 100,
                 'user_key': SIP_API_KEY
             }
             
-            # Very short timeout
-            resp = requests.get(url, params=params, timeout=3)
+            # Quick fetch attempt
+            response = requests.get(url, params=params, timeout=5)
             
-            if resp.status_code == 200:
-                data = resp.json()
+            if response.status_code == 200:
+                data = response.json()
                 records = data.get('data', [])
                 
                 # Look for Chiloé data
-                for record in records:
-                    if record.get('barra_transf') == CHILOE_NODE:
-                        avg_value = float(record.get('cmg', 60))
-                        data_source = "SIP API"
-                        break
-        except:
-            # Any error in fetching - just use defaults
+                chiloe_records = [r for r in records if r.get('barra_transf') == CHILOE_NODE]
+                
+                if chiloe_records:
+                    values = [float(r.get('cmg', 60)) for r in chiloe_records]
+                    avg_value = sum(values) / len(values)
+                    data_source = "SIP API"
+                    success = True
+                    
+                    # Add historical data
+                    for record in chiloe_records[:24]:
+                        predictions.append({
+                            'datetime': record.get('fecha_hora'),
+                            'hour': int(record.get('fecha_hora', '00:00')[11:13]),
+                            'cmg_actual': float(record.get('cmg', 60)),
+                            'is_historical': True
+                        })
+        except Exception as e:
+            # API fetch failed - continue with synthetic
             pass
         
-        # Generate 48 predictions
+        # Generate future predictions
         for i in range(48):
             future = now + timedelta(hours=i+1)
             hour = future.hour
             
-            # Simple pattern
-            if 6 <= hour <= 9:
-                base = avg_value * 1.3
-            elif 18 <= hour <= 21:
-                base = avg_value * 1.4
-            elif 0 <= hour <= 5:
-                base = avg_value * 0.7
+            # Simple hourly pattern
+            if 6 <= hour <= 9:  # Morning peak
+                multiplier = 1.3
+            elif 18 <= hour <= 21:  # Evening peak
+                multiplier = 1.4
+            elif 0 <= hour <= 5:  # Night low
+                multiplier = 0.7
             else:
-                base = avg_value
+                multiplier = 1.0
             
-            predictions_list.append({
+            predicted_value = avg_value * multiplier
+            
+            predictions.append({
                 'datetime': future.strftime('%Y-%m-%d %H:%M:%S'),
                 'hour': hour,
-                'cmg_predicted': round(base, 2),
+                'cmg_predicted': round(predicted_value, 2),
+                'confidence_lower': round(predicted_value * 0.9, 2),
+                'confidence_upper': round(predicted_value * 1.1, 2),
                 'is_prediction': True
             })
         
-        # Build final result
+        # Build response
         result = {
-            'success': True,
+            'success': success,
             'location': 'Chiloé 220kV',
             'node': 'CHILOE________220',
             'data_source': data_source,
             'stats': {
                 'avg_value': round(avg_value, 2),
-                'predictions_count': len(predictions_list)
+                'predictions_count': len(predictions)
             },
-            'predictions': predictions_list
+            'predictions': predictions[:72]
         }
         
-        response['body'] = json.dumps(result)
-        
-    except Exception as e:
-        # Ultimate fallback - hardcoded response
-        response['body'] = json.dumps({
-            'success': False,
-            'error': str(e)[:100],  # Limit error message length
-            'predictions': [
-                {'hour': i, 'cmg_predicted': 60.0}
-                for i in range(24)
-            ]
-        })
+        self.wfile.write(json.dumps(result).encode())
+        return
     
-    return response
+    def do_OPTIONS(self):
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+        return
