@@ -10,7 +10,9 @@ import random
 
 def populate_test_data():
     """Populate database with test data"""
-    conn = sqlite3.connect('cmg_data.db')
+    import os
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cmg_data.db')
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     # Create tables if they don't exist

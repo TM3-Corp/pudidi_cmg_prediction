@@ -21,6 +21,7 @@ import os
 # Configuration
 SIP_API_KEY = os.environ.get('SIP_API_KEY', '1a81177c8ff4f69e7dd5bb8c61bc08b4')
 SIP_BASE_URL = 'https://sipub.api.coordinador.cl:443'
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cmg_data.db')
 
 # Chiloé nodes configuration
 CHILOE_NODES = {
@@ -57,8 +58,8 @@ logging.basicConfig(
 )
 
 class CompleteDailyFetcher:
-    def __init__(self, db_path='cmg_data.db', cache_dir='daily_cache'):
-        self.db_path = db_path
+    def __init__(self, db_path=None, cache_dir='daily_cache'):
+        self.db_path = db_path or DB_PATH
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
         self.setup_database()

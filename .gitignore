@@ -43,18 +43,31 @@ Thumbs.db
 node_modules/
 .vercel
 
-# Test files
-test_*.py
-quick_*.py
-*.test.py
+# Cache
+daily_cache/
+.cache/
+
+# Testing (but keep tests directory)
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Distribution
+dist/
+build/
+*.egg-info/
 
 # Backup files
 *.backup
 *.bak
-*_backup.py
-*_old.py
+*_backup.*
+*_old.*
 
 # Temporary files
 tmp/
 temp/
 *.tmp
+
+# Zone Identifier files (Windows)
+*:Zone.Identifier

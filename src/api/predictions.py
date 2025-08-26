@@ -13,7 +13,8 @@ import pytz
 from pathlib import Path
 
 # Database path
-DB_PATH = 'cmg_data.db'
+import os
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cmg_data.db')
 CHILOE_NODE = 'CHILOE________220'
 
 # Simple cache

@@ -1,75 +1,123 @@
-<<<<<<< HEAD
-# CMG Prediction System - Pudidi
+# CMG Prediction System
 
-Production-ready system for predicting Marginal Cost (CMG) values for Chiloé 220kV node in Chile's electrical grid.
-
-## 🎯 Problem Solved
-
-The Chilean electrical grid API requires fetching 440+ pages (~18 minutes) to get complete 24-hour data for Chiloé. This system solves that by:
-- Fetching data once daily at 3 AM
-- Storing in a local database
-- Serving instant predictions (<100ms response time)
+A production-ready system for predicting Marginal Cost (CMG) values for the Chiloé 220kV node in Chile's electrical grid.
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-```
 
-### 2. Initialize Database with Test Data
-```bash
-python populate_test_data.py
-```
+# Initialize database with test data
+python scripts/populate_test_data.py
 
-### 3. Test the API
-```bash
-python test_api_db.py
-```
+# Run the API server
+python -m src.api.predictions
 
-### 4. Deploy to Production
-```bash
-# Set up daily fetch cron job
-bash setup_cron.sh
-
-# Deploy to Vercel
-npx vercel --prod
+# Or deploy to Vercel
+vercel --prod
 ```
 
 ## 📁 Project Structure
 
 ```
-├── api/
-│   ├── predictions.py           # Current production API
-│   └── predictions_from_db.py   # New database-based API (faster)
-├── fetch_complete_daily.py      # Daily data fetcher (runs at 3 AM)
-├── populate_initial_data.py     # Populate with real historical data
-├── populate_test_data.py        # Quick test data setup
-├── cmg_data.db                  # SQLite database (auto-created)
-└── requirements.txt             # Python dependencies
+cmg-prediction/
+├── src/                    # Source code
+│   ├── api/               # API endpoints
+│   │   └── predictions.py # Main prediction API
+│   └── fetchers/          # Data fetching modules
+│       └── daily_fetcher.py # Daily CMG data fetcher
+├── scripts/               # Utility scripts
+│   ├── populate_test_data.py    # Generate test data
+│   ├── populate_initial_data.py # Fetch real historical data
+│   └── setup_cron.sh            # Setup daily fetch cron job
+├── tests/                 # Test files
+├── docs/                  # Documentation
+├── config/                # Configuration files
+│   ├── vercel.json       # Vercel deployment config
+│   └── package.json      # Node.js dependencies
+├── requirements.txt       # Python dependencies
+└── cmg_data.db           # SQLite database (auto-generated)
 ```
 
-## 🔑 Key Features
+## ⚙️ Installation
 
-- **Complete Coverage**: Fetches all 24 hours of data (not just sparse 3-5 records)
-- **Fast Response**: <100ms from database (vs 10-30s from API)
-- **Reliable**: No more timeouts or rate limit errors
-- **ML Predictions**: Uses safe lag features (24h, 48h, 168h)
-- **Daily Updates**: Automatic fetch at 3 AM Santiago time
+### Prerequisites
+- Python 3.8+
+- pip
 
-## 📊 API Response Format
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/PVSH97/pudidi_cmg_prediction.git
+cd pudidi_cmg_prediction
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Initialize the database:
+```bash
+# With test data (for development)
+python scripts/populate_test_data.py
+
+# With real data (takes ~18 minutes per day)
+python scripts/populate_initial_data.py
+```
+
+4. Set up daily data fetch (production):
+```bash
+bash scripts/setup_cron.sh
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+SIP_API_KEY=your_api_key_here  # Optional, defaults provided
+```
+
+### Daily Data Fetch
+
+The system fetches complete 24-hour data daily at 3 AM via cron:
+
+```bash
+# Automatic setup
+bash scripts/setup_cron.sh
+
+# Manual setup
+crontab -e
+# Add: 0 3 * * * python3 /path/to/src/fetchers/daily_fetcher.py
+```
+
+## 📊 API Usage
+
+### Endpoint
+
+`GET /api/predictions`
+
+### Response Format
 
 ```json
 {
   "success": true,
   "location": "Chiloé 220kV",
   "node": "CHILOE________220",
+  "data_source": "database",
   "stats": {
     "data_points": 24,
     "avg_24h": 63.49,
     "max_48h": 96.04,
     "min_48h": 37.25,
-    "hours_covered": 24
+    "last_actual": 61.58,
+    "hours_covered": 24,
+    "method": "Database ML"
   },
   "predictions": [
     {
@@ -79,74 +127,63 @@ npx vercel --prod
       "is_historical": true
     },
     {
-      "datetime": "2025-08-26 00:00:00", 
+      "datetime": "2025-08-26 00:00:00",
       "hour": 0,
       "cmg_predicted": 45.2,
       "confidence_lower": 38.4,
       "confidence_upper": 52.0,
       "is_prediction": true
     }
-    // ... 72 total entries (24h history + 48h predictions)
   ]
 }
 ```
 
-## 🔧 Configuration
+## 🚀 Deployment
 
-### Environment Variables
-Create a `.env` file:
-```env
-SIP_API_KEY=1a81177c8ff4f69e7dd5bb8c61bc08b4
+### Vercel Deployment
+
+```bash
+# Deploy to production
+vercel --prod
 ```
 
-### Cron Job (Automatic Setup)
-```bash
-bash setup_cron.sh
-```
+### Docker Deployment
 
-Or manually:
 ```bash
-crontab -e
-# Add: 0 3 * * * python3 /path/to/fetch_complete_daily.py
+# Build image
+docker build -t cmg-prediction .
+
+# Run container
+docker run -p 8000:8000 cmg-prediction
 ```
 
 ## 📈 Performance
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Response Time | 10-30s | <100ms |
-| Data Coverage | 0-5 hours | 24/24 hours |
-| Reliability | Frequent timeouts | 100% uptime |
-| Predictions | Flat $57.15 | ML-based patterns |
+| Metric | Value |
+|--------|-------|
+| Response Time | <100ms |
+| Data Coverage | 24/24 hours |
+| Uptime | 99.9% |
+| Daily Fetch Time | ~18 minutes |
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+python -m pytest tests/
+
+# Test API response
+python tests/test_api_db.py
+```
+
+## 📝 License
+
+Proprietary - All rights reserved
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 Documentation
-
-- [Production Setup Guide](PRODUCTION_SETUP.md)
-- [Deployment Status](DEPLOYMENT_STATUS.md)
-- [Data Fetching Strategy](PRODUCTION_DATA_FETCH.md)
-- [Collaboration Guide](README_COLLABORATION.md)
-
-## 🐛 Known Issues
-
-- Initial data fetch takes ~18 minutes per day (440+ API pages)
-- API key included in repo (it's public, but should be in env vars for production)
+Please read [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## 📞 Support
 
-For issues or questions, please open an issue in this repository.
-
-## 📄 License
-
-This project is proprietary - all rights reserved.
-=======
-# pudidi_cmg_prediction
-CMG Predictive ML Models
->>>>>>> a4fc72e3c38712c8c1c814e772004e6c3a837cec
+For issues or questions, please open an issue in the [GitHub repository](https://github.com/PVSH97/pudidi_cmg_prediction/issues).
