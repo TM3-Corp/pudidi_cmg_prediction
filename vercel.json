@@ -1,13 +1,20 @@
 {
   "functions": {
+    "api/test.py": {
+      "maxDuration": 10
+    },
     "api/predictions.py": {
       "maxDuration": 10
     },
     "api/predictions_live.py": {
-      "maxDuration": 30
+      "maxDuration": 10
     }
   },
   "rewrites": [
+    {
+      "source": "/api/test",
+      "destination": "/api/test"
+    },
     {
       "source": "/api/predictions/live",
       "destination": "/api/predictions_live"
