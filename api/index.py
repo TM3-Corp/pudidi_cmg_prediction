@@ -42,8 +42,9 @@ class handler(BaseHTTPRequestHandler):
             pages_fetched = 0
             max_pages = 10  # Limit for performance
             
-            # Fetch multiple pages to get more data
-            for page in range(1, max_pages + 1):
+            # Start from page 4 where Chiloé data usually is
+            start_page = 4
+            for page in range(start_page, max_pages + start_page):
                 params = {
                     'startDate': yesterday,
                     'endDate': yesterday,
@@ -53,7 +54,7 @@ class handler(BaseHTTPRequestHandler):
                 }
                 
                 try:
-                    response = requests.get(url, params=params, timeout=5)
+                    response = requests.get(url, params=params, timeout=8)
                     pages_fetched += 1
                     
                     if response.status_code == 200:
@@ -82,8 +83,8 @@ class handler(BaseHTTPRequestHandler):
                 # Sort by time
                 all_chiloe_data.sort(key=lambda x: x.get('fecha_hora', ''))
                 
-                # Extract values for ML
-                values = [float(r.get('cmg', 60)) for r in all_chiloe_data]
+                # Extract values for ML (field is cmg_usd_mwh_ not cmg)
+                values = [float(r.get('cmg_usd_mwh_', r.get('cmg', 60))) for r in all_chiloe_data]
                 hours = [int(r.get('fecha_hora', '00:00')[11:13]) for r in all_chiloe_data]
                 
                 avg_value = np.mean(values)
@@ -109,7 +110,7 @@ class handler(BaseHTTPRequestHandler):
                     predictions.append({
                         'datetime': record.get('fecha_hora'),
                         'hour': int(record.get('fecha_hora', '00:00')[11:13]),
-                        'cmg_actual': round(float(record.get('cmg', 60)), 2),
+                        'cmg_actual': round(float(record.get('cmg_usd_mwh_', record.get('cmg', 60))), 2),
                         'is_historical': True
                     })
                 
