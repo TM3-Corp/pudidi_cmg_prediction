@@ -1,14 +1,13 @@
 {
-  "builds": [
-    {
-      "src": "api/*.py",
-      "use": "@vercel/python"
+  "functions": {
+    "api/predictions.py": {
+      "maxDuration": 10
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "/api/predictions"
+      "source": "/(.*)",
+      "destination": "/api/predictions"
     }
   ]
 }
