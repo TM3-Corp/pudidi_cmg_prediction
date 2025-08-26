@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pudidi CMG - Chiloé 220kV</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        header {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 { font-size: 2rem; margin-bottom: 10px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .stat {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 3px solid #2563eb;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1e293b;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 5px;
+        }
+        #chart {
+            height: 500px;
+            padding: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 20px;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+        }
+        .success {
+            background: #dcfce7;
+            color: #166534;
+            padding: 10px 20px;
+            margin: 10px 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌊 Pudidi CMG Predicciones</h1>
+            <p>Sistema de Costos Marginales - Chiloé 220kV</p>
+        </header>
+        
+        <div id="success" class="success">✅ Datos actualizados</div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="current">--</div>
+                <div class="stat-label">Último Valor Real</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="avg">--</div>
+                <div class="stat-label">Promedio Histórico</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="datapoints">--</div>
+                <div class="stat-label">Puntos de Datos</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="source">--</div>
+                <div class="stat-label">Fuente de Datos</div>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #2563eb;"></div>
+                <span>Datos Históricos</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot" style="background: #10b981;"></div>
+                <span>Predicciones ML</span>
+            </div>
+        </div>
+        
+        <center>
+            <button class="btn" onclick="loadData()">🔄 Actualizar Datos</button>
+        </center>
+        
+        <div id="chart" class="loading">Cargando predicciones...</div>
+        <div id="error" style="display:none" class="error"></div>
+        
+        <footer>
+            <p>📍 Nodo: CHILOE________220 | 🏢 Datos: SIP Coordinador Eléctrico Nacional</p>
+            <p id="update">Última actualización: --</p>
+            <p id="fetch-info" style="font-size: 0.8rem; color: #94a3b8;"></p>
+        </footer>
+    </div>
+
+    <script>
+        // API endpoint - uses the main API
+        const API_URL = '/api';
+        
+        async function loadData() {
+            document.getElementById('chart').innerHTML = '<div class="loading">Cargando datos...</div>';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('success').style.display = 'none';
+            
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                // Update stats
+                if (data.stats) {
+                    document.getElementById('avg').textContent = '$' + data.stats.avg_value;
+                    document.getElementById('current').textContent = '$' + data.stats.last_value;
+                    document.getElementById('datapoints').textContent = 
+                        data.stats.historical_count + ' históricos / ' + data.stats.future_count + ' predicciones';
+                }
+                
+                // Update source
+                document.getElementById('source').textContent = data.data_source || 'Synthetic';
+                
+                // Update fetch info
+                if (data.fetch_info && data.fetch_info.records_found > 0) {
+                    document.getElementById('fetch-info').textContent = 
+                        `📊 ${data.fetch_info.records_found} registros de ${data.fetch_info.date_fetched} (${data.fetch_info.pages_fetched} páginas)`;
+                }
+                
+                // Update time
+                document.getElementById('update').textContent = 
+                    'Última actualización: ' + (data.timestamp || new Date().toLocaleString('es-CL'));
+                
+                // Show success message if data was fetched
+                if (data.success) {
+                    document.getElementById('success').style.display = 'block';
+                    setTimeout(() => {
+                        document.getElementById('success').style.display = 'none';
+                    }, 3000);
+                }
+                
+                // Plot chart
+                plotChart(data.predictions || []);
+                
+            } catch (error) {
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('error').textContent = '⚠️ Error: ' + error.message;
+                document.getElementById('chart').innerHTML = '';
+            }
+        }
+        
+        function plotChart(predictions) {
+            if (!predictions || predictions.length === 0) {
+                document.getElementById('chart').innerHTML = 
+                    '<div class="loading">No hay datos disponibles</div>';
+                return;
+            }
+            
+            // Separate historical and predicted data
+            const historical = predictions.filter(p => p.is_historical);
+            const predicted = predictions.filter(p => p.is_prediction);
+            
+            const traces = [];
+            
+            // Historical data trace
+            if (historical.length > 0) {
+                traces.push({
+                    x: historical.map(p => p.datetime),
+                    y: historical.map(p => p.cmg_actual),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Datos Históricos',
+                    line: { color: '#2563eb', width: 3 },
+                    marker: { size: 8, color: '#2563eb' }
+                });
+            }
+            
+            // Predicted data trace
+            if (predicted.length > 0) {
+                traces.push({
+                    x: predicted.map(p => p.datetime),
+                    y: predicted.map(p => p.cmg_predicted),
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Predicciones ML',
+                    line: { color: '#10b981', width: 2, dash: 'dot' },
+                    marker: { size: 6, color: '#10b981' },
+                    error_y: {
+                        type: 'data',
+                        symmetric: false,
+                        array: predicted.map(p => p.confidence_upper - p.cmg_predicted),
+                        arrayminus: predicted.map(p => p.cmg_predicted - p.confidence_lower),
+                        color: 'rgba(16, 185, 129, 0.2)',
+                        thickness: 1,
+                        width: 2
+                    }
+                });
+            }
+            
+            const layout = {
+                title: {
+                    text: 'CMG Chiloé - Histórico y Predicciones 48h',
+                    font: { size: 18 }
+                },
+                xaxis: {
+                    title: 'Fecha y Hora',
+                    tickformat: '%d/%m %H:00',
+                    tickangle: -45,
+                    showgrid: true,
+                    gridcolor: '#e5e7eb'
+                },
+                yaxis: {
+                    title: 'CMG (USD/MWh)',
+                    rangemode: 'tozero',
+                    showgrid: true,
+                    gridcolor: '#e5e7eb'
+                },
+                hovermode: 'x unified',
+                showlegend: true,
+                legend: {
+                    x: 0.02,
+                    y: 0.98,
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    bordercolor: '#e5e7eb',
+                    borderwidth: 1
+                },
+                margin: { t: 50, b: 100, l: 60, r: 30 },
+                plot_bgcolor: '#ffffff',
+                paper_bgcolor: '#ffffff'
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['pan2d', 'select2d', 'lasso2d', 'autoScale2d']
+            };
+            
+            Plotly.newPlot('chart', traces, layout, config);
+        }
+        
+        // Load on startup
+        loadData();
+        
+        // Auto-refresh every 5 minutes
+        setInterval(loadData, 300000);
+    </script>
+</body>
+</html>

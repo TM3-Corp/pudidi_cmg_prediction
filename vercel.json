@@ -1,20 +1,16 @@
 {
   "rewrites": [
     {
+      "source": "/api",
+      "destination": "/api/index"
+    },
+    {
       "source": "/api/test",
       "destination": "/api/test"
     },
     {
       "source": "/api/predictions/live",
       "destination": "/api/predictions_live"
-    },
-    {
-      "source": "/api/predictions",
-      "destination": "/api/predictions"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/api/index"
     }
   ]
 }
