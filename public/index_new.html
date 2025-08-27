@@ -327,7 +327,7 @@
             if (!data) return;
             
             // Update status indicator
-            updateStatusIndicator(data.status);
+            updateStatusIndicator(data.status, data);
             
             // Update statistics
             updateStatistics(data);
@@ -339,7 +339,7 @@
             updateQualityIndicators(data);
         }
 
-        function updateStatusIndicator(status) {
+        function updateStatusIndicator(status, data) {
             const indicator = document.getElementById('status-indicator');
             const statusText = document.getElementById('status-text');
             const lastUpdate = document.getElementById('last-update');

@@ -75,7 +75,11 @@ def check_current(base_url: str) -> bool:
             latest = hist['data'][-1]
             print(f"\n  📍 Latest Historical Data:")
             print(f"     - Time: {latest.get('hora', 'N/A')}")
-            print(f"     - CHILOE_220: ${latest.get('CHILOE________220', {}).get('cmg', 'N/A'):.2f}")
+            chiloe_value = latest.get('CHILOE________220', {}).get('cmg', 'N/A')
+            if isinstance(chiloe_value, (int, float)):
+                print(f"     - CHILOE_220: ${chiloe_value:.2f}")
+            else:
+                print(f"     - CHILOE_220: {chiloe_value}")
         
         return True
     else:
