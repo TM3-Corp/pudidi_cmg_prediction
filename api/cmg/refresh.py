@@ -1,6 +1,6 @@
 """
-Refresh endpoint - Triggers incremental data update
-Only fetches new/missing data to optimize performance
+Refresh endpoint - For Vercel read-only environment
+Returns refresh status but actual update happens via GitHub Actions
 """
 
 from http.server import BaseHTTPRequestHandler
@@ -13,12 +13,11 @@ import pytz
 
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.cache_manager import CacheManager
-from utils.fetcher_optimized import OptimizedCMGFetcher
+from utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        """Trigger incremental refresh of CMG data"""
+        """Check if refresh is needed (actual refresh happens via GitHub Actions)"""
         
         # CORS headers
         self.send_response(200)
@@ -30,9 +29,8 @@ class handler(BaseHTTPRequestHandler):
             santiago_tz = pytz.timezone('America/Santiago')
             now = datetime.now(santiago_tz)
             
-            # Initialize components
+            # Initialize cache manager (read-only)
             cache_manager = CacheManager()
-            fetcher = OptimizedCMGFetcher()
             
             # Check cache status
             status = cache_manager.get_cache_status()
@@ -53,54 +51,20 @@ class handler(BaseHTTPRequestHandler):
                 needs_refresh = True
                 refresh_reason.append('programmed_stale')
             
-            if needs_refresh:
-                # Perform incremental update
-                update_result = fetcher.fetch_incremental_update(last_hours=3)
-                
-                # Update historical cache
-                if update_result['historical']['data']:
-                    merged_historical = cache_manager.merge_historical_data(
-                        update_result['historical']['data'],
-                        window_hours=24
-                    )
-                    cache_manager.write_cache('historical', merged_historical)
-                
-                # Update programmed cache
-                if update_result['programmed']['data']:
-                    cache_manager.write_cache('programmed', update_result['programmed'])
-                
-                # Update metadata
-                metadata = {
-                    'timestamp': now.isoformat(),
-                    'last_refresh': now.isoformat(),
-                    'refresh_reason': refresh_reason,
-                    'historical_records': len(update_result['historical']['data']),
-                    'programmed_records': len(update_result['programmed']['data'])
-                }
-                cache_manager.write_cache('metadata', metadata)
-                
-                response = {
-                    'success': True,
-                    'refreshed': True,
-                    'timestamp': now.isoformat(),
-                    'reason': refresh_reason,
-                    'statistics': {
-                        'historical': update_result['historical']['statistics'],
-                        'programmed': update_result['programmed']['statistics']
-                    }
-                }
-            else:
-                # No refresh needed
-                response = {
-                    'success': True,
-                    'refreshed': False,
-                    'timestamp': now.isoformat(),
-                    'message': 'Cache is up to date',
-                    'cache_age': {
-                        'historical': hist_cache.get('age_hours', 0),
-                        'programmed': prog_cache.get('age_hours', 0)
-                    }
-                }
+            # In Vercel, we can't actually refresh - that happens via GitHub Actions
+            response = {
+                'success': True,
+                'needs_refresh': needs_refresh,
+                'timestamp': now.isoformat(),
+                'reason': refresh_reason,
+                'message': 'Refresh happens automatically via GitHub Actions every hour',
+                'cache_age': {
+                    'historical': hist_cache.get('age_hours', 0),
+                    'programmed': prog_cache.get('age_hours', 0)
+                },
+                'next_update': (now.replace(minute=5, second=0) + timedelta(hours=1)).isoformat() if now.minute > 5 else now.replace(minute=5, second=0).isoformat(),
+                'environment': 'read-only (Vercel)'
+            }
             
             self.wfile.write(json.dumps(response, default=str).encode())
             
@@ -109,7 +73,7 @@ class handler(BaseHTTPRequestHandler):
             error_response = {
                 'success': False,
                 'error': str(e),
-                'message': 'Failed to refresh data',
+                'message': 'Failed to check refresh status',
                 'timestamp': datetime.now().isoformat()
             }
             self.wfile.write(json.dumps(error_response).encode())
