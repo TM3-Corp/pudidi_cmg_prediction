@@ -11,6 +11,23 @@
     {
       "source": "/api/predictions/live",
       "destination": "/api/predictions_live"
+    },
+    {
+      "source": "/api/cmg/current",
+      "destination": "/api/cmg/current"
+    },
+    {
+      "source": "/api/cmg/refresh",
+      "destination": "/api/cmg/refresh"
+    },
+    {
+      "source": "/api/cmg/status",
+      "destination": "/api/cmg/status"
     }
-  ]
+  ],
+  "functions": {
+    "api/cmg/*.py": {
+      "maxDuration": 30
+    }
+  }
 }

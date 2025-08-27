@@ -1,0 +1,79 @@
+name: Hourly CMG Data Update
+
+on:
+  schedule:
+    # Run every hour at minute 5
+    - cron: '5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/hourly_update.yml'
+      - 'scripts/update_cache.py'
+
+jobs:
+  update-cache:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          pip install requests pytz numpy
+      
+      - name: Run cache update
+        run: |
+          python scripts/update_cache.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet data/cache/ || echo "::set-output name=changed::true"
+      
+      - name: Commit and push cache updates
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/cache/
+          git commit -m "🔄 Hourly cache update - $(date +'%Y-%m-%d %H:%M')"
+          git push
+      
+      - name: Trigger Vercel deployment
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          echo "Cache updated - Vercel will auto-deploy"
+      
+      - name: Send notification on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issue = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `CMG Cache Update Failed - ${new Date().toISOString()}`,
+              body: `The hourly cache update workflow failed. Please check the logs.`
+            };
+            // Optionally create an issue
+            // github.rest.issues.create(issue);
+            console.log('Cache update failed');

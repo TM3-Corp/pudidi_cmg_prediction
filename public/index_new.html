@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMG Monitor - Chiloé | Sistema de Monitoreo en Tiempo Real</title>
+    
+    <!-- Plotly for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom styles -->
+    <style>
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .animate-pulse-slow {
+            animation: pulse-slow 2s ease-in-out infinite;
+        }
+        
+        .loading-skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        .chart-container {
+            position: relative;
+            min-height: 500px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-live { background-color: #10b981; animation: pulse-slow 2s infinite; }
+        .status-recent { background-color: #f59e0b; }
+        .status-stale { background-color: #ef4444; }
+        .status-updating { background-color: #3b82f6; animation: pulse-slow 1s infinite; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Main Container -->
+    <div id="app" class="min-h-screen">
+        
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold">CMG Monitor - Chiloé</h1>
+                        <p class="text-blue-100 mt-1">Sistema de Monitoreo de Costo Marginal en Tiempo Real</p>
+                    </div>
+                    <div class="text-right">
+                        <div id="status-badge" class="inline-flex items-center px-4 py-2 bg-white/20 backdrop-blur rounded-lg">
+                            <span id="status-indicator" class="status-indicator status-updating"></span>
+                            <span id="status-text" class="font-medium">Inicializando...</span>
+                        </div>
+                        <div id="last-update" class="text-sm text-blue-100 mt-2">
+                            <!-- Last update time -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loading-screen" class="container mx-auto px-4 py-8">
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                        <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Cargando Datos</h2>
+                    <p id="loading-message" class="text-gray-600">Obteniendo información del sistema...</p>
+                    <div class="mt-6 max-w-xs mx-auto">
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div id="loading-progress" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content (Hidden initially) -->
+        <div id="main-content" class="container mx-auto px-4 py-8 hidden">
+            
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm font-medium text-gray-500">CMG Actual</div>
+                    <div id="current-cmg" class="text-2xl font-bold text-gray-900 mt-1">--</div>
+                    <div id="current-trend" class="text-sm mt-2">--</div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm font-medium text-gray-500">Promedio 24h</div>
+                    <div id="avg-cmg" class="text-2xl font-bold text-gray-900 mt-1">--</div>
+                    <div class="text-sm text-gray-500 mt-2">Histórico</div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm font-medium text-gray-500">Máximo 24h</div>
+                    <div id="max-cmg" class="text-2xl font-bold text-gray-900 mt-1">--</div>
+                    <div id="max-time" class="text-sm text-gray-500 mt-2">--</div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="text-sm font-medium text-gray-500">Cobertura</div>
+                    <div id="coverage" class="text-2xl font-bold text-gray-900 mt-1">--</div>
+                    <div class="text-sm text-gray-500 mt-2">Datos disponibles</div>
+                </div>
+            </div>
+
+            <!-- Main Chart -->
+            <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Costo Marginal - Últimas 24h y Programado</h2>
+                    <div class="flex gap-2">
+                        <button id="refresh-btn" onclick="manualRefresh()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            <span id="refresh-text">Actualizar</span>
+                        </button>
+                        <select id="node-selector" onchange="updateNodeFilter()" class="px-4 py-2 border rounded-lg">
+                            <option value="all">Todos los nodos</option>
+                            <option value="CHILOE________220">Chiloé 220kV</option>
+                            <option value="CHILOE________110">Chiloé 110kV</option>
+                            <option value="QUELLON_______110">Quellón 110kV</option>
+                            <option value="QUELLON_______013">Quellón 13kV</option>
+                            <option value="CHONCHI_______110">Chonchi 110kV</option>
+                            <option value="DALCAHUE______023">Dalcahue 23kV</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="main-chart" class="chart-container">
+                    <!-- Plotly chart will be inserted here -->
+                </div>
+                
+                <div class="flex justify-center gap-6 mt-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-blue-500 rounded mr-2"></div>
+                        <span>Histórico (24h)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-500 rounded mr-2"></div>
+                        <span>Programado (Próximas horas)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Quality Indicators -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Calidad de Datos Históricos</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Cobertura Temporal</span>
+                                <span id="hist-coverage-text">0%</span>
+                            </div>
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div id="hist-coverage-bar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Nodos Disponibles</span>
+                                <span id="hist-nodes-text">0/6</span>
+                            </div>
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div id="hist-nodes-bar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Datos Programados Disponibles</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Horas Futuras</span>
+                                <span id="prog-hours-text">0h</span>
+                            </div>
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div id="prog-hours-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Confiabilidad</span>
+                                <span id="prog-confidence-text">--</span>
+                            </div>
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div id="prog-confidence-bar" class="bg-green-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 pb-8 text-center text-gray-500 text-sm">
+            <p>CMG Monitor - Datos del Coordinador Eléctrico Nacional</p>
+            <p class="mt-1">Actualización automática cada hora | Cobertura 100% con 4000 registros/página</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript Application -->
+    <script>
+        // Global state
+        let currentData = null;
+        let updateInterval = null;
+        let statusCheckInterval = null;
+        let selectedNode = 'all';
+        let isRefreshing = false;
+
+        // API endpoints
+        const API_BASE = '/api/cmg';
+        const ENDPOINTS = {
+            current: `${API_BASE}/current`,
+            refresh: `${API_BASE}/refresh`,
+            status: `${API_BASE}/status`
+        };
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing CMG Monitor...');
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            // Show loading screen
+            showLoadingScreen('Inicializando sistema...');
+            
+            try {
+                // Check system status
+                updateLoadingProgress(20, 'Verificando estado del sistema...');
+                const statusResponse = await fetchWithTimeout(ENDPOINTS.status);
+                
+                if (!statusResponse.success) {
+                    throw new Error('System not ready');
+                }
+                
+                // Load current data
+                updateLoadingProgress(50, 'Cargando datos actuales...');
+                const dataResponse = await fetchWithTimeout(ENDPOINTS.current);
+                
+                if (dataResponse.success) {
+                    currentData = dataResponse.data;
+                    
+                    // Check if we need to trigger initial refresh
+                    if (dataResponse.needs_update || !dataResponse.data.historical.available) {
+                        updateLoadingProgress(70, 'Obteniendo datos más recientes...');
+                        await triggerRefresh();
+                    }
+                    
+                    updateLoadingProgress(90, 'Preparando visualización...');
+                    
+                    // Initialize UI
+                    setTimeout(() => {
+                        hideLoadingScreen();
+                        updateUI(currentData);
+                        startAutoUpdate();
+                    }, 500);
+                } else {
+                    throw new Error('Failed to load data');
+                }
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showError('Error al inicializar. Reintentando...');
+                setTimeout(() => initializeApp(), 5000);
+            }
+        }
+
+        function showLoadingScreen(message) {
+            document.getElementById('loading-screen').classList.remove('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+            document.getElementById('loading-message').textContent = message;
+        }
+
+        function hideLoadingScreen() {
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+        }
+
+        function updateLoadingProgress(percent, message) {
+            document.getElementById('loading-progress').style.width = `${percent}%`;
+            if (message) {
+                document.getElementById('loading-message').textContent = message;
+            }
+        }
+
+        async function fetchWithTimeout(url, timeout = 10000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            try {
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                return await response.json();
+            } catch (error) {
+                clearTimeout(timeoutId);
+                throw error;
+            }
+        }
+
+        function updateUI(data) {
+            if (!data) return;
+            
+            // Update status indicator
+            updateStatusIndicator(data.status);
+            
+            // Update statistics
+            updateStatistics(data);
+            
+            // Update chart
+            updateChart(data);
+            
+            // Update data quality indicators
+            updateQualityIndicators(data);
+        }
+
+        function updateStatusIndicator(status) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const lastUpdate = document.getElementById('last-update');
+            
+            // Remove all status classes
+            indicator.className = 'status-indicator';
+            
+            // Set status based on data freshness
+            if (status && status.overall) {
+                switch(status.overall.status) {
+                    case 'ready':
+                    case 'operational':
+                        indicator.classList.add('status-live');
+                        statusText.textContent = 'En vivo';
+                        break;
+                    case 'recent':
+                        indicator.classList.add('status-recent');
+                        statusText.textContent = 'Datos recientes';
+                        break;
+                    case 'stale':
+                        indicator.classList.add('status-stale');
+                        statusText.textContent = 'Datos antiguos';
+                        break;
+                    case 'updating':
+                        indicator.classList.add('status-updating');
+                        statusText.textContent = 'Actualizando...';
+                        break;
+                    default:
+                        indicator.classList.add('status-updating');
+                        statusText.textContent = 'Inicializando...';
+                }
+            }
+            
+            // Update last update time
+            if (data && data.historical && data.historical.last_updated) {
+                const updateTime = new Date(data.historical.last_updated);
+                lastUpdate.textContent = `Última actualización: ${formatTime(updateTime)}`;
+            }
+        }
+
+        function updateStatistics(data) {
+            if (!data || !data.historical || !data.historical.data) return;
+            
+            const historicalData = data.historical.data;
+            
+            if (historicalData.length > 0) {
+                // Current CMG
+                const current = historicalData[historicalData.length - 1];
+                document.getElementById('current-cmg').textContent = 
+                    `$${current.cmg_actual ? current.cmg_actual.toFixed(2) : '--'} USD/MWh`;
+                
+                // Calculate trend
+                if (historicalData.length > 1) {
+                    const previous = historicalData[historicalData.length - 2];
+                    const diff = current.cmg_actual - previous.cmg_actual;
+                    const trendText = diff > 0 ? `↑ ${diff.toFixed(2)}` : `↓ ${Math.abs(diff).toFixed(2)}`;
+                    const trendColor = diff > 0 ? 'text-red-600' : 'text-green-600';
+                    document.getElementById('current-trend').innerHTML = 
+                        `<span class="${trendColor}">${trendText}</span>`;
+                }
+                
+                // Average
+                const avg = historicalData.reduce((sum, d) => sum + (d.cmg_actual || 0), 0) / historicalData.length;
+                document.getElementById('avg-cmg').textContent = `$${avg.toFixed(2)} USD/MWh`;
+                
+                // Maximum
+                const max = Math.max(...historicalData.map(d => d.cmg_actual || 0));
+                const maxRecord = historicalData.find(d => d.cmg_actual === max);
+                document.getElementById('max-cmg').textContent = `$${max.toFixed(2)} USD/MWh`;
+                if (maxRecord) {
+                    const maxTime = new Date(maxRecord.datetime);
+                    document.getElementById('max-time').textContent = `${maxTime.getHours()}:00 hrs`;
+                }
+            }
+            
+            // Coverage
+            const coverage = data.historical.coverage || 0;
+            document.getElementById('coverage').textContent = `${coverage.toFixed(0)}%`;
+        }
+
+        function updateChart(data) {
+            if (!data) return;
+            
+            const plotDiv = document.getElementById('main-chart');
+            
+            // Prepare historical data
+            const historicalTrace = {
+                x: [],
+                y: [],
+                name: 'CMG Histórico (24h)',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#3b82f6', width: 2 },
+                marker: { size: 6 }
+            };
+            
+            if (data.historical && data.historical.data) {
+                const filteredHistorical = selectedNode === 'all' 
+                    ? data.historical.data 
+                    : data.historical.data.filter(d => d.node === selectedNode);
+                    
+                historicalTrace.x = filteredHistorical.map(d => d.datetime);
+                historicalTrace.y = filteredHistorical.map(d => d.cmg_actual);
+            }
+            
+            // Prepare programmed data
+            const programmedTrace = {
+                x: [],
+                y: [],
+                name: 'CMG Programado',
+                type: 'scatter',
+                mode: 'lines+markers',
+                line: { color: '#10b981', width: 2, dash: 'dot' },
+                marker: { size: 6 }
+            };
+            
+            if (data.programmed && data.programmed.data) {
+                const filteredProgrammed = selectedNode === 'all'
+                    ? data.programmed.data
+                    : data.programmed.data.filter(d => d.node === selectedNode);
+                    
+                programmedTrace.x = filteredProgrammed.map(d => d.datetime);
+                programmedTrace.y = filteredProgrammed.map(d => d.cmg_programmed);
+            }
+            
+            const layout = {
+                title: selectedNode === 'all' ? 'Todos los Nodos' : selectedNode,
+                xaxis: {
+                    title: 'Fecha y Hora',
+                    type: 'date',
+                    tickformat: '%H:%M\n%d %b'
+                },
+                yaxis: {
+                    title: 'CMG (USD/MWh)',
+                    rangemode: 'tozero'
+                },
+                showlegend: true,
+                legend: {
+                    x: 0,
+                    y: 1,
+                    bgcolor: 'rgba(255,255,255,0.8)'
+                },
+                hovermode: 'x unified',
+                margin: { t: 40, r: 20, b: 60, l: 60 }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+            
+            Plotly.newPlot(plotDiv, [historicalTrace, programmedTrace], layout, config);
+        }
+
+        function updateQualityIndicators(data) {
+            // Historical data quality
+            if (data.historical) {
+                const coverage = data.historical.coverage || 0;
+                document.getElementById('hist-coverage-text').textContent = `${coverage.toFixed(0)}%`;
+                document.getElementById('hist-coverage-bar').style.width = `${coverage}%`;
+                
+                const nodes = data.historical.data ? 
+                    new Set(data.historical.data.map(d => d.node)).size : 0;
+                document.getElementById('hist-nodes-text').textContent = `${nodes}/6`;
+                document.getElementById('hist-nodes-bar').style.width = `${(nodes/6)*100}%`;
+            }
+            
+            // Programmed data quality
+            if (data.programmed) {
+                const hours = data.programmed.hours_ahead || 0;
+                document.getElementById('prog-hours-text').textContent = `${hours}h`;
+                document.getElementById('prog-hours-bar').style.width = `${Math.min((hours/48)*100, 100)}%`;
+                
+                const confidence = data.programmed.data && data.programmed.data.length > 0 ? 95 : 0;
+                document.getElementById('prog-confidence-text').textContent = `${confidence}%`;
+                document.getElementById('prog-confidence-bar').style.width = `${confidence}%`;
+            }
+        }
+
+        async function manualRefresh() {
+            if (isRefreshing) return;
+            
+            isRefreshing = true;
+            const btn = document.getElementById('refresh-btn');
+            const btnText = document.getElementById('refresh-text');
+            
+            btn.disabled = true;
+            btnText.textContent = 'Actualizando...';
+            
+            try {
+                await triggerRefresh();
+                
+                // Reload current data
+                const dataResponse = await fetchWithTimeout(ENDPOINTS.current);
+                if (dataResponse.success) {
+                    currentData = dataResponse.data;
+                    updateUI(currentData);
+                }
+                
+                btnText.textContent = 'Actualizado ✓';
+                setTimeout(() => {
+                    btnText.textContent = 'Actualizar';
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Refresh error:', error);
+                btnText.textContent = 'Error';
+                setTimeout(() => {
+                    btnText.textContent = 'Actualizar';
+                }, 2000);
+            } finally {
+                btn.disabled = false;
+                isRefreshing = false;
+            }
+        }
+
+        async function triggerRefresh() {
+            try {
+                const response = await fetchWithTimeout(ENDPOINTS.refresh, 30000);
+                console.log('Refresh response:', response);
+                return response;
+            } catch (error) {
+                console.error('Failed to trigger refresh:', error);
+                throw error;
+            }
+        }
+
+        function updateNodeFilter() {
+            selectedNode = document.getElementById('node-selector').value;
+            updateChart(currentData);
+        }
+
+        function startAutoUpdate() {
+            // Check for updates every 5 minutes
+            statusCheckInterval = setInterval(async () => {
+                try {
+                    const statusResponse = await fetchWithTimeout(ENDPOINTS.status);
+                    if (statusResponse.success) {
+                        updateStatusIndicator(statusResponse);
+                        
+                        // If data is stale, trigger refresh
+                        if (statusResponse.system && statusResponse.system.needs_update) {
+                            await manualRefresh();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Status check error:', error);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // Reload data every 10 minutes
+            updateInterval = setInterval(async () => {
+                try {
+                    const dataResponse = await fetchWithTimeout(ENDPOINTS.current);
+                    if (dataResponse.success) {
+                        currentData = dataResponse.data;
+                        updateUI(currentData);
+                    }
+                } catch (error) {
+                    console.error('Auto-update error:', error);
+                }
+            }, 10 * 60 * 1000); // 10 minutes
+        }
+
+        function formatTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            
+            if (minutes < 1) return 'Hace menos de 1 minuto';
+            if (minutes < 60) return `Hace ${minutes} minuto${minutes !== 1 ? 's' : ''}`;
+            
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `Hace ${hours} hora${hours !== 1 ? 's' : ''}`;
+            
+            const days = Math.floor(hours / 24);
+            return `Hace ${days} día${days !== 1 ? 's' : ''}`;
+        }
+
+        function showError(message) {
+            // You can implement a toast notification here
+            console.error(message);
+        }
+    </script>
+</body>
+</html>
