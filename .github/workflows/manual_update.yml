@@ -35,10 +35,10 @@ jobs:
           echo "Current time (Santiago): $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M:%S')"
       
       - name: Run cache update
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           cd ${{ github.workspace }}
-          python scripts/update_cache.py
+          python robust_update.py
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
