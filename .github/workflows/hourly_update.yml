@@ -40,14 +40,15 @@ jobs:
       
       - name: Run cache update
         run: |
-          python scripts/update_cache.py
+          cd ${{ github.workspace }}
+          python scripts/update_cache_continuous.py
         env:
-          PYTHONPATH: ${{ github.workspace }}
+          PYTHONPATH: ${{ github.workspace }}/api
       
       - name: Check for changes
         id: check_changes
         run: |
-          git diff --quiet data/cache/ || echo "::set-output name=changed::true"
+          git diff --quiet data/cache/ || echo "changed=true" >> $GITHUB_OUTPUT
       
       - name: Commit and push cache updates
         if: steps.check_changes.outputs.changed == 'true'

@@ -1,0 +1,93 @@
+name: Manual CMG Data Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug logging'
+        required: false
+        default: 'false'
+
+jobs:
+  update-cache:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests pytz numpy
+      
+      - name: Show current time
+        run: |
+          echo "Current time (UTC): $(date -u +'%Y-%m-%d %H:%M:%S')"
+          echo "Current time (Santiago): $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M:%S')"
+      
+      - name: Run continuous cache update
+        run: |
+          cd ${{ github.workspace }}
+          python scripts/update_cache_continuous.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}/api
+      
+      - name: Check cache files
+        run: |
+          echo "Cache files after update:"
+          ls -la data/cache/
+          echo ""
+          echo "Historical cache info:"
+          head -5 data/cache/cmg_historical_latest.json
+          echo ""
+          echo "Programmed cache info:"
+          head -5 data/cache/cmg_programmed_latest.json
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet data/cache/; then
+            echo "No changes detected"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            git diff --stat data/cache/
+          fi
+      
+      - name: Commit and push cache updates
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/cache/
+          git commit -m "🔄 Manual cache update - $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M') Santiago"
+          git push
+          echo "✅ Cache updated and pushed"
+      
+      - name: No updates needed
+        if: steps.check_changes.outputs.changed != 'true'
+        run: |
+          echo "ℹ️ No cache updates were needed"
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time (Santiago):** $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes detected:** ${{ steps.check_changes.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f data/cache/cmg_historical_latest.json ]; then
+            echo "### Historical Cache" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            head -3 data/cache/cmg_historical_latest.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
