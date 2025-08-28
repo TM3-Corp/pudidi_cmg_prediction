@@ -27,10 +27,9 @@ class ContinuousCacheUpdater:
         self.santiago_tz = pytz.timezone('America/Santiago')
         self.now = datetime.now(self.santiago_tz)
         
-        # Extend priority pages to ensure we get hours 15-16
-        # Based on analysis: hour 15 at pages 138-139, hour 21 at pages 110-111
-        additional_pages = list(range(100, 150))  # Add pages 100-150
-        self.fetcher.PRIORITY_PAGES = self.fetcher.PRIORITY_PAGES + additional_pages
+        # DO NOT extend pages beyond what we know works!
+        # The optimized approach only needs 37-40 pages max with 4000 records/page
+        # Adding pages 100-150 causes infinite hanging
     
     def get_current_cache_status(self):
         """Get current cache status and last data points"""
@@ -101,25 +100,8 @@ class ContinuousCacheUpdater:
             
             if missing_hours:
                 print(f"⚠️ Missing hours: {sorted(missing_hours)}")
-                print("Attempting to fetch with extended page range...")
-                
-                # Try fetching with extended range
-                original_pages = self.fetcher.PRIORITY_PAGES.copy()
-                self.fetcher.PRIORITY_PAGES = list(range(1, 150))
-                
-                extended_data = self.fetcher.fetch_historical_cmg(
-                    date=today,
-                    target_coverage=1.0,
-                    incremental=False
-                )
-                
-                self.fetcher.PRIORITY_PAGES = original_pages
-                
-                if extended_data and extended_data.get('data'):
-                    for record in extended_data['data']:
-                        if record.get('hour', -1) in missing_hours:
-                            all_historical.append(record)
-                            hours_found.add(record['hour'])
+                # Don't try to fetch beyond page 40 - it causes hanging!
+                # The optimized approach proves 37-40 pages is maximum needed
             
             print(f"📈 Hours covered: {sorted(hours_found)}")
         

@@ -34,10 +34,11 @@ jobs:
           echo "Current time (UTC): $(date -u +'%Y-%m-%d %H:%M:%S')"
           echo "Current time (Santiago): $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M:%S')"
       
-      - name: Run continuous cache update
+      - name: Run cache update
+        timeout-minutes: 5
         run: |
           cd ${{ github.workspace }}
-          python scripts/update_cache_continuous.py
+          python scripts/update_cache.py
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       

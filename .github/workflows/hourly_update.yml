@@ -41,9 +41,10 @@ jobs:
           pip install requests pytz numpy
       
       - name: Run cache update
+        timeout-minutes: 5
         run: |
           cd ${{ github.workspace }}
-          python scripts/update_cache_continuous.py
+          python scripts/update_cache.py
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
