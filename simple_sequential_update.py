@@ -503,10 +503,11 @@ def main():
     # ========== FINAL SUMMARY ==========
     elapsed = time.time() - start_time
     print(f"\n{'='*80}")
-    print(f"✅ UPDATE COMPLETE")
+    print(f"✅ UPDATE COMPLETE at {time.strftime('%H:%M:%S')}")
     print(f"⏱️ Total time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
     print(f"📊 Historical coverage: {coverage_pct:.1f}%")
     print(f"📈 Programmed records: {len(all_programmed)}")
+    print(f"📾 Cache files saved to: data/cache/")
     print(f"{'='*80}")
     
     if coverage_pct < 100:

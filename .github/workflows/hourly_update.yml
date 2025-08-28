@@ -41,10 +41,14 @@ jobs:
           pip install requests pytz numpy
       
       - name: Run cache update
-        timeout-minutes: 45
+        timeout-minutes: 50
         run: |
           cd ${{ github.workspace }}
+          echo "Starting cache update at $(date)"
+          echo "Python version: $(python --version)"
+          echo "Working directory: $(pwd)"
           python simple_sequential_update.py
+          echo "Cache update completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
