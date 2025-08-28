@@ -79,9 +79,9 @@ def fetch_page_with_retry(url, params, page_num, max_retries=10, max_wait=60):
     print(f"      Failed after {max_retries} attempts")
     return [], 0
 
-def fetch_all_pages_sequential(url, date_str, node_field='barra_transf', 
-                              target_nodes=None, records_per_page=4000,
-                              api_name="CMG Online"):
+def fetch_all_pages_parallel(url, date_str, node_field='barra_transf', 
+                            target_nodes=None, records_per_page=4000,
+                            api_name="CMG Online", use_parallel=True, max_workers=5):
     """
     Fetch ALL pages sequentially until we find the last page.
     Returns all records for our target nodes.
@@ -215,6 +215,7 @@ def parse_historical_record(record):
         
         return {
             'datetime': dt.strftime('%Y-%m-%d %H:%M'),
+            'date': dt.strftime('%Y-%m-%d'),  # Add date for filtering
             'hour': record.get('hra', dt.hour),
             'cmg_actual': float(record.get('cmg_usd_mwh_', 0)),
             'node': record.get('barra_transf', 'unknown')
@@ -236,6 +237,7 @@ def parse_programmed_record(record, date_str):
         
         return {
             'datetime': f"{date_str} {hour:02d}:00",
+            'date': date_str,  # Add date for consistency
             'hour': hour,
             'cmg_programmed': float(record.get('cmg_usd_mwh_', 0)),
             'node': node,
@@ -278,20 +280,25 @@ def main():
     
     # We want exactly 24 hours of data:
     # From yesterday at (current_hour + 1) to today at current_hour
-    # Example: if now is 15:00, we want yesterday 16:00 to today 15:00
-    print(f"\n📅 Target window: {yesterday} {(now.hour+1)%24:02d}:00 to {today} {now.hour:02d}:00")
+    # Example: if now is 17:00, we want yesterday 18:00 to today 17:00
+    print(f"\n📅 Target window: {yesterday} {(now.hour+1):02d}:00 to {today} {now.hour:02d}:00")
     print(f"   This gives us exactly the last 24 hours of data")
+    print(f"   Yesterday hours needed: {now.hour+1}-23 ({23-now.hour} hours)")
+    print(f"   Today hours needed: 0-{now.hour} ({now.hour+1} hours)")
+    print(f"   Total: {23-now.hour + now.hour+1} = 24 hours")
     
     all_historical = []
     
     # Fetch yesterday's data
     print(f"\n📦 Fetching yesterday: {yesterday}")
-    yesterday_records, yesterday_coverage = fetch_all_pages_sequential(
+    yesterday_records, yesterday_coverage = fetch_all_pages_parallel(
         url_online, yesterday, 
         node_field='barra_transf',
         target_nodes=CMG_NODES,
         records_per_page=4000,
-        api_name="CMG Online (Yesterday)"
+        api_name="CMG Online (Yesterday)",
+        use_parallel=True,
+        max_workers=5
     )
     
     # Parse yesterday's records
@@ -299,22 +306,30 @@ def main():
     for record in yesterday_records:
         parsed = parse_historical_record(record)
         if parsed:
-            # For yesterday: keep hours from current hour onwards (but NOT current hour)
-            # We want hours 16-23 if current is 15
-            if parsed['hour'] > now.hour:
+            # For yesterday: keep records from yesterday with hours > current hour
+            # Example: if now is 2025-08-28 17:00, keep yesterday's hours 18-23
+            if parsed['date'] == yesterday and parsed['hour'] > now.hour:
                 all_historical.append(parsed)
                 yesterday_count += 1
+    
+    if yesterday_count == 0 and len(yesterday_records) > 0:
+        # Debug: Check why no records were kept
+        sample = yesterday_records[0] if yesterday_records else None
+        if sample:
+            print(f"   ⚠️ Debug: Sample record fecha_hora: {sample.get('fecha_hora', 'N/A')}")
     
     print(f"   ✅ Kept {yesterday_count} records from yesterday (hours {now.hour+1}-23)")
     
     # Fetch today's data
     print(f"\n📦 Fetching today: {today}")
-    today_records, today_coverage = fetch_all_pages_sequential(
+    today_records, today_coverage = fetch_all_pages_parallel(
         url_online, today,
         node_field='barra_transf',
         target_nodes=CMG_NODES,
         records_per_page=4000,
-        api_name="CMG Online (Today)"
+        api_name="CMG Online (Today)",
+        use_parallel=True,
+        max_workers=5
     )
     
     # Parse today's records
@@ -322,11 +337,17 @@ def main():
     for record in today_records:
         parsed = parse_historical_record(record)
         if parsed:
-            # For today: keep hours up to AND including current hour
-            # We want hours 0-15 if current is 15
-            if parsed['hour'] <= now.hour:
+            # For today: keep records from today with hours <= current hour
+            # Example: if now is 2025-08-28 17:00, keep today's hours 0-17
+            if parsed['date'] == today and parsed['hour'] <= now.hour:
                 all_historical.append(parsed)
                 today_count += 1
+    
+    if today_count == 0 and len(today_records) > 0:
+        # Debug: Check why no records were kept
+        sample = today_records[0] if today_records else None
+        if sample:
+            print(f"   ⚠️ Debug: Sample record fecha_hora: {sample.get('fecha_hora', 'N/A')}")
     
     print(f"   ✅ Kept {today_count} records from today (hours 0-{now.hour})")
     
@@ -385,12 +406,13 @@ def main():
     if next_hour < 24:
         print(f"\n📦 Fetching today's future hours (from {next_hour:02d}:00 onwards)")
         
-        today_prog_records, _ = fetch_all_pages_sequential(
+        today_prog_records, _ = fetch_all_pages_parallel(
             url_pid, today,
             node_field='nmb_barra_info',
             target_nodes=list(PID_NODE_MAP.keys()),
             records_per_page=1000,  # PID uses 1000
-            api_name="CMG Programado (Today Future)"
+            api_name="CMG Programado (Today Future)",
+            use_parallel=False  # Programmed data is smaller, sequential is fine
         )
         
         # Parse and filter for future hours only
@@ -407,12 +429,13 @@ def main():
     tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
     print(f"\n📦 Fetching tomorrow's programmed: {tomorrow}")
     
-    tomorrow_records, _ = fetch_all_pages_sequential(
+    tomorrow_records, _ = fetch_all_pages_parallel(
         url_pid, tomorrow,
         node_field='nmb_barra_info',
         target_nodes=list(PID_NODE_MAP.keys()),
         records_per_page=1000,
-        api_name="CMG Programado (Tomorrow)"
+        api_name="CMG Programado (Tomorrow)",
+        use_parallel=False  # Programmed data is smaller, sequential is fine
     )
     
     # Parse tomorrow's records
@@ -430,12 +453,13 @@ def main():
         day_after = (now + timedelta(days=2)).strftime('%Y-%m-%d')
         print(f"\n📦 Fetching day after tomorrow: {day_after}")
         
-        day_after_records, _ = fetch_all_pages_sequential(
+        day_after_records, _ = fetch_all_pages_parallel(
             url_pid, day_after,
             node_field='nmb_barra_info',
             target_nodes=list(PID_NODE_MAP.keys()),
             records_per_page=1000,
-            api_name="CMG Programado (Day After)"
+            api_name="CMG Programado (Day After)",
+            use_parallel=False  # Programmed data is smaller, sequential is fine
         )
         
         for record in day_after_records:
