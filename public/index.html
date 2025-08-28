@@ -254,6 +254,14 @@
             console.log('Initializing CMG Monitor...');
             initializeApp();
         });
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            const plotDiv = document.getElementById('main-chart');
+            if (plotDiv && plotDiv.data) {
+                Plotly.Plots.resize(plotDiv);
+            }
+        });
 
         async function initializeApp() {
             try {
@@ -272,6 +280,11 @@
                 // Hide loading, show content
                 document.getElementById('loading-container').classList.add('hidden');
                 document.getElementById('main-content').classList.remove('hidden');
+                
+                // Force chart resize after content is visible
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 100);
                 
                 // Start auto-refresh
                 startAutoRefresh();
@@ -550,7 +563,13 @@
                 modeBarButtonsToRemove: ['lasso2d', 'select2d']
             };
             
-            Plotly.newPlot(plotDiv, traces, layout, config);
+            // Force proper width on initial render
+            plotDiv.style.width = '100%';
+            
+            Plotly.newPlot(plotDiv, traces, layout, config).then(() => {
+                // Force resize after initial render to ensure proper width
+                window.dispatchEvent(new Event('resize'));
+            });
         }
 
         function updateQualityIndicators(data) {
