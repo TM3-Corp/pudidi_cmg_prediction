@@ -41,10 +41,10 @@ jobs:
           pip install requests pytz numpy
       
       - name: Run cache update
-        timeout-minutes: 10
+        timeout-minutes: 45
         run: |
           cd ${{ github.workspace }}
-          python robust_update.py
+          python simple_sequential_update.py
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
