@@ -207,24 +207,38 @@ def parse_historical_record(record):
         elif '-' in dt_str[-6:] and 'T' in dt_str:
             dt_str = dt_str[:-6]
         
-        # Parse datetime - the API provides full datetime with hour
+        # Parse datetime - handle multiple formats
+        dt = None
         if 'T' in dt_str:
-            dt = datetime.strptime(dt_str[:19], '%Y-%m-%dT%H:%M:%S')
+            # Format: 2025-08-28T15:00:00
+            try:
+                dt = datetime.strptime(dt_str[:19], '%Y-%m-%dT%H:%M:%S')
+            except:
+                dt = datetime.strptime(dt_str[:16], '%Y-%m-%dT%H:%M')
         else:
-            dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
+            # Format: 2025-08-28 15:00 or 2025-08-28 15:00:00
+            try:
+                dt = datetime.strptime(dt_str[:19], '%Y-%m-%d %H:%M:%S')
+            except:
+                dt = datetime.strptime(dt_str[:16], '%Y-%m-%d %H:%M')
         
-        # Extract hour from the datetime, NOT from 'hra' field
-        # The 'hra' field seems to be always 0 or missing
-        hour = dt.hour
+        # CRITICAL: Use 'hra' field for the actual hour!
+        # The fecha_hora often just contains the date, with hour in separate 'hra' field
+        hour = record.get('hra')
+        if hour is None:
+            # Fallback to extracting from datetime if hra not present
+            hour = dt.hour
         
         return {
-            'datetime': dt.strftime('%Y-%m-%d %H:%M'),
+            'datetime': f"{dt.strftime('%Y-%m-%d')} {hour:02d}:00",
             'date': dt.strftime('%Y-%m-%d'),
             'hour': hour,
             'cmg_actual': float(record.get('cmg_usd_mwh_', 0)),
             'node': record.get('barra_transf', 'unknown')
         }
-    except:
+    except Exception as e:
+        # Debug: show what failed
+        print(f"   ⚠️ Failed to parse: {record.get('fecha_hora', 'N/A')} - {str(e)}")
         return None
 
 def parse_programmed_record(record, date_str):
@@ -320,10 +334,10 @@ def main():
             # Debug: Check why no records were kept
             # Show first 3 samples to understand the data format
             for i, sample in enumerate(yesterday_records[:3]):
-                print(f"   ⚠️ Debug sample {i+1}: fecha_hora='{sample.get('fecha_hora', 'N/A')}'")
+                print(f"   ⚠️ Debug sample {i+1}: fecha_hora='{sample.get('fecha_hora', 'N/A')}', hra={sample.get('hra', 'N/A')}")
                 parsed = parse_historical_record(sample)
                 if parsed:
-                    print(f"      Parsed: date={parsed['date']}, hour={parsed['hour']}, expected={yesterday}")
+                    print(f"      Parsed: date={parsed['date']}, hour={parsed['hour']}, expected_date={yesterday}")
     else:
         print(f"   ⚠️ No records from yesterday (API might be lagging)")
     
@@ -355,10 +369,10 @@ def main():
             # Debug: Check why no records were kept
             # Show first 3 samples to understand the data format
             for i, sample in enumerate(today_records[:3]):
-                print(f"   ⚠️ Debug sample {i+1}: fecha_hora='{sample.get('fecha_hora', 'N/A')}'")
+                print(f"   ⚠️ Debug sample {i+1}: fecha_hora='{sample.get('fecha_hora', 'N/A')}', hra={sample.get('hra', 'N/A')}")
                 parsed = parse_historical_record(sample)
                 if parsed:
-                    print(f"      Parsed: date={parsed['date']}, hour={parsed['hour']}, expected={today}")
+                    print(f"      Parsed: date={parsed['date']}, hour={parsed['hour']}, expected_date={today}")
     else:
         print(f"   ⚠️ No records from today (API might be lagging)")
     
