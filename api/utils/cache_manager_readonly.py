@@ -143,25 +143,70 @@ class CacheManagerReadOnly:
         return status
     
     def get_combined_display_data(self) -> Dict:
-        """Get combined data for frontend display"""
+        """Get combined data for frontend display with proper time filtering"""
         historical = self.read_cache('historical')
         programmed = self.read_cache('programmed')
         
+        # Get current time in Santiago
+        now = datetime.now(self.santiago_tz)
+        current_hour = now.hour
+        current_date = now.strftime('%Y-%m-%d')
+        yesterday = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Filter historical data for last 24 hours
+        filtered_historical = []
+        if historical and historical.get('data'):
+            for record in historical.get('data', []):
+                record_date = record.get('date', '')
+                record_hour = record.get('hour', 0)
+                
+                # Include records from last 24 hours:
+                # - Yesterday: hours > current_hour (e.g., if now is 12:00, include 13:00-23:00)
+                # - Today: hours <= current_hour (e.g., if now is 12:00, include 00:00-12:00)
+                if (record_date == yesterday and record_hour > current_hour) or \
+                   (record_date == current_date and record_hour <= current_hour):
+                    filtered_historical.append(record)
+        
+        # Filter programmed data for future hours only (next hour onwards)
+        filtered_programmed = []
+        next_hour = current_hour + 1
+        if programmed and programmed.get('data'):
+            for record in programmed.get('data', []):
+                record_date = record.get('date', '')
+                record_hour = record.get('hour', 0)
+                
+                # Include only future records:
+                # - Today: hours > current_hour (from 13:00 onwards if now is 12:03)
+                # - Future dates: all hours
+                if (record_date == current_date and record_hour >= next_hour) or \
+                   (record_date > current_date):
+                    filtered_programmed.append(record)
+        
+        # Calculate coverage for filtered historical data
+        hist_coverage = 0
+        if filtered_historical:
+            unique_hours = len(set((r['date'], r['hour']) for r in filtered_historical))
+            # Coverage is based on expected 24 hours
+            hist_coverage = min((unique_hours / 24) * 100, 100)
+        
         display_data = {
-            'timestamp': datetime.now(self.santiago_tz).isoformat(),
+            'timestamp': now.isoformat(),
+            'current_hour': current_hour,
             'historical': {
-                'available': historical is not None,
-                'data': historical.get('data', []) if historical else [],
-                'coverage': historical.get('statistics', {}).get('coverage_percentage', 0) if historical else 0,
+                'available': len(filtered_historical) > 0,
+                'data': filtered_historical,
+                'coverage': hist_coverage,
                 'last_updated': historical.get('timestamp') if historical else None,
-                'is_stale': historical.get('is_stale', True) if historical else True
+                'is_stale': historical.get('is_stale', True) if historical else True,
+                'window': f"{yesterday} {current_hour+1:02d}:00 to {current_date} {current_hour:02d}:00"
             },
             'programmed': {
-                'available': programmed is not None,
-                'data': programmed.get('data', []) if programmed else [],
-                'hours_ahead': len(programmed.get('data', [])) if programmed else 0,
+                'available': len(filtered_programmed) > 0,
+                'data': filtered_programmed,
+                'hours_ahead': len(filtered_programmed),
                 'last_updated': programmed.get('timestamp') if programmed else None,
-                'is_stale': programmed.get('is_stale', True) if programmed else True
+                'is_stale': programmed.get('is_stale', True) if programmed else True,
+                'window': f"From {current_date} {next_hour:02d}:00 onwards" if next_hour < 24 else "From tomorrow onwards"
             },
             'status': self.get_cache_status()
         }
