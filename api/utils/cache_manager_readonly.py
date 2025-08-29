@@ -170,16 +170,20 @@ class CacheManagerReadOnly:
         # Filter programmed data for future hours only (next hour onwards)
         filtered_programmed = []
         next_hour = current_hour + 1
+        tomorrow = (now + timedelta(days=1)).strftime('%Y-%m-%d')
+        
         if programmed and programmed.get('data'):
             for record in programmed.get('data', []):
                 record_date = record.get('date', '')
                 record_hour = record.get('hour', 0)
                 
                 # Include only future records:
-                # - Today: hours > current_hour (from 13:00 onwards if now is 12:03)
-                # - Future dates: all hours
-                if (record_date == current_date and record_hour >= next_hour) or \
-                   (record_date > current_date):
+                # - Today: hours >= next_hour (from next hour onwards)
+                # - Tomorrow and beyond: ALL hours
+                if record_date == current_date and record_hour >= next_hour:
+                    filtered_programmed.append(record)
+                elif record_date >= tomorrow:
+                    # Include ALL hours from tomorrow onwards
                     filtered_programmed.append(record)
         
         # Calculate coverage for filtered historical data
