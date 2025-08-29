@@ -35,10 +35,15 @@ jobs:
           echo "Current time (Santiago): $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M:%S')"
       
       - name: Run cache update
-        timeout-minutes: 10
+        timeout-minutes: 50
         run: |
           cd ${{ github.workspace }}
-          python robust_update.py
+          echo "Starting manual cache update at $(date)"
+          echo "Python version: $(python --version)"
+          echo "Working directory: $(pwd)"
+          echo "Using simple_sequential_update.py with 50-minute timeout"
+          python simple_sequential_update.py
+          echo "Cache update completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
