@@ -135,12 +135,22 @@
             border-radius: 20px;
             padding: 30px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            height: 400px;
+            display: flex;
+            flex-direction: column;
         }
 
         .chart-card h3 {
             color: #334155;
             margin-bottom: 20px;
             font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        
+        .chart-container {
+            position: relative;
+            flex-grow: 1;
+            min-height: 0;
         }
 
         .metrics-grid {
@@ -324,11 +334,15 @@
         <div class="results-section" id="resultsSection" style="display: none;">
             <div class="chart-card">
                 <h3>Generation & Prices</h3>
-                <canvas id="generationChart"></canvas>
+                <div class="chart-container">
+                    <canvas id="generationChart"></canvas>
+                </div>
             </div>
             <div class="chart-card">
                 <h3>Reservoir Storage</h3>
-                <canvas id="storageChart"></canvas>
+                <div class="chart-container">
+                    <canvas id="storageChart"></canvas>
+                </div>
             </div>
         </div>
 

@@ -56,21 +56,44 @@ class handler(BaseHTTPRequestHandler):
             
             # Get CMG prices from cache
             print(f"[OPTIMIZER] Fetching CMG data from cache...")
-            cmg_data = get_cached_data()
+            
+            # First try to get programmed data directly
+            from api.utils.cache_manager_readonly import CacheManagerReadOnly
+            cache_mgr = CacheManagerReadOnly()
+            programmed_data = cache_mgr.read_cache('programmed')
+            
             prices = []
             
-            # Extract programmed prices
-            if cmg_data and 'cmg_programmed' in cmg_data:
-                print(f"[OPTIMIZER] Found {len(cmg_data['cmg_programmed'])} programmed prices in cache")
-                for i, entry in enumerate(cmg_data['cmg_programmed'][:horizon]):
-                    price = entry.get('cmg_programmed', 70)
+            # Extract programmed prices from cache
+            if programmed_data and 'data' in programmed_data:
+                price_records = programmed_data['data']
+                print(f"[OPTIMIZER] Found {len(price_records)} programmed prices in cache")
+                
+                # Sort by datetime to ensure correct order
+                sorted_records = sorted(price_records, key=lambda x: x.get('datetime', ''))
+                
+                for i, record in enumerate(sorted_records[:horizon]):
+                    price = record.get('cmg_programmed', 70)
                     prices.append(price)
                     if i < 5:  # Log first 5 prices
-                        print(f"  Hour {i}: ${price:.2f}/MWh")
-                if len(cmg_data['cmg_programmed']) > 5:
-                    print(f"  ... and {len(cmg_data['cmg_programmed']) - 5} more")
+                        dt = record.get('datetime', 'unknown')
+                        print(f"  Hour {i} ({dt}): ${price:.2f}/MWh")
+                if len(sorted_records) > 5:
+                    print(f"  ... and {min(len(sorted_records), horizon) - 5} more available")
             else:
-                print(f"[OPTIMIZER] WARNING: No CMG data in cache, using synthetic prices")
+                print(f"[OPTIMIZER] WARNING: No programmed data in cache, checking fallback...")
+                
+                # Try the old method as fallback
+                cmg_data = get_cached_data()
+                if cmg_data and 'cmg_programmed' in cmg_data:
+                    print(f"[OPTIMIZER] Found {len(cmg_data['cmg_programmed'])} prices in fallback")
+                    for i, entry in enumerate(cmg_data['cmg_programmed'][:horizon]):
+                        price = entry.get('cmg_programmed', 70)
+                        prices.append(price)
+                        if i < 5:
+                            print(f"  Hour {i}: ${price:.2f}/MWh")
+                else:
+                    print(f"[OPTIMIZER] No CMG data available, will use synthetic prices")
             
             # Fill with synthetic if needed
             original_price_count = len(prices)
@@ -248,13 +271,23 @@ class handler(BaseHTTPRequestHandler):
                 'inflow': float(query_params.get('inflow', [1.1])[0])
             }
             
-            # Get CMG prices
-            cmg_data = get_cached_data()
+            # Get CMG prices from cache
+            from api.utils.cache_manager_readonly import CacheManagerReadOnly
+            cache_mgr = CacheManagerReadOnly()
+            programmed_data = cache_mgr.read_cache('programmed')
+            
             prices = []
             
-            if cmg_data and 'cmg_programmed' in cmg_data:
-                for entry in cmg_data['cmg_programmed'][:params['horizon']]:
-                    prices.append(entry.get('cmg_programmed', 70))
+            if programmed_data and 'data' in programmed_data:
+                sorted_records = sorted(programmed_data['data'], key=lambda x: x.get('datetime', ''))
+                for record in sorted_records[:params['horizon']]:
+                    prices.append(record.get('cmg_programmed', 70))
+            else:
+                # Fallback
+                cmg_data = get_cached_data()
+                if cmg_data and 'cmg_programmed' in cmg_data:
+                    for entry in cmg_data['cmg_programmed'][:params['horizon']]:
+                        prices.append(entry.get('cmg_programmed', 70))
             
             # Fill with synthetic if needed
             while len(prices) < params['horizon']:

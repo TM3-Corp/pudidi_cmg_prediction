@@ -203,36 +203,67 @@ async function fetchCMGPrices(node, horizon) {
     console.log(`[FETCH] Fetching CMG prices for node: ${node}, horizon: ${horizon} hours`);
     
     try {
-        // Fetch from our API
-        console.log('[FETCH] Calling /api/predictions_live...');
-        const response = await fetch('/api/predictions_live');
+        // First, try to fetch programmed data directly from cache
+        console.log('[FETCH] Attempting to fetch programmed CMG data from cache...');
+        const cacheResponse = await fetch('/data/cache/cmg_programmed_latest.json');
         
-        if (!response.ok) {
-            console.error(`[FETCH] API returned status ${response.status}`);
-            throw new Error(`API returned status ${response.status}`);
-        }
+        let prices = [];
+        let realPriceCount = 0;
         
-        const data = await response.json();
-        console.log('[FETCH] Response received:', data);
-        
-        // Extract prices for the selected node
-        const prices = [];
-        const programmedData = data.cmg_programmed || [];
-        
-        console.log(`[FETCH] Found ${programmedData.length} programmed prices in response`);
-        
-        for (let i = 0; i < Math.min(horizon, programmedData.length); i++) {
-            const price = programmedData[i].cmg_programmed || 70;
-            prices.push(price);
-            if (i < 5) {
-                console.log(`[FETCH] Hour ${i}: $${price.toFixed(2)}/MWh`);
+        if (cacheResponse.ok) {
+            const cacheData = await cacheResponse.json();
+            console.log('[FETCH] Cache data retrieved:', cacheData);
+            
+            // Extract prices from programmed data (PMontt220)
+            if (cacheData.data && Array.isArray(cacheData.data)) {
+                console.log(`[FETCH] Found ${cacheData.data.length} programmed prices in cache`);
+                
+                // Sort by datetime to ensure correct order
+                const sortedData = cacheData.data.sort((a, b) => {
+                    return new Date(a.datetime) - new Date(b.datetime);
+                });
+                
+                for (let i = 0; i < Math.min(horizon, sortedData.length); i++) {
+                    const record = sortedData[i];
+                    const price = record.cmg_programmed || 70;
+                    prices.push(price);
+                    if (i < 5) {
+                        console.log(`[FETCH] Hour ${i} (${record.datetime}): $${price.toFixed(2)}/MWh`);
+                    }
+                }
+                
+                realPriceCount = prices.length;
+                console.log(`[FETCH] Using ${realPriceCount} real PMontt220 prices from cache`);
+            }
+        } else {
+            console.log('[FETCH] Cache not accessible, trying API fallback...');
+            
+            // Fallback to API endpoint
+            const apiResponse = await fetch('/api/cmg/current');
+            if (apiResponse.ok) {
+                const apiData = await apiResponse.json();
+                console.log('[FETCH] API response:', apiData);
+                
+                // Try to get programmed data from API response
+                if (apiData.programmed && apiData.programmed.data) {
+                    const programmedData = apiData.programmed.data;
+                    
+                    for (let i = 0; i < Math.min(horizon, programmedData.length); i++) {
+                        const price = programmedData[i].cmg_programmed || 70;
+                        prices.push(price);
+                        if (i < 5) {
+                            console.log(`[FETCH] Hour ${i}: $${price.toFixed(2)}/MWh`);
+                        }
+                    }
+                    
+                    realPriceCount = prices.length;
+                    console.log(`[FETCH] Using ${realPriceCount} real prices from API`);
+                }
             }
         }
         
-        const realPriceCount = prices.length;
-        console.log(`[FETCH] Using ${realPriceCount} real prices from API`);
-        
-        // If we need more prices, use synthetic data
+        // If we still don't have enough prices, use synthetic data
+        const originalCount = prices.length;
         while (prices.length < horizon) {
             const hour = prices.length % 24;
             const basePrice = 70;
@@ -240,11 +271,12 @@ async function fetchCMGPrices(node, horizon) {
             prices.push(basePrice + variation + Math.random() * 10);
         }
         
-        if (prices.length > realPriceCount) {
-            console.log(`[FETCH] Added ${prices.length - realPriceCount} synthetic prices to reach horizon`);
+        if (prices.length > originalCount) {
+            console.log(`[FETCH] Added ${prices.length - originalCount} synthetic prices to reach horizon`);
         }
         
         console.log(`[FETCH] Final price array has ${prices.length} elements`);
+        console.log(`[FETCH] Price range: $${Math.min(...prices).toFixed(2)} - $${Math.max(...prices).toFixed(2)}/MWh`);
         return prices;
         
     } catch (error) {
@@ -387,10 +419,20 @@ function updateCharts(solution, prices, params) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
             interaction: {
                 mode: 'index',
                 intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10
+                    }
+                }
             },
             scales: {
                 y: {
@@ -463,10 +505,20 @@ function updateCharts(solution, prices, params) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
+            maintainAspectRatio: true,
+            aspectRatio: 2.5,
             interaction: {
                 mode: 'index',
                 intersect: false,
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10
+                    }
+                }
             },
             scales: {
                 y: {
