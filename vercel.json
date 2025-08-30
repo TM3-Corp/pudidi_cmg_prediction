@@ -34,15 +34,10 @@
       "maxDuration": 30
     },
     "api/*.py": {
-      "includeFiles": "data/cache/**"
+      "includeFiles": "data/cache/**",
+      "maxDuration": 30
     }
   },
-  "builds": [
-    {
-      "src": "api/**/*.py",
-      "use": "@vercel/python"
-    }
-  ],
   "cleanUrls": true,
   "trailingSlash": false
 }
