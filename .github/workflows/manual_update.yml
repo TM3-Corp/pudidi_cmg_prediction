@@ -41,8 +41,8 @@ jobs:
           echo "Starting manual cache update at $(date)"
           echo "Python version: $(python --version)"
           echo "Working directory: $(pwd)"
-          echo "Using simple_sequential_update.py with 50-minute timeout"
-          python simple_sequential_update.py
+          echo "Using simple_sequential_update_final.py with 50-minute timeout"
+          python simple_sequential_update_final.py
           echo "Cache update completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api

@@ -422,7 +422,8 @@ def main():
     print("STEP 2: FETCHING PROGRAMMED DATA (Future hours)")
     print(f"{'='*80}")
     
-    url_pid = f"{SIP_BASE_URL}/cmg-programado-pid/v4/findByDate"
+    # Use direct URL for programmed data (different from historical API)
+    url_pid = "https://sipub.api.coordinador.cl:443/cmg-programado-pid/v4/findByDate"
     
     all_programmed = []
     
