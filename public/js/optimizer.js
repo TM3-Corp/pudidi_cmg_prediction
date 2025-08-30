@@ -340,38 +340,82 @@ async function runOptimization() {
     }
     
     try {
-        // Fetch CMG prices
-        console.log('[RUN] Fetching CMG prices...');
-        const prices = await fetchCMGPrices(params.node, params.horizon);
+        console.log('[RUN] Calling backend optimizer API...');
         
-        console.log(`[RUN] Got ${prices.length} prices, running optimization...`);
+        // Call backend API for Linear Programming optimization
+        const response = await fetch('/api/optimizer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                node: params.node,
+                horizon: params.horizon,
+                p_min: params.pMin,
+                p_max: params.pMax,
+                s0: params.s0,
+                s_min: params.sMin,
+                s_max: params.sMax,
+                kappa: params.kappa,
+                inflow: params.inflow
+            })
+        });
         
-        // Run optimization
-        const solution = buildHydroModel(prices, params);
+        if (!response.ok) {
+            const text = await response.text();
+            console.error('[RUN] Backend error:', text);
+            throw new Error(`Backend returned ${response.status}: ${text.substring(0, 100)}`);
+        }
         
-        console.log('[RUN] Optimization complete:', solution);
+        const result = await response.json();
+        console.log('[RUN] Backend response:', result);
         
-        // Update metrics
-        const avgGen = solution.P.reduce((a, b) => a + b, 0) / solution.P.length;
-        const peakGen = Math.max(...solution.P);
-        const capacityFactor = (avgGen / params.pMax * 100).toFixed(1);
+        if (result.success && result.solution) {
+            const solution = result.solution;
+            const prices = result.prices;
+            
+            console.log('[RUN] Optimization method:', solution.optimization_method);
+            console.log('[RUN] Solver success:', solution.solver_success);
+            console.log('[RUN] Backend optimization complete:', solution);
         
-        console.log(`[RUN] Metrics - Revenue: $${solution.revenue.toFixed(0)}, Avg: ${avgGen.toFixed(2)} MW, Peak: ${peakGen.toFixed(2)} MW, CF: ${capacityFactor}%`);
-        
-        document.getElementById('totalRevenue').textContent = solution.revenue.toFixed(0);
-        document.getElementById('avgGeneration').textContent = avgGen.toFixed(2);
-        document.getElementById('peakGeneration').textContent = peakGen.toFixed(2);
-        document.getElementById('capacityFactor').textContent = capacityFactor;
-        
-        // Show results
-        document.getElementById('metricsGrid').style.display = 'grid';
-        document.getElementById('resultsSection').style.display = 'grid';
-        
-        // Update charts
-        console.log('[RUN] Updating charts...');
-        updateCharts(solution, prices, params);
-        
-        console.log('[RUN] Optimization complete and displayed!');
+            // Update metrics
+            document.getElementById('totalRevenue').textContent = solution.revenue.toFixed(0);
+            document.getElementById('avgGeneration').textContent = solution.avg_generation.toFixed(2);
+            document.getElementById('peakGeneration').textContent = solution.peak_generation.toFixed(2);
+            document.getElementById('capacityFactor').textContent = solution.capacity_factor.toFixed(1);
+            
+            console.log(`[RUN] Metrics - Revenue: $${solution.revenue.toFixed(0)}, Method: ${solution.optimization_method}`);
+            
+            // Show results
+            document.getElementById('metricsGrid').style.display = 'grid';
+            document.getElementById('resultsSection').style.display = 'grid';
+            
+            // Update charts
+            console.log('[RUN] Updating charts...');
+            updateCharts(solution, prices, params);
+            
+            console.log('[RUN] Optimization complete and displayed!');
+        } else {
+            // Fallback to client-side if backend fails
+            console.log('[RUN] Backend failed, using client-side optimization...');
+            const prices = await fetchCMGPrices(params.node, params.horizon);
+            const solution = buildHydroModel(prices, params);
+            
+            // Update metrics
+            const avgGen = solution.P.reduce((a, b) => a + b, 0) / solution.P.length;
+            const peakGen = Math.max(...solution.P);
+            const capacityFactor = (avgGen / params.pMax * 100).toFixed(1);
+            
+            document.getElementById('totalRevenue').textContent = solution.revenue.toFixed(0);
+            document.getElementById('avgGeneration').textContent = avgGen.toFixed(2);
+            document.getElementById('peakGeneration').textContent = peakGen.toFixed(2);
+            document.getElementById('capacityFactor').textContent = capacityFactor;
+            
+            // Show results
+            document.getElementById('metricsGrid').style.display = 'grid';
+            document.getElementById('resultsSection').style.display = 'grid';
+            
+            // Update charts
+            updateCharts(solution, prices, params);
+        }
         
     } catch (error) {
         console.error('[RUN] Optimization error:', error);

@@ -108,19 +108,41 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Added {len(prices) - original_price_count} synthetic prices to reach horizon")
             
             # Try proper LP optimization first
-            print(f"[OPTIMIZER] Starting Linear Programming optimization...")
+            print(f"[OPTIMIZER] Starting optimization...")
             
-            # Import the LP optimizer
-            from api.optimizer_lp import optimize_hydro_lp, optimize_hydro_greedy
+            solution = None
             
-            # Try LP first
-            solution = optimize_hydro_lp(
-                prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
-            )
+            # Try scipy LP first
+            try:
+                from api.utils.optimizer_lp import optimize_hydro_lp
+                print(f"[OPTIMIZER] Trying scipy Linear Programming...")
+                solution = optimize_hydro_lp(
+                    prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                )
+                if solution:
+                    print(f"[OPTIMIZER] scipy LP successful!")
+            except ImportError as e:
+                print(f"[OPTIMIZER] scipy not available: {e}")
+            except Exception as e:
+                print(f"[OPTIMIZER] scipy LP error: {e}")
             
-            # Fall back to greedy if LP fails
+            # Try simple DP solver if scipy failed
             if solution is None:
-                print(f"[OPTIMIZER] LP failed, falling back to greedy algorithm...")
+                try:
+                    from api.utils.optimizer_simple import optimize_hydro_simple
+                    print(f"[OPTIMIZER] Trying simple DP optimization...")
+                    solution = optimize_hydro_simple(
+                        prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                    )
+                    if solution:
+                        print(f"[OPTIMIZER] Simple DP successful!")
+                except Exception as e:
+                    print(f"[OPTIMIZER] Simple DP error: {e}")
+            
+            # Fall back to greedy if everything else fails
+            if solution is None:
+                from api.utils.optimizer_lp import optimize_hydro_greedy
+                print(f"[OPTIMIZER] Falling back to greedy algorithm...")
                 solution = optimize_hydro_greedy(
                     prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
                 )
@@ -309,17 +331,37 @@ class handler(BaseHTTPRequestHandler):
                 variation = np.sin(hour * np.pi / 12) * 30
                 prices.append(base_price + variation)
             
-            # Run optimization
-            from api.optimizer_lp import optimize_hydro_lp, optimize_hydro_greedy
+            # Run optimization with fallbacks
+            solution = None
             
-            solution = optimize_hydro_lp(
-                prices, 
-                params['p_min'], params['p_max'],
-                params['s0'], params['s_min'], params['s_max'],
-                params['kappa'], params['inflow'], params['horizon']
-            )
+            # Try scipy LP first
+            try:
+                from api.utils.optimizer_lp import optimize_hydro_lp
+                solution = optimize_hydro_lp(
+                    prices, 
+                    params['p_min'], params['p_max'],
+                    params['s0'], params['s_min'], params['s_max'],
+                    params['kappa'], params['inflow'], params['horizon']
+                )
+            except:
+                pass
             
+            # Try simple DP if scipy failed
             if solution is None:
+                try:
+                    from api.utils.optimizer_simple import optimize_hydro_simple
+                    solution = optimize_hydro_simple(
+                        prices, 
+                        params['p_min'], params['p_max'],
+                        params['s0'], params['s_min'], params['s_max'],
+                        params['kappa'], params['inflow'], params['horizon']
+                    )
+                except:
+                    pass
+            
+            # Fall back to greedy
+            if solution is None:
+                from api.utils.optimizer_lp import optimize_hydro_greedy
                 solution = optimize_hydro_greedy(
                     prices, 
                     params['p_min'], params['p_max'],
