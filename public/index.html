@@ -8,6 +8,9 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     
@@ -92,6 +95,11 @@
                             Conectando...
                         </p>
                     </div>
+                    <a href="/optimizer.html" 
+                       class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Optimizer</span>
+                    </a>
                     <button id="refresh-btn" onclick="manualRefresh()" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
                         <svg id="refresh-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
