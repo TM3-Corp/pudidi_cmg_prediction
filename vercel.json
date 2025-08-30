@@ -36,6 +36,9 @@
   "functions": {
     "api/cmg/*.py": {
       "maxDuration": 30
+    },
+    "api/*.py": {
+      "includeFiles": "data/cache/**"
     }
   }
 }
