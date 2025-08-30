@@ -75,10 +75,38 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          
+          # Pull latest changes first to avoid conflicts
+          echo "📥 Pulling latest changes from main..."
+          git pull origin main --rebase || {
+            echo "⚠️ Rebase failed, trying merge strategy..."
+            git rebase --abort 2>/dev/null || true
+            git pull origin main --no-rebase || true
+          }
+          
+          # Add and commit cache changes
           git add data/cache/
-          git commit -m "🔄 Manual cache update - $(TZ='America/Santiago' date +'%Y-%m-%d %H:%M') Santiago"
-          git push
-          echo "✅ Cache updated and pushed"
+          SANTIAGO_TIME=$(TZ='America/Santiago' date +'%Y-%m-%d %H:%M')
+          git commit -m "🔄 Manual cache update - $SANTIAGO_TIME Santiago"
+          
+          # Push with retry logic
+          PUSH_SUCCESS=false
+          for i in 1 2 3; do
+            echo "📤 Push attempt $i of 3..."
+            if git push origin main; then
+              echo "✅ Cache updated and pushed successfully!"
+              PUSH_SUCCESS=true
+              break
+            else
+              echo "❌ Push failed, pulling latest and retrying..."
+              git pull origin main --rebase --autostash || true
+            fi
+          done
+          
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "⚠️ Could not push after 3 attempts. Cache is updated locally but not pushed."
+            exit 1
+          fi
       
       - name: No updates needed
         if: steps.check_changes.outputs.changed != 'true'
