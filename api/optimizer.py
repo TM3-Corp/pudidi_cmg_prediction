@@ -1,6 +1,6 @@
 """
 API endpoint for hydro optimization using CMG prices
-WITH DETAILED DEBUGGING
+WITH PROPER LINEAR PROGRAMMING OPTIMIZATION
 """
 
 from http.server import BaseHTTPRequestHandler
@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 import traceback
+from scipy.optimize import linprog
 
 # Import our cache manager
 import sys
@@ -106,11 +107,23 @@ class handler(BaseHTTPRequestHandler):
             if len(prices) > original_price_count:
                 print(f"[OPTIMIZER] Added {len(prices) - original_price_count} synthetic prices to reach horizon")
             
-            # Simple greedy optimization (simplified version)
-            print(f"[OPTIMIZER] Starting optimization algorithm...")
-            solution = self.optimize_hydro(
+            # Try proper LP optimization first
+            print(f"[OPTIMIZER] Starting Linear Programming optimization...")
+            
+            # Import the LP optimizer
+            from api.optimizer_lp import optimize_hydro_lp, optimize_hydro_greedy
+            
+            # Try LP first
+            solution = optimize_hydro_lp(
                 prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
             )
+            
+            # Fall back to greedy if LP fails
+            if solution is None:
+                print(f"[OPTIMIZER] LP failed, falling back to greedy algorithm...")
+                solution = optimize_hydro_greedy(
+                    prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                )
             
             print(f"[OPTIMIZER] Optimization complete!")
             print(f"  - Total revenue: ${solution['revenue']:.2f}")
@@ -165,7 +178,7 @@ class handler(BaseHTTPRequestHandler):
             }
             self.wfile.write(json.dumps(error_response).encode())
     
-    def optimize_hydro(self, prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon):
+    def optimize_hydro_old(self, prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon):
         """
         Simplified greedy optimization for demonstration
         In production, use proper LP solver
@@ -297,12 +310,22 @@ class handler(BaseHTTPRequestHandler):
                 prices.append(base_price + variation)
             
             # Run optimization
-            solution = self.optimize_hydro(
+            from api.optimizer_lp import optimize_hydro_lp, optimize_hydro_greedy
+            
+            solution = optimize_hydro_lp(
                 prices, 
                 params['p_min'], params['p_max'],
                 params['s0'], params['s_min'], params['s_max'],
                 params['kappa'], params['inflow'], params['horizon']
             )
+            
+            if solution is None:
+                solution = optimize_hydro_greedy(
+                    prices, 
+                    params['p_min'], params['p_max'],
+                    params['s0'], params['s_min'], params['s_max'],
+                    params['kappa'], params['inflow'], params['horizon']
+                )
             
             # Send response
             self.send_response(200)
