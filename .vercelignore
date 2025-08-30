@@ -1,14 +1,18 @@
+# Ignore everything in archive
+archive/
+
+# Ignore all Python files except in api directory
+*.py
+!api/*.py
+!api/**/*.py
+
 # Ignore test files
 test*.py
 tests/
 *_test.py
 
-# Ignore scripts and root level Python files
+# Ignore scripts and development files
 scripts/
-*.py
-!api/**/*.py
-
-# Ignore development files
 src/
 werkzeug/
 __pycache__/
@@ -21,5 +25,12 @@ __pycache__/
 # Ignore GitHub workflows
 .github/
 
-# But explicitly allow the API directory
-!api/
+# Ignore data processing scripts
+simple_sequential_update.py
+simple_sequential_update_final.py
+simple_sequential_update_gist.py
+fetch_programmed_from_gist.py
+manual_update.py
+
+# Ignore Vercel cache
+.vercel/
