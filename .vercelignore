@@ -1,0 +1,25 @@
+# Ignore test files
+test*.py
+tests/
+*_test.py
+
+# Ignore scripts and root level Python files
+scripts/
+*.py
+!api/**/*.py
+
+# Ignore development files
+src/
+werkzeug/
+__pycache__/
+*.pyc
+
+# Ignore notebook files
+*.ipynb
+.ipynb_checkpoints/
+
+# Ignore GitHub workflows
+.github/
+
+# But explicitly allow the API directory
+!api/

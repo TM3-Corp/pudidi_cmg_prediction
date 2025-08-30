@@ -9,10 +9,6 @@
       "destination": "/api/index"
     },
     {
-      "source": "/api/test",
-      "destination": "/api/test"
-    },
-    {
       "source": "/api/predictions/live",
       "destination": "/api/predictions_live"
     },
@@ -40,5 +36,13 @@
     "api/*.py": {
       "includeFiles": "data/cache/**"
     }
-  }
+  },
+  "builds": [
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
