@@ -27,6 +27,10 @@
     {
       "source": "/api/cmg/status",
       "destination": "/api/cmg/status"
+    },
+    {
+      "source": "/api/cache/(.*)",
+      "destination": "/api/cache"
     }
   ],
   "functions": {

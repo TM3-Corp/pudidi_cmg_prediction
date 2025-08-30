@@ -203,9 +203,9 @@ async function fetchCMGPrices(node, horizon) {
     console.log(`[FETCH] Fetching CMG prices for node: ${node}, horizon: ${horizon} hours`);
     
     try {
-        // First, try to fetch programmed data directly from cache
+        // First, try to fetch programmed data from cache API
         console.log('[FETCH] Attempting to fetch programmed CMG data from cache...');
-        const cacheResponse = await fetch('/data/cache/cmg_programmed_latest.json');
+        const cacheResponse = await fetch('/api/cache/programmed');
         
         let prices = [];
         let realPriceCount = 0;
