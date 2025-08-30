@@ -9,7 +9,13 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 import traceback
-from scipy.optimize import linprog
+# scipy might not be available on Vercel
+try:
+    from scipy.optimize import linprog
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+    print("[OPTIMIZER] scipy not available, will use fallback optimization")
 
 # Import our cache manager
 import sys
@@ -112,19 +118,24 @@ class handler(BaseHTTPRequestHandler):
             
             solution = None
             
-            # Try scipy LP first
-            try:
-                from api.utils.optimizer_lp import optimize_hydro_lp
-                print(f"[OPTIMIZER] Trying scipy Linear Programming...")
-                solution = optimize_hydro_lp(
-                    prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
-                )
-                if solution:
-                    print(f"[OPTIMIZER] scipy LP successful!")
-            except ImportError as e:
-                print(f"[OPTIMIZER] scipy not available: {e}")
-            except Exception as e:
-                print(f"[OPTIMIZER] scipy LP error: {e}")
+            # Try scipy LP first only if available
+            if SCIPY_AVAILABLE:
+                try:
+                    from api.utils.optimizer_lp import optimize_hydro_lp
+                    print(f"[OPTIMIZER] Trying scipy Linear Programming...")
+                    solution = optimize_hydro_lp(
+                        prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                    )
+                    if solution:
+                        print(f"[OPTIMIZER] scipy LP successful!")
+                except ImportError as e:
+                    print(f"[OPTIMIZER] scipy module import error: {e}")
+                except Exception as e:
+                    print(f"[OPTIMIZER] scipy LP error: {e}")
+                    import traceback
+                    print(traceback.format_exc())
+            else:
+                print(f"[OPTIMIZER] Skipping scipy LP (not available)")
             
             # Try simple DP solver if scipy failed
             if solution is None:
