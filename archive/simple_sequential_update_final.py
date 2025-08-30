@@ -180,13 +180,21 @@ def parse_historical_record(record):
             else:
                 hour = 0
         
+        # FIXED: The API returns fields with underscores at the end!
+        # cmg_clp_kwh_ is in CLP/kWh, need to convert to CLP/MWh (*1000)
+        cmg_clp_kwh = float(record.get('cmg_clp_kwh_', 0) or 0)
+        cmg_real = cmg_clp_kwh * 1000  # Convert from kWh to MWh
+        
+        # cmg_usd_mwh_ is already in USD/MWh
+        cmg_usd = float(record.get('cmg_usd_mwh_', 0) or 0)
+        
         return {
             'datetime': record.get('fecha_hora', ''),
             'date': record.get('fecha_hora', '')[:10],  # Extract date part
             'hour': hour,
             'node': record.get('barra_transf', ''),
-            'cmg_real': float(record.get('cmg_pesos_mwh', 0) or 0),
-            'cmg_usd': float(record.get('cmg_usd_mwh', 0) or 0)
+            'cmg_real': cmg_real,  # Now in CLP/MWh
+            'cmg_usd': cmg_usd      # Already in USD/MWh
         }
     except Exception as e:
         print(f"      Warning: Failed to parse record: {e}")
