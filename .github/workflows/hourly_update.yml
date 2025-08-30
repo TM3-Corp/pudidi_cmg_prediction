@@ -47,7 +47,7 @@ jobs:
           echo "Starting cache update at $(date)"
           echo "Python version: $(python --version)"
           echo "Working directory: $(pwd)"
-          python simple_sequential_update_final.py
+          python archive/simple_sequential_update_final.py
           echo "Cache update completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api
