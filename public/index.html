@@ -8,9 +8,6 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     
@@ -95,11 +92,6 @@
                             Conectando...
                         </p>
                     </div>
-                    <a href="/optimizer.html" 
-                       class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg">
-                        <i class="fas fa-chart-line"></i>
-                        <span>Optimizer</span>
-                    </a>
                     <button id="refresh-btn" onclick="manualRefresh()" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
                         <svg id="refresh-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,21 +400,50 @@
                     : historicalData.filter(d => d.node === selectedNode);
                 
                 if (filteredData.length > 0) {
-                    // Current CMG
+                    // Current CMG - use cmg_usd or cmg_real
                     const latest = filteredData[filteredData.length - 1];
-                    document.getElementById('current-cmg').textContent = `$${latest.cmg_actual.toFixed(2)}`;
+                    const latestValue = latest.cmg_usd !== undefined ? latest.cmg_usd : (latest.cmg_actual || 0);
+                    document.getElementById('current-cmg').textContent = `$${latestValue.toFixed(2)}`;
                     document.getElementById('current-time').textContent = latest.datetime;
                     
-                    // Average
-                    const values = filteredData.map(d => d.cmg_actual).filter(v => v > 0);
-                    const average = values.reduce((a, b) => a + b, 0) / values.length;
-                    document.getElementById('average-cmg').textContent = `$${average.toFixed(2)}`;
+                    // Average - handle both field names
+                    const values = filteredData.map(d => {
+                        if (d.cmg_usd !== undefined) return d.cmg_usd;
+                        if (d.cmg_actual !== undefined) return d.cmg_actual;
+                        return 0;
+                    }).filter(v => v > 0);
                     
-                    // Maximum
-                    const max = Math.max(...values);
-                    const maxRecord = filteredData.find(d => d.cmg_actual === max);
-                    document.getElementById('max-cmg').textContent = `$${max.toFixed(2)}`;
-                    document.getElementById('max-time').textContent = maxRecord ? maxRecord.datetime : '--';
+                    if (values.length > 0) {
+                        const average = values.reduce((a, b) => a + b, 0) / values.length;
+                        document.getElementById('average-cmg').textContent = `$${average.toFixed(2)}`;
+                        
+                        // Maximum
+                        const max = Math.max(...values);
+                        const maxRecord = filteredData.find(d => {
+                            const val = d.cmg_usd !== undefined ? d.cmg_usd : (d.cmg_actual || 0);
+                            return val === max;
+                        });
+                        document.getElementById('max-cmg').textContent = `$${max.toFixed(2)}`;
+                        document.getElementById('max-time').textContent = maxRecord ? maxRecord.datetime : '--';
+                    } else {
+                        // No valid values - use all values including zeros
+                        const allValues = filteredData.map(d => {
+                            if (d.cmg_usd !== undefined) return d.cmg_usd;
+                            if (d.cmg_actual !== undefined) return d.cmg_actual;
+                            return 0;
+                        });
+                        
+                        if (allValues.length > 0) {
+                            const average = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+                            document.getElementById('average-cmg').textContent = `$${average.toFixed(2)}`;
+                            document.getElementById('max-cmg').textContent = `$${Math.max(...allValues).toFixed(2)}`;
+                            document.getElementById('max-time').textContent = '--';
+                        } else {
+                            document.getElementById('average-cmg').textContent = '$0.00';
+                            document.getElementById('max-cmg').textContent = '$0.00';
+                            document.getElementById('max-time').textContent = '--';
+                        }
+                    }
                 }
             }
             
@@ -483,7 +504,7 @@
                     if (nodeData.historical.length > 0) {
                         traces.push({
                             x: nodeData.historical.map(d => d.datetime),
-                            y: nodeData.historical.map(d => d.cmg_actual),
+                            y: nodeData.historical.map(d => d.cmg_usd !== undefined ? d.cmg_usd : (d.cmg_actual || 0)),
                             name: `${node} (Histórico)`,
                             type: 'scatter',
                             mode: 'lines+markers',
@@ -513,7 +534,7 @@
                     if (filteredHistorical.length > 0) {
                         traces.push({
                             x: filteredHistorical.map(d => d.datetime),
-                            y: filteredHistorical.map(d => d.cmg_actual),
+                            y: filteredHistorical.map(d => d.cmg_usd !== undefined ? d.cmg_usd : (d.cmg_actual || 0)),
                             name: 'CMG Histórico',
                             type: 'scatter',
                             mode: 'lines+markers',
