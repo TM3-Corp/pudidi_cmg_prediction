@@ -414,8 +414,11 @@ async function runOptimization() {
 }
 
 function updateCharts(solution, prices, params) {
-    // Generate datetime labels starting from now
+    // Generate datetime labels starting from the current hour (at 00 minutes)
     const now = new Date();
+    // Round to the start of current hour
+    now.setMinutes(0, 0, 0); 
+    
     const dateTimeLabels = [];
     const hours = Array.from({length: solution.P.length}, (_, i) => {
         const date = new Date(now.getTime() + i * 3600000); // Add i hours

@@ -429,6 +429,52 @@ def main():
     if multi_point_hours:
         print(f"      Found {len(multi_point_hours)} hours with multiple data points (averaged)")
     
+    # ========== STEP 1.5: FILL MISSING CURRENT HOUR FROM GIST ==========
+    # Check if we're missing data for the current hour
+    current_hour = now.hour
+    current_date = now.strftime('%Y-%m-%d')
+    
+    # Check if NVA_P.MONTT___220 has data for current hour
+    has_current_hour = any(
+        r['node'] == 'NVA_P.MONTT___220' and 
+        r['date'] == current_date and 
+        r['hour'] == current_hour 
+        for r in aggregated_historical
+    )
+    
+    if not has_current_hour:
+        print(f"\n   🔍 Missing current hour data ({current_date} {current_hour:02d}:00)")
+        print(f"      Attempting to fill from programmed data (Gist)...")
+        
+        # Fetch programmed data early to fill the gap
+        temp_programmed = fetch_programmed_from_gist(now)
+        
+        # Look for current hour in programmed data
+        for prog_record in temp_programmed:
+            if prog_record.get('hour') == current_hour and prog_record.get('date') == current_date:
+                # Convert PMontt220 programmed data to fill each historical node
+                print(f"      ✅ Found programmed data for {current_hour:02d}:00 - filling gap")
+                
+                # Add synthetic records for each node using programmed CMG
+                for node in CMG_NODES:
+                    synthetic_record = {
+                        'datetime': f"{current_date} {current_hour:02d}:00",
+                        'date': current_date,
+                        'hour': current_hour,
+                        'node': node,
+                        'cmg_real': prog_record['cmg_programmed'] * 1000,  # Convert USD to CLP estimate
+                        'cmg_usd': prog_record['cmg_programmed'],
+                        'data_points': 1,
+                        'source': 'programmed_fill'  # Mark as filled from programmed
+                    }
+                    aggregated_historical.append(synthetic_record)
+                
+                # Re-sort after adding new records
+                aggregated_historical.sort(key=lambda x: (x['datetime'], x['node']))
+                break
+        else:
+            print(f"      ⚠️ No programmed data available for current hour")
+    
     # Save historical cache with aggregated data
     today = now.strftime('%Y-%m-%d')
     hist_cache = {
@@ -452,7 +498,12 @@ def main():
     print("STEP 2: FETCHING PROGRAMMED DATA FROM GITHUB GIST")
     print(f"{'='*80}")
     
-    all_programmed = fetch_programmed_from_gist(now)
+    # Check if we already fetched programmed data to fill gaps
+    if 'temp_programmed' in locals():
+        all_programmed = temp_programmed
+        print("   ℹ️ Using previously fetched programmed data")
+    else:
+        all_programmed = fetch_programmed_from_gist(now)
     
     # Sort and save programmed data
     all_programmed.sort(key=lambda x: x['datetime'])
