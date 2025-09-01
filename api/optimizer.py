@@ -71,6 +71,9 @@ class handler(BaseHTTPRequestHandler):
             prices = []
             
             # Extract programmed prices from cache
+            data_range_start = None
+            data_range_end = None
+            
             if programmed_data and 'data' in programmed_data:
                 price_records = programmed_data['data']
                 print(f"[OPTIMIZER] Found {len(price_records)} programmed prices in cache")
@@ -78,28 +81,74 @@ class handler(BaseHTTPRequestHandler):
                 # Sort by datetime to ensure correct order
                 sorted_records = sorted(price_records, key=lambda x: x.get('datetime', ''))
                 
-                for i, record in enumerate(sorted_records[:horizon]):
-                    price = record.get('cmg_programmed', 70)
-                    prices.append(price)
-                    if i < 5:  # Log first 5 prices
-                        dt = record.get('datetime', 'unknown')
-                        print(f"  Hour {i} ({dt}): ${price:.2f}/MWh")
-                if len(sorted_records) > 5:
-                    print(f"  ... and {min(len(sorted_records), horizon) - 5} more available")
+                if sorted_records:
+                    data_range_start = sorted_records[0].get('datetime', 'unknown')
+                    data_range_end = sorted_records[-1].get('datetime', 'unknown')
+                    available_hours = len(sorted_records)
+                    
+                    print(f"[OPTIMIZER] Data range: {data_range_start} to {data_range_end}")
+                    print(f"[OPTIMIZER] Available hours: {available_hours}, Requested: {horizon}")
+                    
+                    # Check if we have enough data
+                    if horizon > available_hours:
+                        error_msg = f"Insufficient data: {available_hours} hours available but {horizon} requested"
+                        print(f"[OPTIMIZER] ERROR: {error_msg}")
+                        
+                        self.send_response(400)
+                        self.send_header('Content-Type', 'application/json')
+                        self.send_header('Access-Control-Allow-Origin', '*')
+                        self.end_headers()
+                        
+                        error_response = {
+                            'success': False,
+                            'error': error_msg,
+                            'data_info': {
+                                'data_range_start': data_range_start,
+                                'data_range_end': data_range_end,
+                                'available_hours': available_hours,
+                                'requested_hours': horizon
+                            }
+                        }
+                        self.wfile.write(json.dumps(error_response).encode())
+                        return
+                    
+                    # Extract only the requested hours
+                    for i, record in enumerate(sorted_records[:horizon]):
+                        price = record.get('cmg_programmed', 70)
+                        prices.append(price)
+                        if i < 5:  # Log first 5 prices
+                            dt = record.get('datetime', 'unknown')
+                            print(f"  Hour {i} ({dt}): ${price:.2f}/MWh")
+                    if len(sorted_records) > 5:
+                        print(f"  ... using {min(len(sorted_records), horizon)} hours of real data")
+                else:
+                    print(f"[OPTIMIZER] ERROR: No programmed data available")
+                    
+                    self.send_response(400)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Access-Control-Allow-Origin', '*')
+                    self.end_headers()
+                    
+                    error_response = {
+                        'success': False,
+                        'error': 'No programmed data available in cache'
+                    }
+                    self.wfile.write(json.dumps(error_response).encode())
+                    return
             else:
-                print(f"[OPTIMIZER] WARNING: No programmed data in cache")
-                print(f"[OPTIMIZER] Will use synthetic prices")
-            
-            # Fill with synthetic if needed
-            original_price_count = len(prices)
-            while len(prices) < horizon:
-                hour = len(prices) % 24
-                base_price = 70
-                variation = np.sin(hour * np.pi / 12) * 30
-                prices.append(base_price + variation + np.random.random() * 10)
-            
-            if len(prices) > original_price_count:
-                print(f"[OPTIMIZER] Added {len(prices) - original_price_count} synthetic prices to reach horizon")
+                print(f"[OPTIMIZER] ERROR: No programmed data in cache")
+                
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                error_response = {
+                    'success': False,
+                    'error': 'No programmed data available'
+                }
+                self.wfile.write(json.dumps(error_response).encode())
+                return
             
             # Try proper LP optimization first
             print(f"[OPTIMIZER] Starting optimization...")
@@ -173,10 +222,13 @@ class handler(BaseHTTPRequestHandler):
                     'kappa': kappa,
                     'inflow': inflow
                 },
-                'debug_info': {
-                    'prices_from_cache': original_price_count,
-                    'synthetic_prices': len(prices) - original_price_count,
-                    'total_prices': len(prices)
+                'data_info': {
+                    'data_range_start': data_range_start,
+                    'data_range_end': data_range_end,
+                    'available_hours': len(sorted_records) if 'sorted_records' in locals() else 0,
+                    'requested_hours': horizon,
+                    'data_source': 'PMontt220 (CMG Programado)',
+                    'all_real_data': True  # Always true now, no synthetic data
                 }
             }
             

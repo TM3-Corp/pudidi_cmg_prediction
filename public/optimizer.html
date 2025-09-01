@@ -256,15 +256,26 @@
             <div class="info-box">
                 <p>Configure los parámetros de su planta hidroeléctrica y resuelva el calendario de operación óptimo basado en precios CMG.</p>
             </div>
+            
+            <div class="info-box" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-top: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.2em;">📊</span>
+                    <div>
+                        <strong>Disponibilidad de Datos CMG Programado</strong>
+                        <div id="dataAvailability" style="margin-top: 5px; color: #64748b;">
+                            Verificando disponibilidad de datos...
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div class="controls-grid">
                 <div class="control-group">
                     <label>Node Selection</label>
-                    <select id="nodeSelect">
-                        <option value="PMontt220">Puerto Montt 220kV</option>
-                        <option value="PIDPID________110">Pid-Pid 110kV</option>
-                        <option value="DALCAHUE______110">Dalcahue 110kV</option>
+                    <select id="nodeSelect" disabled>
+                        <option value="PMontt220">Puerto Montt 220kV (CMG Programado)</option>
                     </select>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Único nodo con datos programados</small>
                 </div>
 
                 <div class="control-group">

@@ -262,17 +262,10 @@ async function fetchCMGPrices(node, horizon) {
             }
         }
         
-        // If we still don't have enough prices, use synthetic data
-        const originalCount = prices.length;
-        while (prices.length < horizon) {
-            const hour = prices.length % 24;
-            const basePrice = 70;
-            const variation = Math.sin(hour * Math.PI / 12) * 30;
-            prices.push(basePrice + variation + Math.random() * 10);
-        }
-        
-        if (prices.length > originalCount) {
-            console.log(`[FETCH] Added ${prices.length - originalCount} synthetic prices to reach horizon`);
+        // Check if we have enough data
+        if (prices.length < horizon) {
+            console.error(`[FETCH] Insufficient data: ${prices.length} hours available but ${horizon} requested`);
+            throw new Error(`Solo hay ${prices.length} horas de datos disponibles. Por favor reduzca el horizonte.`);
         }
         
         console.log(`[FETCH] Final price array has ${prices.length} elements`);
@@ -281,19 +274,8 @@ async function fetchCMGPrices(node, horizon) {
         
     } catch (error) {
         console.error('[FETCH] Error fetching CMG prices:', error);
-        console.log('[FETCH] Falling back to synthetic prices');
-        
-        // Generate synthetic prices as fallback
-        const prices = [];
-        for (let i = 0; i < horizon; i++) {
-            const hour = i % 24;
-            const basePrice = 70;
-            const variation = Math.sin(hour * Math.PI / 12) * 30;
-            prices.push(basePrice + variation + Math.random() * 10);
-        }
-        
-        console.log(`[FETCH] Generated ${prices.length} synthetic prices`);
-        return prices;
+        // Re-throw the error to be handled by the caller
+        throw error;
     }
 }
 
@@ -340,6 +322,12 @@ async function runOptimization() {
     }
     
     try {
+        // Validate horizon against available data
+        const availableHours = parseInt(document.getElementById('horizon').max) || 0;
+        if (params.horizon > availableHours) {
+            throw new Error(`Horizonte excede los datos disponibles (máximo ${availableHours} horas)`);
+        }
+        
         console.log('[RUN] Calling backend optimizer API...');
         
         // Call backend API for Linear Programming optimization
@@ -661,8 +649,73 @@ function resetParameters() {
     document.getElementById('inflow').value = 1.1;
 }
 
+// Function to update data availability info
+async function updateDataAvailability() {
+    try {
+        const response = await fetch('/api/cache/programmed');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.data && Array.isArray(data.data)) {
+                const sortedData = data.data.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+                
+                if (sortedData.length > 0) {
+                    const startDate = new Date(sortedData[0].datetime);
+                    const endDate = new Date(sortedData[sortedData.length - 1].datetime);
+                    const availableHours = sortedData.length;
+                    
+                    // Format dates for display
+                    const formatDate = (date) => {
+                        return date.toLocaleDateString('es-CL', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    };
+                    
+                    // Update display
+                    const availDiv = document.getElementById('dataAvailability');
+                    availDiv.innerHTML = `
+                        <strong style="color: #059669;">✓ ${availableHours} horas disponibles</strong><br>
+                        Desde: ${formatDate(startDate)}<br>
+                        Hasta: ${formatDate(endDate)}
+                    `;
+                    
+                    // Update horizon max value
+                    const horizonInput = document.getElementById('horizon');
+                    horizonInput.max = availableHours;
+                    
+                    // If current value exceeds max, adjust it
+                    if (parseInt(horizonInput.value) > availableHours) {
+                        horizonInput.value = availableHours;
+                    }
+                    
+                    // Add validation message
+                    horizonInput.title = `Máximo ${availableHours} horas de datos disponibles`;
+                    
+                    return availableHours;
+                }
+            }
+        }
+        
+        // If we couldn't get data info
+        document.getElementById('dataAvailability').innerHTML = 
+            '<span style="color: #dc2626;">⚠️ No se pudo verificar la disponibilidad de datos</span>';
+        return 0;
+        
+    } catch (error) {
+        console.error('Error fetching data availability:', error);
+        document.getElementById('dataAvailability').innerHTML = 
+            '<span style="color: #dc2626;">⚠️ Error al verificar disponibilidad</span>';
+        return 0;
+    }
+}
+
 // Auto-run optimization on load
 window.addEventListener('DOMContentLoaded', () => {
+    // Update data availability on load
+    updateDataAvailability();
+    
     // Add link to main page
     const nav = document.createElement('div');
     nav.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000;';
