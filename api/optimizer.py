@@ -21,7 +21,6 @@ except ImportError:
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api.utils.cache_manager_readonly import get_cached_data
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -88,19 +87,8 @@ class handler(BaseHTTPRequestHandler):
                 if len(sorted_records) > 5:
                     print(f"  ... and {min(len(sorted_records), horizon) - 5} more available")
             else:
-                print(f"[OPTIMIZER] WARNING: No programmed data in cache, checking fallback...")
-                
-                # Try the old method as fallback
-                cmg_data = get_cached_data()
-                if cmg_data and 'cmg_programmed' in cmg_data:
-                    print(f"[OPTIMIZER] Found {len(cmg_data['cmg_programmed'])} prices in fallback")
-                    for i, entry in enumerate(cmg_data['cmg_programmed'][:horizon]):
-                        price = entry.get('cmg_programmed', 70)
-                        prices.append(price)
-                        if i < 5:
-                            print(f"  Hour {i}: ${price:.2f}/MWh")
-                else:
-                    print(f"[OPTIMIZER] No CMG data available, will use synthetic prices")
+                print(f"[OPTIMIZER] WARNING: No programmed data in cache")
+                print(f"[OPTIMIZER] Will use synthetic prices")
             
             # Fill with synthetic if needed
             original_price_count = len(prices)
@@ -329,11 +317,8 @@ class handler(BaseHTTPRequestHandler):
                 for record in sorted_records[:params['horizon']]:
                     prices.append(record.get('cmg_programmed', 70))
             else:
-                # Fallback
-                cmg_data = get_cached_data()
-                if cmg_data and 'cmg_programmed' in cmg_data:
-                    for entry in cmg_data['cmg_programmed'][:params['horizon']]:
-                        prices.append(entry.get('cmg_programmed', 70))
+                # No programmed data available
+                pass  # Will use synthetic prices below
             
             # Fill with synthetic if needed
             while len(prices) < params['horizon']:
