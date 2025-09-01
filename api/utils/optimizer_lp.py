@@ -1,6 +1,7 @@
 """
 Proper Linear Programming optimization for hydro dispatch
 Using scipy.optimize.linprog (works on Vercel)
+With equal initial/final storage constraint
 """
 
 import numpy as np
@@ -49,6 +50,18 @@ def optimize_hydro_lp(prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, hor
     A_ub = []
     b_ub = []
     
+    # Add equality constraint for S[T] = S[0]
+    # This means: Σ(inflow - kappa*P[i])*vol = 0 over the entire horizon
+    # Or: Σ(kappa*P[i]) = T * inflow
+    A_eq = []
+    b_eq = []
+    
+    # Equal storage constraint: sum of all discharges equals sum of all inflows
+    equal_storage_row = [kappa * vol_per_step] * T
+    equal_storage_value = T * inflow * vol_per_step
+    A_eq.append(equal_storage_row)
+    b_eq.append(equal_storage_value)
+    
     for t in range(T):
         # Lower bound: -S[t] <= -s_min
         # -s0 - Σ(inflow*vol) + Σ(kappa*P[i]*vol) <= -s_min
@@ -79,6 +92,8 @@ def optimize_hydro_lp(prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, hor
             c=c,
             A_ub=A_ub if A_ub else None,
             b_ub=b_ub if b_ub else None,
+            A_eq=np.array(A_eq) if A_eq else None,
+            b_eq=np.array(b_eq) if b_eq else None,
             bounds=bounds,
             method='highs',  # Use HiGHS solver (efficient)
             options={'disp': False}

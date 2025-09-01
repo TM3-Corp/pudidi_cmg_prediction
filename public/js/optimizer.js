@@ -426,7 +426,19 @@ async function runOptimization() {
 }
 
 function updateCharts(solution, prices, params) {
-    const hours = Array.from({length: solution.P.length}, (_, i) => `Hour ${i + 1}`);
+    // Generate datetime labels starting from now
+    const now = new Date();
+    const dateTimeLabels = [];
+    const hours = Array.from({length: solution.P.length}, (_, i) => {
+        const date = new Date(now.getTime() + i * 3600000); // Add i hours
+        const dateStr = date.toLocaleDateString('es-CL', { month: 'short', day: 'numeric' });
+        const timeStr = date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+        dateTimeLabels.push({ date, dateStr, timeStr });
+        return `${dateStr} ${timeStr}`;
+    });
+    
+    // Populate results table
+    populateResultsTable(solution, prices, dateTimeLabels);
     
     // Generation & Prices Chart
     const genCtx = document.getElementById('generationChart').getContext('2d');
@@ -576,8 +588,70 @@ function updateCharts(solution, prices, params) {
     });
 }
 
+function populateResultsTable(solution, prices, dateTimeLabels) {
+    const tbody = document.getElementById('resultsTableBody');
+    tbody.innerHTML = ''; // Clear existing rows
+    
+    for (let i = 0; i < solution.P.length; i++) {
+        const row = tbody.insertRow();
+        
+        // Hour number
+        row.insertCell(0).textContent = i + 1;
+        
+        // Date/Time
+        const dateCell = row.insertCell(1);
+        dateCell.textContent = `${dateTimeLabels[i].dateStr} ${dateTimeLabels[i].timeStr}`;
+        
+        // Generation in kW (MW * 1000)
+        const genCell = row.insertCell(2);
+        genCell.textContent = Math.round(solution.P[i] * 1000);
+        genCell.style.textAlign = 'right';
+        
+        // Storage
+        const storageCell = row.insertCell(3);
+        storageCell.textContent = Math.round(solution.S[i + 1] || solution.S[i]);
+        storageCell.style.textAlign = 'right';
+        
+        // Price
+        const priceCell = row.insertCell(4);
+        priceCell.textContent = prices[i].toFixed(2);
+        priceCell.style.textAlign = 'right';
+        
+        // Add subtle row styling
+        if (i % 2 === 1) {
+            row.style.backgroundColor = '#f8fafc';
+        }
+        row.style.borderBottom = '1px solid #e2e8f0';
+    }
+}
+
+function copyTableToClipboard() {
+    const table = document.getElementById('resultsTable');
+    const rows = table.querySelectorAll('tr');
+    
+    let text = '';
+    rows.forEach((row, index) => {
+        const cells = row.querySelectorAll('th, td');
+        const rowData = Array.from(cells).map(cell => cell.textContent).join('\t');
+        text += rowData + '\n';
+    });
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyTableBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✅ Copiado!';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 2000);
+    }).catch(err => {
+        console.error('Error copying to clipboard:', err);
+        alert('Error al copiar. Por favor, seleccione y copie manualmente.');
+    });
+}
+
 function resetParameters() {
-    document.getElementById('horizon').value = 24;
+    document.getElementById('horizon').value = 48;  // Changed default to 48
     document.getElementById('pMin').value = 0.5;
     document.getElementById('pMax').value = 3;
     document.getElementById('s0').value = 25000;

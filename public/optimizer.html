@@ -262,7 +262,6 @@
                     <label>Node Selection</label>
                     <select id="nodeSelect">
                         <option value="PMontt220">Puerto Montt 220kV</option>
-                        <option value="NVA_P.MONTT___220">Nueva Puerto Montt 220kV</option>
                         <option value="PIDPID________110">Pid-Pid 110kV</option>
                         <option value="DALCAHUE______110">Dalcahue 110kV</option>
                     </select>
@@ -270,7 +269,7 @@
 
                 <div class="control-group">
                     <label>Time Horizon (hours)</label>
-                    <input type="number" id="horizon" value="24" min="1" max="48">
+                    <input type="number" id="horizon" value="48" min="1" max="72">
                 </div>
 
                 <div class="control-group">
@@ -298,7 +297,7 @@
                     <input type="number" id="sMax" value="50000" step="1000" min="0">
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" style="display: none;">
                     <label>Water-Power Factor (κ)</label>
                     <input type="number" id="kappa" value="0.667" step="0.01" min="0">
                 </div>
@@ -349,6 +348,31 @@
                 <h3>Reservoir Storage</h3>
                 <div class="chart-container">
                     <canvas id="storageChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="chart-card" style="margin-top: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3>Resultados Detallados (SCADA)</h3>
+                    <button id="copyTableBtn" class="btn btn-secondary" onclick="copyTableToClipboard()" style="padding: 8px 20px; font-size: 0.9rem;">
+                        📋 Copiar Tabla
+                    </button>
+                </div>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table id="resultsTable" style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: white; z-index: 10;">
+                            <tr>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Hora</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0;">Fecha/Hora</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Generación (kW)</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Almacenamiento (m³)</th>
+                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #e2e8f0;">Precio ($/MWh)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody">
+                            <!-- Rows will be added dynamically -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

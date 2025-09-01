@@ -15,6 +15,7 @@ from collections import defaultdict
 import pytz
 import csv
 from io import StringIO
+import numpy as np
 
 # Configuration
 SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
@@ -199,6 +200,38 @@ def parse_historical_record(record):
     except Exception as e:
         print(f"      Warning: Failed to parse record: {e}")
         return None
+
+def aggregate_hourly_data(records):
+    """
+    Aggregate multiple sub-hourly data points into hourly averages.
+    The API sometimes returns multiple values per hour (15-min intervals).
+    """
+    # Group by (node, date, hour)
+    hourly_groups = defaultdict(list)
+    
+    for record in records:
+        if record and record.get('node') and record.get('hour') is not None:
+            key = (record['node'], record['date'], record['hour'])
+            hourly_groups[key].append(record)
+    
+    aggregated = []
+    for (node, date, hour), hour_records in hourly_groups.items():
+        # Average the CMG values for this hour
+        cmg_real_values = [r['cmg_real'] for r in hour_records if r.get('cmg_real') is not None]
+        cmg_usd_values = [r['cmg_usd'] for r in hour_records if r.get('cmg_usd') is not None]
+        
+        if cmg_real_values and cmg_usd_values:
+            aggregated.append({
+                'datetime': hour_records[0]['datetime'],  # Use first record's datetime
+                'date': date,
+                'hour': hour,
+                'node': node,
+                'cmg_real': np.mean(cmg_real_values),
+                'cmg_usd': np.mean(cmg_usd_values),
+                'data_points': len(hour_records)  # Track how many values were averaged
+            })
+    
+    return aggregated
 
 def fetch_programmed_from_gist(now):
     """Fetch programmed data from GitHub Gist - PMontt220 only"""
@@ -386,13 +419,24 @@ def main():
         count = node_counts[node]
         print(f"      {node}: {count} records")
     
-    # Save historical cache
+    # Aggregate sub-hourly data before saving
+    print(f"\n   📊 Aggregating sub-hourly data...")
+    aggregated_historical = aggregate_hourly_data(all_historical)
+    print(f"      Aggregated {len(all_historical)} raw records into {len(aggregated_historical)} hourly averages")
+    
+    # Check for multiple data points per hour
+    multi_point_hours = [r for r in aggregated_historical if r.get('data_points', 1) > 1]
+    if multi_point_hours:
+        print(f"      Found {len(multi_point_hours)} hours with multiple data points (averaged)")
+    
+    # Save historical cache with aggregated data
     today = now.strftime('%Y-%m-%d')
     hist_cache = {
         'timestamp': now.isoformat(),
-        'data': all_historical[-500:],  # Keep last 500 records
+        'data': aggregated_historical[-500:],  # Keep last 500 aggregated records
         'statistics': {
-            'total_records': len(all_historical[-500:]),
+            'total_records': len(aggregated_historical[-500:]),
+            'raw_records_processed': len(all_historical),
             'coverage_percentage': coverage_pct,
             'unique_hours': unique_hours,
             'nodes': CMG_NODES
