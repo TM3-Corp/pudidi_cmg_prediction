@@ -21,7 +21,28 @@ def optimize_hydro_lp(prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, hor
     3. Storage bounds: s_min <= S[t] <= s_max
     """
     
+    # Validate inputs
+    if not prices or len(prices) == 0:
+        print("[LP] Error: Empty or invalid price array")
+        return {
+            'P': [p_min] * horizon,  # Return minimum generation
+            'S': [s0] * (horizon + 1),
+            'revenue': 0,
+            'success': False,
+            'message': 'Empty price array'
+        }
+    
     T = min(horizon, len(prices))
+    if T == 0:
+        print("[LP] Error: No valid time periods")
+        return {
+            'P': [],
+            'S': [s0],
+            'revenue': 0,
+            'success': False,
+            'message': 'No valid time periods'
+        }
+    
     dt = 1.0  # hourly steps
     vol_per_step = 3600.0 * dt  # seconds per step
     
@@ -84,7 +105,10 @@ def optimize_hydro_lp(prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, hor
         b_ub.append(b_upper)
     
     print(f"[LP] Created {len(A_ub)} inequality constraints")
-    print(f"[LP] Objective coefficients range: [{min(c):.2f}, {max(c):.2f}]")
+    if c:
+        print(f"[LP] Objective coefficients range: [{min(c):.2f}, {max(c):.2f}]")
+    else:
+        print("[LP] Warning: Empty objective coefficients")
     
     # Solve the LP
     try:

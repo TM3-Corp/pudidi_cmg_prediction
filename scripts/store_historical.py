@@ -33,10 +33,24 @@ def load_current_cache():
     
     return data.get('data', [])
 
-def organize_by_date(records):
+def load_programmed_cache():
+    """Load the current CMG Programado forecast"""
+    cache_path = Path('data/cache/cmg_programmed_latest.json')
+    
+    if not cache_path.exists():
+        print("Programmed cache file not found")
+        return None
+    
+    with open(cache_path, 'r') as f:
+        data = json.load(f)
+    
+    return data.get('data', [])
+
+def organize_by_date(records, programmed_records=None):
     """Organize records by date and hour for easier storage"""
     organized = {}
     
+    # Process CMG Online (actual) data
     for record in records:
         date = record['date']
         hour = record['hour']
@@ -45,18 +59,45 @@ def organize_by_date(records):
         if date not in organized:
             organized[date] = {
                 'hours': list(range(24)),
-                'data': {}
+                'cmg_online': {},
+                'cmg_programado': {}  # Will store what was forecasted for this date
             }
         
-        if node not in organized[date]['data']:
-            organized[date]['data'][node] = {
+        if node not in organized[date]['cmg_online']:
+            organized[date]['cmg_online'][node] = {
                 'cmg_usd': [None] * 24,
                 'cmg_real': [None] * 24
             }
         
-        # Store the values at the correct hour index
-        organized[date]['data'][node]['cmg_usd'][hour] = round(record.get('cmg_usd', 0), 2)
-        organized[date]['data'][node]['cmg_real'][hour] = round(record.get('cmg_real', 0), 0)
+        # Store the actual values
+        organized[date]['cmg_online'][node]['cmg_usd'][hour] = round(record.get('cmg_usd', 0), 2)
+        organized[date]['cmg_online'][node]['cmg_real'][hour] = round(record.get('cmg_real', 0), 0)
+    
+    # Process CMG Programado (forecast) data if available
+    if programmed_records:
+        # Map node names (PMontt220 -> NVA_P.MONTT___220)
+        node_mapping = {
+            'PMontt220': 'NVA_P.MONTT___220',
+            'Pidpid110': 'PIDPID________110',
+            'Dalcahue110': 'DALCAHUE______110'
+        }
+        
+        for record in programmed_records:
+            date = record.get('date')
+            hour = record.get('hour')
+            orig_node = record.get('node')
+            
+            # Map the node name
+            node = node_mapping.get(orig_node, orig_node)
+            
+            if date and date in organized:
+                if node not in organized[date]['cmg_programado']:
+                    organized[date]['cmg_programado'][node] = {
+                        'values': [None] * 24
+                    }
+                
+                if hour is not None and hour < 24:
+                    organized[date]['cmg_programado'][node]['values'][hour] = round(record.get('cmg_programmed', 0), 2)
     
     return organized
 
@@ -95,6 +136,19 @@ def merge_historical_data(existing_data, new_data):
     # Merge new data
     for date, data in new_data.items():
         if date >= cutoff_date:
+            # If date exists, merge programado data with existing online data
+            if date in existing_data['daily_data']:
+                # Keep existing CMG Online data if present
+                if 'cmg_online' in existing_data['daily_data'][date]:
+                    data['cmg_online'] = existing_data['daily_data'][date]['cmg_online']
+                # Update with new CMG Programado if available
+                if 'cmg_programado' in data and data['cmg_programado']:
+                    existing_data['daily_data'][date]['cmg_programado'] = data['cmg_programado']
+                else:
+                    # Keep existing programado if new doesn't have it
+                    if 'cmg_programado' in existing_data['daily_data'][date]:
+                        data['cmg_programado'] = existing_data['daily_data'][date]['cmg_programado']
+            
             existing_data['daily_data'][date] = data
     
     # Remove old data beyond rolling window
@@ -108,7 +162,8 @@ def merge_historical_data(existing_data, new_data):
         'total_days': len(existing_data['daily_data']),
         'oldest_date': min(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
         'newest_date': max(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
-        'nodes': NODES
+        'nodes': NODES,
+        'structure_version': '2.0'  # New structure with online and programado
     }
     
     return existing_data
@@ -162,19 +217,26 @@ def update_gist(data):
 def main():
     """Main function to store historical data"""
     print(f"\n{'='*60}")
-    print("STORING CMG ONLINE HISTORICAL DATA")
+    print("STORING CMG HISTORICAL DATA (ONLINE + PROGRAMADO)")
     print(f"{'='*60}")
     
-    # Load current cache
-    records = load_current_cache()
-    if not records:
-        print("No data to store")
+    # Load current CMG Online cache
+    online_records = load_current_cache()
+    if not online_records:
+        print("No CMG Online data to store")
         return
     
-    print(f"Found {len(records)} records in cache")
+    print(f"Found {len(online_records)} CMG Online records")
     
-    # Organize by date
-    organized_data = organize_by_date(records)
+    # Load current CMG Programado forecast
+    programmed_records = load_programmed_cache()
+    if programmed_records:
+        print(f"Found {len(programmed_records)} CMG Programado records")
+    else:
+        print("No CMG Programado data available")
+    
+    # Organize by date with both online and programado
+    organized_data = organize_by_date(online_records, programmed_records)
     print(f"Organized into {len(organized_data)} days")
     
     # Fetch existing Gist data

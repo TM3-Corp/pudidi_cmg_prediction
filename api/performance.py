@@ -64,11 +64,16 @@ class handler(BaseHTTPRequestHandler):
             historical_prices = self.fetch_historical_prices(start_date, horizon, node)
             
             # Fetch programmed CMG data (what was forecasted)
-            programmed_prices = self.fetch_programmed_prices(start_date, horizon)
+            programmed_prices = self.fetch_programmed_prices(start_date, horizon, node)
             
-            if not historical_prices or not programmed_prices:
-                self.send_error(404, "Insufficient historical data for analysis")
+            if not historical_prices:
+                self.send_error(404, "No historical CMG Online data available for the selected period")
                 return
+            
+            if not programmed_prices:
+                # If no programmed prices, use historical prices as fallback (assume perfect forecast)
+                print("[PERFORMANCE] Warning: No CMG Programado data, using CMG Online as fallback")
+                programmed_prices = historical_prices
             
             # Calculate performance for three scenarios
             results = self.calculate_performance(
@@ -108,6 +113,9 @@ class handler(BaseHTTPRequestHandler):
                 print("[PERFORMANCE] No historical data available")
                 return None
             
+            # Check structure version
+            structure_version = data.get('metadata', {}).get('structure_version', '1.0')
+            
             # Extract prices for the requested period
             prices = []
             current_date = datetime.fromisoformat(start_date)
@@ -119,8 +127,17 @@ class handler(BaseHTTPRequestHandler):
                 # Safely access nested data with proper null checks
                 day_data = data.get('daily_data', {}).get(date_str)
                 
-                if day_data and isinstance(day_data, dict) and 'data' in day_data:
-                    node_data = day_data.get('data', {}).get(node)
+                if day_data and isinstance(day_data, dict):
+                    # Handle new structure (v2.0) with cmg_online/cmg_programado
+                    if structure_version == '2.0' and 'cmg_online' in day_data:
+                        online_data = day_data.get('cmg_online', {})
+                        node_data = online_data.get(node)
+                    # Handle old structure (v1.0) with direct data
+                    elif 'data' in day_data:
+                        node_data = day_data.get('data', {}).get(node)
+                    else:
+                        node_data = None
+                    
                     if node_data and 'cmg_usd' in node_data:
                         cmg_prices = node_data.get('cmg_usd', [])
                         if hour_idx < len(cmg_prices) and cmg_prices[hour_idx] is not None:
@@ -173,27 +190,78 @@ class handler(BaseHTTPRequestHandler):
             print(f"[PERFORMANCE] Error fetching from Gist: {e}")
             return None
     
-    def fetch_programmed_prices(self, start_date, horizon):
-        """Fetch what CMG Programado prices were at that time"""
+    def fetch_programmed_prices(self, start_date, horizon, node):
+        """Fetch what CMG Programado prices were forecasted for that time"""
         try:
-            # For now, use current programmed cache
-            # In production, we'd store historical programmed forecasts
-            cache_path = 'data/cache/cmg_programmed_latest.json'
+            data = None
             
+            # First try local cache
+            cache_path = 'data/cache/cmg_online_historical.json'
             if os.path.exists(cache_path):
                 with open(cache_path, 'r') as f:
                     data = json.load(f)
-                
-                prices = []
-                for record in data.get('data', [])[:horizon]:
-                    prices.append(record.get('cmg_programmed', 0))
-                
-                return prices if len(prices) >= horizon else None
+            else:
+                # Try to fetch from GitHub Gist
+                data = self.fetch_from_gist()
             
-            return None
+            if not data or 'daily_data' not in data:
+                print("[PERFORMANCE] No historical data available for programmed prices")
+                return None
+            
+            # Check structure version
+            structure_version = data.get('metadata', {}).get('structure_version', '1.0')
+            
+            # Only new structure has programmed data
+            if structure_version != '2.0':
+                print("[PERFORMANCE] Old data structure - no programmed prices available")
+                return None
+            
+            # Extract programmed prices for the requested period
+            prices = []
+            current_date = datetime.fromisoformat(start_date)
+            
+            for hour in range(horizon):
+                date_str = current_date.strftime('%Y-%m-%d')
+                hour_idx = current_date.hour
+                
+                # Get the programmed data for this date
+                day_data = data.get('daily_data', {}).get(date_str)
+                
+                if day_data and 'cmg_programado' in day_data:
+                    programmed_data = day_data.get('cmg_programado', {})
+                    node_data = programmed_data.get(node)
+                    
+                    if node_data and 'values' in node_data:
+                        prog_values = node_data.get('values', [])
+                        if hour_idx < len(prog_values) and prog_values[hour_idx] is not None:
+                            prices.append(prog_values[hour_idx])
+                        else:
+                            # No programmed data for this hour
+                            prices.append(0)
+                    else:
+                        # Node not found in programmed data
+                        prices.append(0)
+                else:
+                    # No programmed data for this date
+                    prices.append(0)
+                
+                current_date += timedelta(hours=1)
+            
+            # Return prices only if we have some valid data
+            result = prices if any(p > 0 for p in prices) else None
+            
+            if result is None:
+                print(f"[PERFORMANCE] No valid programmed prices found for {start_date} (node: {node})")
+            else:
+                valid_count = sum(1 for p in prices if p > 0)
+                print(f"[PERFORMANCE] Found {valid_count}/{horizon} valid programmed prices")
+            
+            return result
             
         except Exception as e:
             print(f"[PERFORMANCE] Error fetching programmed prices: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def calculate_performance(self, historical_prices, programmed_prices, 
@@ -347,17 +415,37 @@ class handler(BaseHTTPRequestHandler):
             # Get date range and statistics
             dates = sorted(data.get('daily_data', {}).keys())
             nodes = data.get('metadata', {}).get('nodes', [])
+            structure_version = data.get('metadata', {}).get('structure_version', '1.0')
             
             # Count total hours available
-            total_hours = 0
+            total_hours_online = 0
+            total_hours_programmed = 0
+            
             for date in dates:
                 day_data = data['daily_data'][date]
-                if 'data' in day_data:
-                    # Check first node's data
+                
+                # Handle new structure (v2.0)
+                if structure_version == '2.0':
+                    if 'cmg_online' in day_data:
+                        for node in nodes:
+                            if node in day_data['cmg_online']:
+                                cmg_data = day_data['cmg_online'][node].get('cmg_usd', [])
+                                total_hours_online += sum(1 for p in cmg_data if p is not None and p > 0)
+                                break
+                    
+                    if 'cmg_programado' in day_data:
+                        for node in nodes:
+                            if node in day_data['cmg_programado']:
+                                prog_data = day_data['cmg_programado'][node].get('values', [])
+                                total_hours_programmed += sum(1 for p in prog_data if p is not None and p > 0)
+                                break
+                
+                # Handle old structure (v1.0)
+                elif 'data' in day_data:
                     for node in nodes:
                         if node in day_data['data']:
                             cmg_data = day_data['data'][node].get('cmg_usd', [])
-                            total_hours += sum(1 for p in cmg_data if p is not None and p > 0)
+                            total_hours_online += sum(1 for p in cmg_data if p is not None and p > 0)
                             break
             
             return {
@@ -366,9 +454,12 @@ class handler(BaseHTTPRequestHandler):
                 'oldest_date': dates[0] if dates else None,
                 'newest_date': dates[-1] if dates else None,
                 'total_days': len(dates),
-                'total_hours': total_hours,
+                'total_hours': total_hours_online if structure_version == '2.0' else total_hours_online,
+                'total_hours_online': total_hours_online,
+                'total_hours_programmed': total_hours_programmed,
                 'nodes': nodes,
-                'metadata': data.get('metadata', {})
+                'metadata': data.get('metadata', {}),
+                'has_programmed_data': total_hours_programmed > 0
             }
             
         except Exception as e:
