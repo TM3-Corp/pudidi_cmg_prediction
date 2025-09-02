@@ -193,15 +193,21 @@ class handler(BaseHTTPRequestHandler):
     def fetch_programmed_prices(self, start_date, horizon, node):
         """Fetch what CMG Programado prices were forecasted for that time"""
         try:
-            data = None
+            # First try to fetch from the CMG Programado Gist
+            programmed_data = self.fetch_programmed_from_gist(start_date, horizon, node)
             
-            # First try local cache
+            if programmed_data and len(programmed_data) > 0:
+                valid_count = sum(1 for p in programmed_data if p > 0)
+                print(f"[PERFORMANCE] Found {valid_count}/{horizon} valid programmed prices from Gist")
+                return programmed_data
+            
+            # Fallback: try local cache (for recent data that might be stored)
+            data = None
             cache_path = 'data/cache/cmg_online_historical.json'
             if os.path.exists(cache_path):
                 with open(cache_path, 'r') as f:
                     data = json.load(f)
             else:
-                # Try to fetch from GitHub Gist
                 data = self.fetch_from_gist()
             
             if not data or 'daily_data' not in data:
@@ -236,13 +242,10 @@ class handler(BaseHTTPRequestHandler):
                         if hour_idx < len(prog_values) and prog_values[hour_idx] is not None:
                             prices.append(prog_values[hour_idx])
                         else:
-                            # No programmed data for this hour
                             prices.append(0)
                     else:
-                        # Node not found in programmed data
                         prices.append(0)
                 else:
-                    # No programmed data for this date
                     prices.append(0)
                 
                 current_date += timedelta(hours=1)
@@ -254,7 +257,7 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[PERFORMANCE] No valid programmed prices found for {start_date} (node: {node})")
             else:
                 valid_count = sum(1 for p in prices if p > 0)
-                print(f"[PERFORMANCE] Found {valid_count}/{horizon} valid programmed prices")
+                print(f"[PERFORMANCE] Found {valid_count}/{horizon} valid programmed prices from cache")
             
             return result
             
@@ -262,6 +265,99 @@ class handler(BaseHTTPRequestHandler):
             print(f"[PERFORMANCE] Error fetching programmed prices: {e}")
             import traceback
             traceback.print_exc()
+            return None
+    
+    def fetch_programmed_from_gist(self, start_date, horizon, node):
+        """Fetch historical CMG Programado from the official Gist"""
+        try:
+            import csv
+            from io import StringIO
+            
+            # CMG Programado Gist ID
+            gist_id = 'a63a3a10479bafcc29e10aaca627bc73'
+            url = f'https://api.github.com/gists/{gist_id}'
+            
+            response = requests.get(url)
+            if response.status_code != 200:
+                return None
+            
+            gist_data = response.json()
+            
+            # Map node names
+            node_mapping = {
+                'NVA_P.MONTT___220': 'Puerto Montt 220',
+                'PIDPID________110': 'Pid-Pid 110',
+                'DALCAHUE______110': 'Dalcahue 110'
+            }
+            
+            mapped_node = node_mapping.get(node, node)
+            
+            # Parse start date
+            current_date = datetime.fromisoformat(start_date)
+            
+            # Look for CSV files that might contain data for our dates
+            prices = []
+            
+            for filename, file_info in gist_data['files'].items():
+                if filename.endswith('.csv'):
+                    csv_content = file_info['content']
+                    
+                    # Parse CSV
+                    reader = csv.DictReader(StringIO(csv_content))
+                    records = list(reader)
+                    
+                    # Build a date/hour/node index
+                    data_index = {}
+                    for record in records:
+                        # Find date, hour, and node columns
+                        date_val = None
+                        hour_val = None
+                        node_val = None
+                        price_val = None
+                        
+                        for key, value in record.items():
+                            if 'fecha' in key.lower() or 'date' in key.lower():
+                                date_val = value[:10] if value else None
+                            elif 'hora' in key.lower() or 'hour' in key.lower():
+                                try:
+                                    hour_val = int(value) if value else None
+                                except:
+                                    hour_val = None
+                            elif 'barra' in key.lower() or 'node' in key.lower():
+                                node_val = value
+                            elif 'cmg' in key.lower() and 'programado' in key.lower():
+                                try:
+                                    price_val = float(value) if value else None
+                                except:
+                                    price_val = None
+                        
+                        if date_val and hour_val is not None and node_val and price_val:
+                            key = (date_val, hour_val, node_val)
+                            data_index[key] = price_val
+                    
+                    # Extract prices for our period
+                    temp_date = current_date
+                    for hour in range(horizon):
+                        date_str = temp_date.strftime('%Y-%m-%d')
+                        hour_idx = temp_date.hour
+                        
+                        # Try to find the price
+                        key = (date_str, hour_idx, mapped_node)
+                        if key in data_index:
+                            prices.append(data_index[key])
+                        else:
+                            prices.append(0)
+                        
+                        temp_date += timedelta(hours=1)
+                    
+                    # If we found data, use it
+                    if any(p > 0 for p in prices):
+                        return prices
+            
+            return None
+            
+        except Exception as e:
+            print(f"[PERFORMANCE] Error fetching from CMG Programado Gist: {e}")
             return None
     
     def calculate_performance(self, historical_prices, programmed_prices, 
