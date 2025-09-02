@@ -52,6 +52,16 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
+      - name: Store historical data to Gist
+        if: success()
+        run: |
+          echo "Storing historical CMG data to GitHub Gist..."
+          python scripts/store_historical.py
+          echo "Historical data stored successfully"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: ${{ github.workspace }}
+      
       - name: Check for changes
         id: check_changes
         run: |
