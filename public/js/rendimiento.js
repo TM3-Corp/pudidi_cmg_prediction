@@ -8,11 +8,9 @@ let charts = {
 };
 
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Set default date to yesterday (more likely to have complete data)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    document.getElementById('startDate').value = yesterday.toISOString().split('T')[0];
+document.addEventListener('DOMContentLoaded', async function() {
+    // First check data availability
+    await checkDataAvailability();
     
     // Setup period selector buttons
     document.querySelectorAll('.period-btn').forEach(btn => {
@@ -22,10 +20,69 @@ document.addEventListener('DOMContentLoaded', function() {
             currentPeriod = this.dataset.period;
         });
     });
-    
-    // Load initial analysis
-    analyzePerformance();
 });
+
+async function checkDataAvailability() {
+    try {
+        const response = await fetch('/api/performance?check_availability=true');
+        const data = await response.json();
+        
+        const availabilityContent = document.getElementById('availabilityContent');
+        
+        if (data.available) {
+            // Format dates for display
+            const formatDate = (dateStr) => {
+                const date = new Date(dateStr + 'T00:00:00');
+                const options = { day: 'numeric', month: 'short', year: 'numeric' };
+                return date.toLocaleDateString('es-CL', options);
+            };
+            
+            // Display availability info
+            availabilityContent.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: #10b981; font-size: 1.2rem;">✓</span>
+                        <strong style="color: #334155;">${data.total_hours} horas disponibles</strong>
+                    </div>
+                    <div style="color: #64748b;">
+                        <strong>Desde:</strong> ${formatDate(data.oldest_date)}
+                    </div>
+                    <div style="color: #64748b;">
+                        <strong>Hasta:</strong> ${formatDate(data.newest_date)}
+                    </div>
+                    <div style="color: #64748b;">
+                        <strong>Días:</strong> ${data.total_days}
+                    </div>
+                </div>
+            `;
+            
+            // Set default date to the newest available date
+            if (data.newest_date) {
+                document.getElementById('startDate').value = data.newest_date;
+                document.getElementById('startDate').max = data.newest_date;
+                document.getElementById('startDate').min = data.oldest_date;
+            }
+            
+            // Auto-run analysis with available data
+            setTimeout(() => analyzePerformance(), 500);
+            
+        } else {
+            availabilityContent.innerHTML = `
+                <div style="color: #dc2626;">
+                    ⚠️ No hay datos históricos disponibles. 
+                    ${data.message || 'Espera a que se ejecute el proceso de recolección de datos.'}
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error checking data availability:', error);
+        document.getElementById('availabilityContent').innerHTML = `
+            <div style="color: #dc2626;">
+                ⚠️ Error verificando disponibilidad de datos
+            </div>
+        `;
+    }
+}
 
 async function analyzePerformance() {
     // Show loading state

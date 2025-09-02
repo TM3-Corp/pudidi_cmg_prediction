@@ -93,13 +93,19 @@ class handler(BaseHTTPRequestHandler):
     def fetch_historical_prices(self, start_date, horizon, node):
         """Fetch historical CMG Online prices from stored data"""
         try:
+            data = None
+            
             # First try local cache
             cache_path = 'data/cache/cmg_online_historical.json'
             if os.path.exists(cache_path):
                 with open(cache_path, 'r') as f:
                     data = json.load(f)
             else:
-                # Try to fetch from Gist (implement Gist ID lookup)
+                # Try to fetch from GitHub Gist
+                data = self.fetch_from_gist()
+            
+            if not data or 'daily_data' not in data:
+                print("[PERFORMANCE] No historical data available")
                 return None
             
             # Extract prices for the requested period
@@ -110,29 +116,61 @@ class handler(BaseHTTPRequestHandler):
                 date_str = current_date.strftime('%Y-%m-%d')
                 hour_idx = current_date.hour
                 
-                if date_str in data.get('daily_data', {}):
-                    day_data = data['daily_data'][date_str]
-                    if node in day_data.get('data', {}):
-                        node_data = day_data['data'][node]
-                        if hour_idx < len(node_data.get('cmg_usd', [])):
-                            price = node_data['cmg_usd'][hour_idx]
-                            if price is not None:
-                                prices.append(price)
-                            else:
-                                prices.append(0)  # Missing data
+                # Safely access nested data with proper null checks
+                day_data = data.get('daily_data', {}).get(date_str)
+                
+                if day_data and isinstance(day_data, dict) and 'data' in day_data:
+                    node_data = day_data.get('data', {}).get(node)
+                    if node_data and 'cmg_usd' in node_data:
+                        cmg_prices = node_data.get('cmg_usd', [])
+                        if hour_idx < len(cmg_prices) and cmg_prices[hour_idx] is not None:
+                            prices.append(cmg_prices[hour_idx])
                         else:
-                            prices.append(0)
+                            prices.append(0)  # Missing hour data
                     else:
-                        prices.append(0)
+                        prices.append(0)  # Node not found
                 else:
-                    prices.append(0)
+                    prices.append(0)  # Date not found
                 
                 current_date += timedelta(hours=1)
             
+            # Return prices only if we have some valid data
             return prices if any(p > 0 for p in prices) else None
             
         except Exception as e:
             print(f"[PERFORMANCE] Error fetching historical prices: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def fetch_from_gist(self):
+        """Fetch historical data from GitHub Gist"""
+        try:
+            # Try to read Gist ID from file
+            gist_id = None
+            if os.path.exists('.gist_id'):
+                with open('.gist_id', 'r') as f:
+                    gist_id = f.read().strip()
+            
+            # Fallback to a known Gist ID if needed
+            if not gist_id:
+                # Use the public Gist ID we just created
+                gist_id = '8d7864eb26acf6e780d3c0f7fed69365'
+            
+            # Fetch from GitHub Gist API
+            url = f'https://api.github.com/gists/{gist_id}'
+            response = requests.get(url)
+            
+            if response.status_code == 200:
+                gist_data = response.json()
+                if 'cmg_online_historical.json' in gist_data.get('files', {}):
+                    content = gist_data['files']['cmg_online_historical.json']['content']
+                    return json.loads(content)
+            
+            return None
+            
+        except Exception as e:
+            print(f"[PERFORMANCE] Error fetching from Gist: {e}")
             return None
     
     def fetch_programmed_prices(self, start_date, horizon):
@@ -251,23 +289,91 @@ class handler(BaseHTTPRequestHandler):
         }
 
     def do_GET(self):
-        """Handle GET requests for testing"""
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
-        response = {
-            'status': 'ok',
-            'message': 'Performance API is running',
-            'endpoints': {
-                'POST /': 'Calculate performance metrics',
-                'parameters': {
-                    'period': '24h | 48h | 5d | 7d',
-                    'start_date': 'ISO date string',
-                    'node': 'CMG node name'
+        """Handle GET requests for data availability check"""
+        try:
+            # Parse query parameters
+            from urllib.parse import urlparse, parse_qs
+            parsed_url = urlparse(self.path)
+            query_params = parse_qs(parsed_url.query)
+            
+            # Check if this is a data availability request
+            if 'check_availability' in query_params:
+                response = self.get_data_availability()
+            else:
+                response = {
+                    'status': 'ok',
+                    'message': 'Performance API is running',
+                    'endpoints': {
+                        'GET /?check_availability=true': 'Get available historical data dates',
+                        'POST /': 'Calculate performance metrics',
+                        'parameters': {
+                            'period': '24h | 48h | 5d | 7d',
+                            'start_date': 'ISO date string',
+                            'node': 'CMG node name'
+                        }
+                    }
                 }
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            print(f"[PERFORMANCE] Error in GET: {e}")
+            self.send_error(500, str(e))
+    
+    def get_data_availability(self):
+        """Get available dates and data statistics"""
+        try:
+            data = None
+            
+            # Try local cache first
+            cache_path = 'data/cache/cmg_online_historical.json'
+            if os.path.exists(cache_path):
+                with open(cache_path, 'r') as f:
+                    data = json.load(f)
+            else:
+                # Try GitHub Gist
+                data = self.fetch_from_gist()
+            
+            if not data or 'daily_data' not in data:
+                return {
+                    'available': False,
+                    'message': 'No historical data available'
+                }
+            
+            # Get date range and statistics
+            dates = sorted(data.get('daily_data', {}).keys())
+            nodes = data.get('metadata', {}).get('nodes', [])
+            
+            # Count total hours available
+            total_hours = 0
+            for date in dates:
+                day_data = data['daily_data'][date]
+                if 'data' in day_data:
+                    # Check first node's data
+                    for node in nodes:
+                        if node in day_data['data']:
+                            cmg_data = day_data['data'][node].get('cmg_usd', [])
+                            total_hours += sum(1 for p in cmg_data if p is not None and p > 0)
+                            break
+            
+            return {
+                'available': True,
+                'dates': dates,
+                'oldest_date': dates[0] if dates else None,
+                'newest_date': dates[-1] if dates else None,
+                'total_days': len(dates),
+                'total_hours': total_hours,
+                'nodes': nodes,
+                'metadata': data.get('metadata', {})
             }
-        }
-        
-        self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            print(f"[PERFORMANCE] Error checking availability: {e}")
+            return {
+                'available': False,
+                'message': f'Error checking data: {str(e)}'
+            }

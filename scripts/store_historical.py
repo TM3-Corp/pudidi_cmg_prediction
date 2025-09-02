@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 
 # GitHub Gist configuration
-GIST_ID = None  # Will be set after creating the Gist
+GIST_ID = '8d7864eb26acf6e780d3c0f7fed69365'  # Our public Gist for historical data
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')  # Set in GitHub Actions secrets
 GIST_FILENAME = 'cmg_online_historical.json'
 
