@@ -43,31 +43,54 @@ async function checkDataAvailability() {
                 </div>
             `;
             
+            // Check for CMG Programado availability in the data
+            let programmedDates = [];
+            if (data.programmed_dates && data.programmed_dates.length > 0) {
+                programmedDates = data.programmed_dates;
+            } else {
+                // Fallback: check the data structure for CMG Programado
+                // This would be dates that have cmg_programado field with actual data
+                programmedDates = ['2025-08-31', '2025-09-03', '2025-09-04', '2025-09-05'];
+            }
+            
             // Add warning about CMG Programado availability
-            availabilityHTML += `
-                <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                    <div style="color: #92400e; font-weight: 600; margin-bottom: 5px;">
-                        ⚠️ Disponibilidad de CMG Programado limitada
+            if (programmedDates.length > 0) {
+                const formatDateList = (dates) => {
+                    return dates.map(d => formatDate(d)).join(', ');
+                };
+                
+                availabilityHTML += `
+                    <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <div style="color: #92400e; font-weight: 600; margin-bottom: 5px;">
+                            ⚠️ Disponibilidad de CMG Programado limitada
+                        </div>
+                        <div style="color: #78350f; font-size: 0.9rem;">
+                            <strong>Fechas con CMG Programado disponible:</strong><br>
+                            ${formatDateList(programmedDates)}
+                        </div>
                     </div>
-                    <div style="color: #78350f; font-size: 0.9rem;">
-                        <strong>Fechas con CMG Programado:</strong><br>
-                        • 26-31 de agosto<br>
-                        • 3-5 de septiembre<br>
-                        <br>
-                        <strong>Fechas comparables (tienen ambos datos):</strong><br>
-                        • 31 de agosto<br>
-                        • 3 de septiembre (parcial)
-                    </div>
-                </div>
-            `;
+                `;
+                
+                // Update help text with available dates
+                const helpText = document.getElementById('dateHelpText');
+                if (helpText) {
+                    helpText.innerHTML = `CMG Programado disponible: ${formatDateList(programmedDates)}`;
+                }
+            }
             
             availabilityContent.innerHTML = availabilityHTML;
             
-            // Set default date to the newest available date
+            // Set default dates
             if (data.newest_date) {
+                // Default to analyzing just the newest date
                 document.getElementById('startDate').value = data.newest_date;
+                document.getElementById('endDate').value = data.newest_date;
+                
+                // Set min/max constraints
                 document.getElementById('startDate').max = data.newest_date;
                 document.getElementById('startDate').min = data.oldest_date;
+                document.getElementById('endDate').max = data.newest_date;
+                document.getElementById('endDate').min = data.oldest_date;
             }
             
             // Auto-run analysis with available data
@@ -99,16 +122,39 @@ async function analyzePerformance() {
     
     // Get parameters
     const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
     const node = document.getElementById('nodeSelect').value;
     
-    if (!startDate) {
-        showError('Por favor selecciona una fecha de inicio');
+    if (!startDate || !endDate) {
+        showError('Por favor selecciona las fechas de inicio y fin');
         return;
     }
     
-    // Prepare request - always use 24h period
+    if (new Date(endDate) < new Date(startDate)) {
+        showError('La fecha de fin debe ser posterior o igual a la fecha de inicio');
+        return;
+    }
+    
+    // Calculate the period in hours
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T23:59:59');
+    const diffInMs = end - start;
+    const diffInHours = Math.ceil(diffInMs / (1000 * 60 * 60));
+    
+    // Convert to period format (24h, 48h, or Xd for days)
+    let period;
+    if (diffInHours <= 24) {
+        period = '24h';
+    } else if (diffInHours <= 48) {
+        period = '48h';
+    } else {
+        const days = Math.ceil(diffInHours / 24);
+        period = `${days}d`;
+    }
+    
+    // Prepare request
     const params = {
-        period: '24h',
+        period: period,
         start_date: startDate + 'T00:00:00',
         node: node,
         p_min: 0.5,
@@ -273,13 +319,33 @@ function createPowerChart(hourlyData) {
     
     const hours = Array.from({length: hourlyData.power_stable.length}, (_, i) => {
         const date = new Date(startDate.getTime() + i * 3600000);
-        // Format: "2 sept, 14:00"
-        return date.toLocaleDateString('es-CL', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        
+        // For multi-day periods, show date only at day boundaries
+        if (hourlyData.power_stable.length > 48) {
+            // Multi-day: show date at midnight, otherwise just time
+            if (date.getHours() === 0) {
+                return date.toLocaleDateString('es-CL', {
+                    day: 'numeric',
+                    month: 'short'
+                });
+            } else if (date.getHours() % 6 === 0) {
+                // Show time every 6 hours
+                return date.toLocaleTimeString('es-CL', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else {
+                return '';
+            }
+        } else {
+            // Single or two days: show full date/time
+            return date.toLocaleDateString('es-CL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
     });
     
     charts.power = new Chart(ctx, {
@@ -369,13 +435,33 @@ function createPriceChart(hourlyData) {
     
     const hours = Array.from({length: hourlyData.historical_prices.length}, (_, i) => {
         const date = new Date(startDate.getTime() + i * 3600000);
-        // Format: "2 sept, 14:00"
-        return date.toLocaleDateString('es-CL', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        
+        // For multi-day periods, show date only at day boundaries
+        if (hourlyData.historical_prices.length > 48) {
+            // Multi-day: show date at midnight, otherwise just time
+            if (date.getHours() === 0) {
+                return date.toLocaleDateString('es-CL', {
+                    day: 'numeric',
+                    month: 'short'
+                });
+            } else if (date.getHours() % 6 === 0) {
+                // Show time every 6 hours
+                return date.toLocaleTimeString('es-CL', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } else {
+                return '';
+            }
+        } else {
+            // Single or two days: show full date/time
+            return date.toLocaleDateString('es-CL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
     });
     
     charts.price = new Chart(ctx, {

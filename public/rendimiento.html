@@ -332,13 +332,17 @@
         <div class="controls">
             <div class="control-row">
                 <div class="control-group">
-                    <label>Fecha a Analizar</label>
+                    <label>Fecha Inicio</label>
                     <input type="date" id="startDate" 
-                           min="2025-08-31" 
-                           max="2025-09-03"
-                           title="Solo fechas con datos comparables">
-                    <small style="color: #64748b; display: block; margin-top: 5px;">
-                        Fechas disponibles: 31 ago, 3 sept
+                           title="Fecha de inicio del análisis">
+                </div>
+                
+                <div class="control-group">
+                    <label>Fecha Fin</label>
+                    <input type="date" id="endDate" 
+                           title="Fecha de fin del análisis">
+                    <small id="dateHelpText" style="color: #64748b; display: block; margin-top: 5px;">
+                        Cargando fechas disponibles...
                     </small>
                 </div>
                 
@@ -354,7 +358,7 @@
                 <div class="control-group">
                     <label>&nbsp;</label>
                     <button class="btn" onclick="analyzePerformance()">
-                        Analizar Rendimiento (24h)
+                        Analizar Rendimiento
                     </button>
                 </div>
             </div>

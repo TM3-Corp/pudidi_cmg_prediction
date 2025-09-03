@@ -589,9 +589,10 @@ class handler(BaseHTTPRequestHandler):
             nodes = data.get('metadata', {}).get('nodes', [])
             structure_version = data.get('metadata', {}).get('structure_version', '1.0')
             
-            # Count total hours available
+            # Count total hours available and track programmed dates
             total_hours_online = 0
             total_hours_programmed = 0
+            programmed_dates = []
             
             for date in dates:
                 day_data = data['daily_data'][date]
@@ -606,11 +607,17 @@ class handler(BaseHTTPRequestHandler):
                                 break
                     
                     if 'cmg_programado' in day_data:
+                        has_programmed = False
                         for node in nodes:
                             if node in day_data['cmg_programado']:
                                 prog_data = day_data['cmg_programado'][node].get('values', [])
-                                total_hours_programmed += sum(1 for p in prog_data if p is not None and p > 0)
-                                break
+                                hours = sum(1 for p in prog_data if p is not None and p > 0)
+                                if hours > 0:
+                                    total_hours_programmed += hours
+                                    has_programmed = True
+                                    break
+                        if has_programmed and date not in programmed_dates:
+                            programmed_dates.append(date)
                 
                 # Handle old structure (v1.0)
                 elif 'data' in day_data:
@@ -623,6 +630,7 @@ class handler(BaseHTTPRequestHandler):
             return {
                 'available': True,
                 'dates': dates,
+                'programmed_dates': programmed_dates,  # Dates with CMG Programado data
                 'oldest_date': dates[0] if dates else None,
                 'newest_date': dates[-1] if dates else None,
                 'total_days': len(dates),
