@@ -79,7 +79,8 @@ class handler(BaseHTTPRequestHandler):
             results = self.calculate_performance(
                 historical_prices, 
                 programmed_prices,
-                p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon,
+                start_date
             )
             
             # Send response
@@ -283,11 +284,12 @@ class handler(BaseHTTPRequestHandler):
             
             gist_data = response.json()
             
-            # Map node names
+            # Map all our nodes to PMontt220 (the only one available in CMG Programado)
+            # All three nodes are in the Chiloé region, so PMontt220 is a reasonable proxy
             node_mapping = {
-                'NVA_P.MONTT___220': 'Puerto Montt 220',
-                'PIDPID________110': 'Pid-Pid 110',
-                'DALCAHUE______110': 'Dalcahue 110'
+                'NVA_P.MONTT___220': 'PMontt220',  # Direct correspondence
+                'PIDPID________110': 'PMontt220',  # Regional proxy (nearby)
+                'DALCAHUE______110': 'PMontt220'   # Regional proxy (nearby)
             }
             
             mapped_node = node_mapping.get(node, node)
@@ -312,29 +314,32 @@ class handler(BaseHTTPRequestHandler):
                     # Build a date/hour/node index
                     data_index = {}
                     for record in records:
-                        # Find date, hour, and node columns
+                        # The CSV has columns: 'Fecha Hora', 'Barra', 'Costo Marginal [USD/MWh]'
                         date_val = None
                         hour_val = None
                         node_val = None
                         price_val = None
                         
                         for key, value in record.items():
-                            if 'fecha' in key.lower() or 'date' in key.lower():
-                                date_val = value[:10] if value else None
-                            elif 'hora' in key.lower() or 'hour' in key.lower():
-                                try:
-                                    hour_val = int(value) if value else None
-                                except:
-                                    hour_val = None
-                            elif 'barra' in key.lower() or 'node' in key.lower():
+                            # Handle combined datetime column
+                            if 'fecha hora' in key.lower():
+                                # Parse '2025-09-03 00:00:00.000000'
+                                if value and len(value) >= 19:
+                                    date_val = value[:10]  # '2025-09-03'
+                                    try:
+                                        hour_val = int(value[11:13])  # Hour: 00-23
+                                    except:
+                                        hour_val = None
+                            elif 'barra' in key.lower():
                                 node_val = value
-                            elif 'cmg' in key.lower() and 'programado' in key.lower():
+                            elif 'costo marginal' in key.lower():
+                                # Parse 'Costo Marginal [USD/MWh]' column
                                 try:
                                     price_val = float(value) if value else None
                                 except:
                                     price_val = None
                         
-                        if date_val and hour_val is not None and node_val and price_val:
+                        if date_val and hour_val is not None and node_val and price_val is not None:
                             key = (date_val, hour_val, node_val)
                             data_index[key] = price_val
                     
@@ -353,9 +358,19 @@ class handler(BaseHTTPRequestHandler):
                         
                         temp_date += timedelta(hours=1)
                     
-                    # If we found data, use it
+                    # If we found complete data for this period, use it
                     if any(p > 0 for p in prices):
-                        return prices
+                        # Check if we have enough valid data (at least 50% of the period)
+                        valid_count = sum(1 for p in prices if p > 0)
+                        if valid_count >= horizon * 0.5:
+                            print(f"[PERFORMANCE] Found {valid_count}/{horizon} programmed prices in {filename}")
+                            return prices
+            
+            # If no single file had enough data, return what we found (might be partial)
+            if any(p > 0 for p in prices):
+                valid_count = sum(1 for p in prices if p > 0)
+                print(f"[PERFORMANCE] Found partial data: {valid_count}/{horizon} programmed prices")
+                return prices
             
             return None
             
@@ -364,7 +379,7 @@ class handler(BaseHTTPRequestHandler):
             return None
     
     def calculate_performance(self, historical_prices, programmed_prices, 
-                             p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon):
+                             p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon, start_date):
         """Calculate performance metrics for three scenarios"""
         
         # Ensure we have the right number of prices
@@ -373,7 +388,8 @@ class handler(BaseHTTPRequestHandler):
         
         # 1. STABLE GENERATION (Baseline)
         # Generate at water balance point
-        p_stable = min(max(inflow / kappa, p_min), p_max)  # Constrain to limits
+        water_balance = inflow / kappa  # Theoretical water balance point
+        p_stable = min(max(water_balance, p_min), p_max)  # Constrained to limits
         revenue_stable = sum(p_stable * price for price in historical_prices)
         
         # Power pattern for stable
@@ -466,14 +482,16 @@ class handler(BaseHTTPRequestHandler):
                 'improvement_vs_stable': round(improvement_vs_stable, 1),
                 'efficiency': round(efficiency, 1),
                 'horizon': horizon,
-                'p_stable': round(p_stable, 2)
+                'p_stable': round(p_stable, 2),
+                'water_balance': round(water_balance, 2)  # Show theoretical water balance
             },
             'hourly_data': {
                 'historical_prices': historical_prices,
                 'programmed_prices': programmed_prices,
                 'power_stable': power_stable,
                 'power_programmed': list(power_programmed) if hasattr(power_programmed, '__iter__') else [power_programmed] * horizon,
-                'power_hindsight': list(power_hindsight) if hasattr(power_hindsight, '__iter__') else [power_hindsight] * horizon
+                'power_hindsight': list(power_hindsight) if hasattr(power_hindsight, '__iter__') else [power_hindsight] * horizon,
+                'start_date': start_date  # Include for chart labeling
             },
             'daily_performance': daily_performance
         }

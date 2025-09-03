@@ -251,8 +251,20 @@ function createPowerChart(hourlyData) {
         charts.power.destroy();
     }
     
-    // Generate hour labels
-    const hours = Array.from({length: hourlyData.power_stable.length}, (_, i) => `H${i + 1}`);
+    // Generate date/time labels from the start date
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = new Date(startDateStr + 'T00:00:00');
+    
+    const hours = Array.from({length: hourlyData.power_stable.length}, (_, i) => {
+        const date = new Date(startDate.getTime() + i * 3600000);
+        // Format: "2 sept, 14:00"
+        return date.toLocaleDateString('es-CL', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    });
     
     charts.power = new Chart(ctx, {
         type: 'line',
@@ -335,8 +347,20 @@ function createPriceChart(hourlyData) {
         charts.price.destroy();
     }
     
-    // Generate hour labels
-    const hours = Array.from({length: hourlyData.historical_prices.length}, (_, i) => `H${i + 1}`);
+    // Generate date/time labels from the start date
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = new Date(startDateStr + 'T00:00:00');
+    
+    const hours = Array.from({length: hourlyData.historical_prices.length}, (_, i) => {
+        const date = new Date(startDate.getTime() + i * 3600000);
+        // Format: "2 sept, 14:00"
+        return date.toLocaleDateString('es-CL', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    });
     
     charts.price = new Chart(ctx, {
         type: 'line',
