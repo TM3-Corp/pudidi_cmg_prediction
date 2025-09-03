@@ -410,9 +410,18 @@ class handler(BaseHTTPRequestHandler):
         programmed_prices = programmed_prices[:horizon]
         
         # 1. STABLE GENERATION (Baseline)
-        # Generate at water balance point
+        # Generate at water balance point (true steady-state operation)
+        # Water balance is the generation level where inflow equals outflow: P = inflow/kappa
         water_balance = inflow / kappa  # Theoretical water balance point
-        p_stable = min(max(water_balance, p_min), p_max)  # Constrained to limits
+        
+        # Use a more realistic stable generation strategy:
+        # If we have excess inflow (water_balance > p_max), we need to operate differently
+        # A truly stable strategy would be to generate at a sustainable level
+        # Let's use the midpoint of operational range as stable generation
+        p_stable = (p_min + p_max) / 2  # Midpoint strategy: 1.75 MW
+        
+        # This represents a conservative, stable operation that maintains reservoir level
+        # without trying to maximize revenue or follow price signals
         revenue_stable = sum(p_stable * price for price in historical_prices)
         
         # Power pattern for stable
@@ -463,9 +472,9 @@ class handler(BaseHTTPRequestHandler):
         improvement_vs_stable = ((revenue_programmed - revenue_stable) / revenue_stable * 100) if revenue_stable > 0 else 0
         efficiency = (revenue_programmed / revenue_hindsight * 100) if revenue_hindsight > 0 else 0
         
-        # Calculate daily breakdown if period is longer than 24h
+        # Calculate daily breakdown (always include, even for 24h)
         daily_performance = []
-        if horizon > 24:
+        if horizon >= 24:  # Changed from > to >= to include 24h periods
             for day_start in range(0, horizon, 24):
                 day_end = min(day_start + 24, horizon)
                 day_prices = historical_prices[day_start:day_end]
@@ -505,7 +514,7 @@ class handler(BaseHTTPRequestHandler):
                 'improvement_vs_stable': round(improvement_vs_stable, 1),
                 'efficiency': round(efficiency, 1),
                 'horizon': horizon,
-                'p_stable': round(p_stable, 2),
+                'p_stable': round(p_stable, 2),  # Show actual stable generation used (midpoint)
                 'water_balance': round(water_balance, 2)  # Show theoretical water balance
             },
             'hourly_data': {

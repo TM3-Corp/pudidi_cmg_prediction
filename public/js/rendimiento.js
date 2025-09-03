@@ -1,6 +1,5 @@
 // Rendimiento Performance Analysis JavaScript
 
-let currentPeriod = '24h';
 let charts = {
     revenue: null,
     power: null,
@@ -11,15 +10,6 @@ let charts = {
 document.addEventListener('DOMContentLoaded', async function() {
     // First check data availability
     await checkDataAvailability();
-    
-    // Setup period selector buttons
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            currentPeriod = this.dataset.period;
-        });
-    });
 });
 
 async function checkDataAvailability() {
@@ -116,9 +106,9 @@ async function analyzePerformance() {
         return;
     }
     
-    // Prepare request
+    // Prepare request - always use 24h period
     const params = {
-        period: currentPeriod,
+        period: '24h',
         start_date: startDate + 'T00:00:00',
         node: node,
         p_min: 0.5,

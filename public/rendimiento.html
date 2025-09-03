@@ -332,18 +332,14 @@
         <div class="controls">
             <div class="control-row">
                 <div class="control-group">
-                    <label>Período de Análisis</label>
-                    <div class="period-selector">
-                        <button class="period-btn active" data-period="24h">24h</button>
-                        <button class="period-btn" data-period="48h">48h</button>
-                        <button class="period-btn" data-period="5d">5 días</button>
-                        <button class="period-btn" data-period="7d">7 días</button>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <label>Fecha de Inicio</label>
-                    <input type="date" id="startDate">
+                    <label>Fecha a Analizar</label>
+                    <input type="date" id="startDate" 
+                           min="2025-08-31" 
+                           max="2025-09-03"
+                           title="Solo fechas con datos comparables">
+                    <small style="color: #64748b; display: block; margin-top: 5px;">
+                        Fechas disponibles: 31 ago, 3 sept
+                    </small>
                 </div>
                 
                 <div class="control-group">
@@ -358,7 +354,7 @@
                 <div class="control-group">
                     <label>&nbsp;</label>
                     <button class="btn" onclick="analyzePerformance()">
-                        Analizar Rendimiento
+                        Analizar Rendimiento (24h)
                     </button>
                 </div>
             </div>
