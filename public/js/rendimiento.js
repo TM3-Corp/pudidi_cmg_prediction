@@ -37,12 +37,12 @@ async function checkDataAvailability() {
                 return date.toLocaleDateString('es-CL', options);
             };
             
-            // Display availability info
-            availabilityContent.innerHTML = `
+            // Display availability info with warning about data gaps
+            let availabilityHTML = `
                 <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="color: #10b981; font-size: 1.2rem;">✓</span>
-                        <strong style="color: #334155;">${data.total_hours} horas disponibles</strong>
+                        <strong style="color: #334155;">CMG Online: ${data.total_hours} horas</strong>
                     </div>
                     <div style="color: #64748b;">
                         <strong>Desde:</strong> ${formatDate(data.oldest_date)}
@@ -50,11 +50,28 @@ async function checkDataAvailability() {
                     <div style="color: #64748b;">
                         <strong>Hasta:</strong> ${formatDate(data.newest_date)}
                     </div>
-                    <div style="color: #64748b;">
-                        <strong>Días:</strong> ${data.total_days}
+                </div>
+            `;
+            
+            // Add warning about CMG Programado availability
+            availabilityHTML += `
+                <div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <div style="color: #92400e; font-weight: 600; margin-bottom: 5px;">
+                        ⚠️ Disponibilidad de CMG Programado limitada
+                    </div>
+                    <div style="color: #78350f; font-size: 0.9rem;">
+                        <strong>Fechas con CMG Programado:</strong><br>
+                        • 26-31 de agosto<br>
+                        • 3-5 de septiembre<br>
+                        <br>
+                        <strong>Fechas comparables (tienen ambos datos):</strong><br>
+                        • 31 de agosto<br>
+                        • 3 de septiembre (parcial)
                     </div>
                 </div>
             `;
+            
+            availabilityContent.innerHTML = availabilityHTML;
             
             // Set default date to the newest available date
             if (data.newest_date) {
@@ -123,8 +140,16 @@ async function analyzePerformance() {
         });
         
         if (!response.ok) {
-            const error = await response.text();
-            throw new Error(error || 'Error al analizar rendimiento');
+            const errorText = await response.text();
+            // Try to extract the actual error message from the HTML response
+            let errorMsg = errorText;
+            if (errorText.includes('Message:')) {
+                const match = errorText.match(/Message:\s*([^<]+)/);
+                if (match) {
+                    errorMsg = match[1];
+                }
+            }
+            throw new Error(errorMsg || 'Error al analizar rendimiento');
         }
         
         const data = await response.json();
@@ -132,7 +157,8 @@ async function analyzePerformance() {
         
     } catch (error) {
         console.error('Error:', error);
-        showError('Error al cargar datos de rendimiento. Verifica que existan datos históricos para el período seleccionado.');
+        // Show the actual error message from the API
+        showError(error.message || 'Error al cargar datos de rendimiento. Verifica que existan datos históricos para el período seleccionado.');
     } finally {
         document.getElementById('loadingSection').style.display = 'none';
     }

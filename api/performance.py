@@ -71,13 +71,21 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # Debug logging
+            print(f"[PERFORMANCE] Date: {start_date}, Node: {node}, Period: {period}")
             print(f"[PERFORMANCE] Historical prices (first 5): {historical_prices[:5] if historical_prices else 'None'}")
             print(f"[PERFORMANCE] Programmed prices (first 5): {programmed_prices[:5] if programmed_prices else 'None'}")
             
             if not programmed_prices:
-                # If no programmed prices, use historical prices as fallback (assume perfect forecast)
-                print("[PERFORMANCE] Warning: No CMG Programado data, using CMG Online as fallback")
-                programmed_prices = historical_prices
+                # NO FALLBACK - return error to user showing data gap
+                error_msg = (
+                    f"No hay datos de CMG Programado disponibles para {start_date[:10]}. "
+                    f"Los datos de CMG Programado están disponibles para: "
+                    f"26-31 de agosto y 3-5 de septiembre. "
+                    f"Por favor selecciona una fecha con datos disponibles."
+                )
+                print(f"[PERFORMANCE] Error: {error_msg}")
+                self.send_error(404, error_msg)
+                return
             
             # Check if they're different
             if historical_prices == programmed_prices:
