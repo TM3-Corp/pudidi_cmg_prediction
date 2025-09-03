@@ -70,10 +70,21 @@ class handler(BaseHTTPRequestHandler):
                 self.send_error(404, "No historical CMG Online data available for the selected period")
                 return
             
+            # Debug logging
+            print(f"[PERFORMANCE] Historical prices (first 5): {historical_prices[:5] if historical_prices else 'None'}")
+            print(f"[PERFORMANCE] Programmed prices (first 5): {programmed_prices[:5] if programmed_prices else 'None'}")
+            
             if not programmed_prices:
                 # If no programmed prices, use historical prices as fallback (assume perfect forecast)
                 print("[PERFORMANCE] Warning: No CMG Programado data, using CMG Online as fallback")
                 programmed_prices = historical_prices
+            
+            # Check if they're different
+            if historical_prices == programmed_prices:
+                print("[PERFORMANCE] WARNING: Historical and Programmed prices are identical!")
+            else:
+                diff_count = sum(1 for h, p in zip(historical_prices, programmed_prices) if h != p)
+                print(f"[PERFORMANCE] Prices differ in {diff_count}/{len(historical_prices)} hours")
             
             # Calculate performance for three scenarios
             results = self.calculate_performance(
@@ -298,7 +309,8 @@ class handler(BaseHTTPRequestHandler):
             current_date = datetime.fromisoformat(start_date)
             
             # Look for CSV files that might contain data for our dates
-            prices = []
+            best_prices = []
+            best_valid_count = 0
             
             for filename, file_info in gist_data.get('files', {}).items():
                 if filename.endswith('.csv'):
@@ -344,6 +356,7 @@ class handler(BaseHTTPRequestHandler):
                             data_index[key] = price_val
                     
                     # Extract prices for our period
+                    prices = []
                     temp_date = current_date
                     for hour in range(horizon):
                         date_str = temp_date.strftime('%Y-%m-%d')
@@ -358,19 +371,21 @@ class handler(BaseHTTPRequestHandler):
                         
                         temp_date += timedelta(hours=1)
                     
-                    # If we found complete data for this period, use it
-                    if any(p > 0 for p in prices):
-                        # Check if we have enough valid data (at least 50% of the period)
-                        valid_count = sum(1 for p in prices if p > 0)
-                        if valid_count >= horizon * 0.5:
-                            print(f"[PERFORMANCE] Found {valid_count}/{horizon} programmed prices in {filename}")
+                    # Check if this file has better data than previous ones
+                    valid_count = sum(1 for p in prices if p > 0)
+                    if valid_count > best_valid_count:
+                        best_prices = prices
+                        best_valid_count = valid_count
+                        
+                        # If we found complete data, we can return immediately
+                        if valid_count == horizon:
+                            print(f"[PERFORMANCE] Found complete {valid_count}/{horizon} programmed prices in {filename}")
                             return prices
             
-            # If no single file had enough data, return what we found (might be partial)
-            if any(p > 0 for p in prices):
-                valid_count = sum(1 for p in prices if p > 0)
-                print(f"[PERFORMANCE] Found partial data: {valid_count}/{horizon} programmed prices")
-                return prices
+            # Return the best data we found
+            if best_valid_count > 0:
+                print(f"[PERFORMANCE] Found {best_valid_count}/{horizon} programmed prices")
+                return best_prices
             
             return None
             
