@@ -11,6 +11,7 @@ import requests
 import csv
 import json
 import os
+import sys
 from io import StringIO
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeoutError
 
@@ -186,20 +187,28 @@ async def download_cmg_programado():
         browser = await p.chromium.launch(headless=HEADLESS)
         context = await browser.new_context(accept_downloads=True)
         page = await context.new_page()
-        page.set_default_timeout(180_000)
+        page.set_default_timeout(300_000)  # Increase to 5 minutes
 
         try:
             # Navigate to the page
             print("📊 Navigating to Coordinador website...")
-            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="load")
+            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="load", timeout=60000)
+            
+            # Wait for the page to fully load
+            await page.wait_for_timeout(3000)
+            
+            # Click on Costo Marginal Programado
             await page.get_by_role("link", name="Costo Marginal Programado").click()
+            
+            # Wait for iframe to load
+            await page.wait_for_timeout(5000)
 
             # Target PowerBI iframe
             frame = page.frame_locator("#Costo-Marginal-Programado iframe").nth(1)
 
             # Trigger download
-            print("⬇️ Downloading CMG Programado data...")
-            async with page.expect_download() as dl_info:
+            print("⬇️ Downloading CMG Programado data (this may take a minute)...")
+            async with page.expect_download(timeout=120000) as dl_info:
                 await frame.get_by_title("Descargar").click()
             download = await dl_info.value
 
@@ -242,7 +251,7 @@ async def main():
     csv_content = await download_cmg_programado()
     if not csv_content:
         print("❌ Failed to download new data")
-        return
+        sys.exit(1)  # Exit with error code
     
     # 3. Parse new data
     print("🔄 Parsing new CMG Programado data...")
