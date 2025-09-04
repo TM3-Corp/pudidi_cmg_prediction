@@ -47,7 +47,14 @@ jobs:
           echo "Starting cache update at $(date)"
           echo "Python version: $(python --version)"
           echo "Working directory: $(pwd)"
-          python archive/simple_sequential_update_final.py
+          # Use smart caching script if it exists, otherwise fallback to old script
+          if [ -f scripts/smart_cmg_online_update.py ]; then
+            echo "Using smart caching script"
+            python scripts/smart_cmg_online_update.py
+          else
+            echo "Using legacy update script"
+            python archive/simple_sequential_update_final.py
+          fi
           echo "Cache update completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api

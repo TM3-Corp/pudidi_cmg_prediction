@@ -77,21 +77,17 @@ class handler(BaseHTTPRequestHandler):
             
             # Add new optimization to history
             if date_str not in existing_data:
-                existing_data[date_str] = []
+                existing_data[date_str] = {}
             
-            # Keep only the most recent optimization per hour
-            existing_data[date_str] = [
-                opt for opt in existing_data[date_str] 
-                if opt.get('hour') != now.hour
-            ]
-            existing_data[date_str].append(optimization_record)
-            
-            # Keep only last 7 days of optimization history
-            cutoff_date = (now - timedelta(days=7)).strftime('%Y-%m-%d')
-            existing_data = {
-                date: opts for date, opts in existing_data.items() 
-                if date >= cutoff_date
+            # Store one optimization per day (overwrite if exists)
+            # This ensures we have exactly one optimization per day at 17:00
+            existing_data[date_str] = {
+                'optimization': optimization_record,
+                'version': 1  # Track version for future schema changes
             }
+            
+            # No cutoff - keep ALL historical data for performance analysis
+            # This creates a permanent record of all optimizations
             
             # Update Gist
             gist_content = {

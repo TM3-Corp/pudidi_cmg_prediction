@@ -407,7 +407,6 @@ class handler(BaseHTTPRequestHandler):
             # Parse start date
             dt = datetime.fromisoformat(start_date)
             date_str = dt.strftime('%Y-%m-%d')
-            hour = dt.hour
             
             # Fetch from optimization results Gist
             gist_id = 'b7c9e8f3d2a1b4c5e6f7a8b9c0d1e2f3'
@@ -430,22 +429,21 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[PERFORMANCE] No optimization found for {date_str}")
                 return None
             
-            # Find the most recent optimization for this date/hour
-            day_optimizations = all_optimizations[date_str]
+            day_data = all_optimizations[date_str]
             
-            # Look for exact hour match or closest previous hour
-            best_opt = None
-            for opt in day_optimizations:
-                opt_hour = opt.get('hour', 0)
-                if opt_hour <= hour:
-                    if best_opt is None or opt_hour > best_opt.get('hour', 0):
-                        best_opt = opt
-            
-            if best_opt:
-                print(f"[PERFORMANCE] Found optimization from {date_str} hour {best_opt.get('hour')}")
+            # Handle new structure (single optimization per day)
+            if isinstance(day_data, dict) and 'optimization' in day_data:
+                opt = day_data['optimization']
+                print(f"[PERFORMANCE] Found daily optimization for {date_str}")
+                return opt.get('results', {})
+            # Handle old structure (list of optimizations)
+            elif isinstance(day_data, list) and len(day_data) > 0:
+                # Get the last optimization of the day (should be from 17:00)
+                best_opt = day_data[-1]
+                print(f"[PERFORMANCE] Found optimization from {date_str}")
                 return best_opt.get('results', {})
             else:
-                print(f"[PERFORMANCE] No suitable optimization found for {date_str} hour {hour}")
+                print(f"[PERFORMANCE] Invalid optimization data structure for {date_str}")
                 return None
                 
         except Exception as e:
