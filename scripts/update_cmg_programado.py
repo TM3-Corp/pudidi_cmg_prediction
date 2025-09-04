@@ -20,7 +20,14 @@ downloads_dir = Path("downloads")
 downloads_dir.mkdir(exist_ok=True)
 
 # GitHub configuration
-GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')  # Must be set as environment variable
+# Try to get token from environment, but allow running without it for testing
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
+if not GITHUB_TOKEN:
+    print("⚠️  Warning: GITHUB_TOKEN not set. Gist updates will fail.")
+    print("   Set it with: export GITHUB_TOKEN='your_token_here'")
+    # For testing, you could temporarily set a token here (remove before committing!)
+    # GITHUB_TOKEN = "ghp_YOUR_TOKEN_HERE"
+    
 GIST_ID = "a63a3a10479bafcc29e10aaca627bc73"
 GIST_FILENAME = "cmg_programado_historical.json"
 

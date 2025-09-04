@@ -1,0 +1,146 @@
+name: Manual Test All Systems
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_cmg_programado:
+        description: 'Test CMG Programado update'
+        required: false
+        type: boolean
+        default: true
+      test_optimization:
+        description: 'Test Optimization'
+        required: false
+        type: boolean
+        default: true
+      test_performance:
+        description: 'Test Performance Calculation'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test-all-systems:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests pytz numpy playwright
+          playwright install chromium
+          playwright install-deps chromium
+      
+      - name: Test CMG Programado Update
+        if: ${{ inputs.test_cmg_programado }}
+        run: |
+          echo "========================================"
+          echo "TESTING CMG PROGRAMADO UPDATE"
+          echo "========================================"
+          
+          # First, let's create our own CMG Programado Gist if needed
+          python -c "
+import os
+import json
+import requests
+
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
+headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+
+# Check if we need to create a new Gist for CMG Programado
+gist_id = 'a63a3a10479bafcc29e10aaca627bc73'
+response = requests.get(f'https://api.github.com/gists/{gist_id}', headers=headers)
+
+if response.status_code == 404 or 'arbanados' in response.text:
+    print('Creating our own CMG Programado Gist...')
+    payload = {
+        'description': 'Pudidi CMG Programado Historical Data',
+        'public': True,
+        'files': {
+            'cmg_programado_historical.json': {
+                'content': json.dumps({'metadata': {'info': 'Initial creation'}, 'data': {}}, indent=2)
+            }
+        }
+    }
+    response = requests.post('https://api.github.com/gists', headers=headers, json=payload)
+    if response.status_code == 201:
+        new_gist = response.json()
+        print(f'Created new Gist: {new_gist[\"id\"]}')
+        print(f'URL: {new_gist[\"html_url\"]}')
+        # Update the script to use the new Gist ID
+        with open('scripts/update_cmg_programado.py', 'r') as f:
+            content = f.read()
+        content = content.replace('a63a3a10479bafcc29e10aaca627bc73', new_gist['id'])
+        with open('scripts/update_cmg_programado.py', 'w') as f:
+            f.write(content)
+        print(f'Updated script with new Gist ID: {new_gist[\"id\"]}')
+"
+          
+          # Now run the update
+          python scripts/update_cmg_programado.py
+          
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Test Optimization
+        if: ${{ inputs.test_optimization }}
+        run: |
+          echo "========================================"
+          echo "TESTING OPTIMIZATION"
+          echo "========================================"
+          
+          python scripts/trigger_optimization.py || echo "Note: This may fail if API is not accessible from GitHub Actions"
+          
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Test Performance Calculation
+        if: ${{ inputs.test_performance }}
+        run: |
+          echo "========================================"
+          echo "TESTING PERFORMANCE CALCULATION"
+          echo "========================================"
+          
+          python scripts/daily_performance_calculation.py
+          
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Show Created Gists
+        if: always()
+        run: |
+          echo "========================================"
+          echo "CHECK YOUR GISTS"
+          echo "========================================"
+          echo "Visit: https://gist.github.com/PVSH97"
+          echo ""
+          echo "You should see:"
+          echo "1. cmg_programado_historical.json (your own copy)"
+          echo "2. optimization_results.json"
+          echo "3. performance_history.json"
+          
+      - name: Commit any changes
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check if there are changes (like updated Gist IDs)
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add -A
+            git commit -m "🤖 Update Gist IDs from automated test"
+            git push
+          fi
