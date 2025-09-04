@@ -89,6 +89,8 @@ jobs:
           echo "========================================"
           echo "SETTING UP CMG PROGRAMADO GIST"
           echo "========================================"
+          echo "GitHub Actor: ${{ github.actor }}"
+          echo "Token available: ${GITHUB_TOKEN:+YES}"
           python setup_gist.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
