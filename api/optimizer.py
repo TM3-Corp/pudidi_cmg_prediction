@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime, timedelta
 import pytz
 import traceback
+import requests
 # scipy might not be available on Vercel
 try:
     from scipy.optimize import linprog
@@ -22,7 +23,102 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# GitHub Gist configuration for storing optimization results
+OPTIMIZATION_GIST_ID = 'b7c9e8f3d2a1b4c5e6f7a8b9c0d1e2f3'  # Create a new Gist for optimization results
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')  # Must be set as environment variable
+
 class handler(BaseHTTPRequestHandler):
+    def store_optimization_result(self, params, result):
+        """Store optimization result to GitHub Gist for later comparison"""
+        try:
+            santiago_tz = pytz.timezone('America/Santiago')
+            now = datetime.now(santiago_tz)
+            date_str = now.strftime('%Y-%m-%d')
+            
+            # Prepare optimization record
+            optimization_record = {
+                'timestamp': now.isoformat(),
+                'date': date_str,
+                'hour': now.hour,
+                'parameters': {
+                    'horizon': params.get('horizon'),
+                    'node': params.get('node'),
+                    'p_min': params.get('p_min'),
+                    'p_max': params.get('p_max'),
+                    's0': params.get('s0'),
+                    's_min': params.get('s_min'),
+                    's_max': params.get('s_max'),
+                    'kappa': params.get('kappa'),
+                    'inflow': params.get('inflow')
+                },
+                'results': {
+                    'power_schedule': result.get('P'),
+                    'revenue': result.get('revenue'),
+                    'avg_generation': result.get('avg_generation'),
+                    'peak_generation': result.get('peak_generation'),
+                    'capacity_factor': result.get('capacity_factor'),
+                    'storage_trajectory': result.get('S')[:25] if result.get('S') else None  # First 25 hours
+                }
+            }
+            
+            # Fetch existing Gist data
+            headers = {'Authorization': f'token {GITHUB_TOKEN}'} if GITHUB_TOKEN else {}
+            existing_data = {}
+            
+            try:
+                response = requests.get(f'https://api.github.com/gists/{OPTIMIZATION_GIST_ID}', headers=headers)
+                if response.status_code == 200:
+                    gist_data = response.json()
+                    if 'optimization_results.json' in gist_data.get('files', {}):
+                        content = gist_data['files']['optimization_results.json'].get('content', '{}')
+                        existing_data = json.loads(content)
+            except:
+                pass
+            
+            # Add new optimization to history
+            if date_str not in existing_data:
+                existing_data[date_str] = []
+            
+            # Keep only the most recent optimization per hour
+            existing_data[date_str] = [
+                opt for opt in existing_data[date_str] 
+                if opt.get('hour') != now.hour
+            ]
+            existing_data[date_str].append(optimization_record)
+            
+            # Keep only last 7 days of optimization history
+            cutoff_date = (now - timedelta(days=7)).strftime('%Y-%m-%d')
+            existing_data = {
+                date: opts for date, opts in existing_data.items() 
+                if date >= cutoff_date
+            }
+            
+            # Update Gist
+            gist_content = {
+                'files': {
+                    'optimization_results.json': {
+                        'content': json.dumps(existing_data, indent=2)
+                    }
+                }
+            }
+            
+            response = requests.patch(
+                f'https://api.github.com/gists/{OPTIMIZATION_GIST_ID}', 
+                headers=headers, 
+                json=gist_content
+            )
+            
+            if response.status_code in [200, 201]:
+                print(f"[OPTIMIZER] Stored optimization result for {date_str} hour {now.hour}")
+                return True
+            else:
+                print(f"[OPTIMIZER] Failed to store result: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"[OPTIMIZER] Error storing optimization: {e}")
+            return False
+    
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -200,6 +296,9 @@ class handler(BaseHTTPRequestHandler):
             print(f"  - Avg generation: {solution['avg_generation']:.2f} MW")
             print(f"  - Peak generation: {solution['peak_generation']:.2f} MW")
             print(f"  - Capacity factor: {solution['capacity_factor']:.1f}%")
+            
+            # Store optimization result for performance tracking
+            self.store_optimization_result(params, solution)
             
             # Send response
             self.send_response(200)

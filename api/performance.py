@@ -401,6 +401,57 @@ class handler(BaseHTTPRequestHandler):
             print(f"[PERFORMANCE] Error fetching from CMG Programado Gist: {e}")
             return None
     
+    def fetch_optimization_results(self, start_date):
+        """Fetch stored optimization results from GitHub Gist"""
+        try:
+            # Parse start date
+            dt = datetime.fromisoformat(start_date)
+            date_str = dt.strftime('%Y-%m-%d')
+            hour = dt.hour
+            
+            # Fetch from optimization results Gist
+            gist_id = 'b7c9e8f3d2a1b4c5e6f7a8b9c0d1e2f3'
+            response = requests.get(f'https://api.github.com/gists/{gist_id}')
+            
+            if response.status_code != 200:
+                print(f"[PERFORMANCE] Could not fetch optimization results: {response.status_code}")
+                return None
+            
+            gist_data = response.json()
+            if 'optimization_results.json' not in gist_data.get('files', {}):
+                print("[PERFORMANCE] No optimization results file found")
+                return None
+            
+            content = gist_data['files']['optimization_results.json'].get('content', '{}')
+            all_optimizations = json.loads(content)
+            
+            # Look for optimization for this date
+            if date_str not in all_optimizations:
+                print(f"[PERFORMANCE] No optimization found for {date_str}")
+                return None
+            
+            # Find the most recent optimization for this date/hour
+            day_optimizations = all_optimizations[date_str]
+            
+            # Look for exact hour match or closest previous hour
+            best_opt = None
+            for opt in day_optimizations:
+                opt_hour = opt.get('hour', 0)
+                if opt_hour <= hour:
+                    if best_opt is None or opt_hour > best_opt.get('hour', 0):
+                        best_opt = opt
+            
+            if best_opt:
+                print(f"[PERFORMANCE] Found optimization from {date_str} hour {best_opt.get('hour')}")
+                return best_opt.get('results', {})
+            else:
+                print(f"[PERFORMANCE] No suitable optimization found for {date_str} hour {hour}")
+                return None
+                
+        except Exception as e:
+            print(f"[PERFORMANCE] Error fetching optimization results: {e}")
+            return None
+    
     def calculate_performance(self, historical_prices, programmed_prices, 
                              p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon, start_date):
         """Calculate performance metrics for three scenarios"""
@@ -428,7 +479,21 @@ class handler(BaseHTTPRequestHandler):
         power_stable = [p_stable] * horizon
         
         # 2. CMG PROGRAMADO OPTIMIZATION (Forecast-based)
-        if OPTIMIZER_AVAILABLE:
+        # First try to fetch stored optimization results
+        stored_optimization = self.fetch_optimization_results(start_date)
+        
+        if stored_optimization and 'power_schedule' in stored_optimization:
+            # Use stored optimization results
+            power_programmed = stored_optimization['power_schedule'][:horizon]
+            print(f"[PERFORMANCE] Using stored optimization with {len(power_programmed)} hours")
+            
+            # Calculate revenue using ACTUAL prices but STORED dispatch
+            revenue_programmed = sum(
+                power_programmed[i] * historical_prices[i] 
+                for i in range(min(len(power_programmed), len(historical_prices)))
+            )
+        elif OPTIMIZER_AVAILABLE:
+            # No stored results, run optimization now
             solution_programmed = optimize_hydro_lp(
                 programmed_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
             )
@@ -447,6 +512,7 @@ class handler(BaseHTTPRequestHandler):
                 power_programmed = power_stable
         else:
             # Fallback if optimizer not available
+            print("[PERFORMANCE] No stored optimization and optimizer not available")
             revenue_programmed = revenue_stable * 1.1  # Assume 10% improvement
             power_programmed = power_stable
         
