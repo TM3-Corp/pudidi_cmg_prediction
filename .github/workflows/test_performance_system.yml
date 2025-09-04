@@ -1,4 +1,4 @@
-name: Manual Test All Systems Fixed
+name: Test Performance System
 
 on:
   workflow_dispatch:
@@ -24,7 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      gists: write
     
     steps:
       - name: Checkout repository
