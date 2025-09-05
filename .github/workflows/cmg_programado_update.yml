@@ -44,22 +44,6 @@ jobs:
           python scripts/sync_from_partner_gist.py
         timeout-minutes: 2
       
-      - name: Optional - Try Direct Scraper
-        run: |
-          echo "🔍 Attempting direct scraper (optional)..."
-          # Try the scraper but don't fail if it doesn't work
-          timeout 60 python scripts/cmg_scraper_simple.py || echo "Direct scraper failed (expected)"
-        continue-on-error: true
-        timeout-minutes: 2
-      
-      - name: Update GitHub Gist
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "📤 Updating GitHub Gist..."
-          python scripts/update_cmg_gist.py
-      
       - name: Commit local changes
         if: success()
         run: |
