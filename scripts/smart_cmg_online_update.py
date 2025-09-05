@@ -2,6 +2,7 @@
 """
 Smart CMG Online Update with Caching
 Only fetches missing data, merges with existing cache
+Uses the CORRECT v4 API endpoint that works
 """
 
 import json
@@ -73,6 +74,158 @@ def determine_missing_hours(existing_keys, target_dates, nodes):
     
     return missing
 
+def fetch_page_with_retry(url, params, page_num, max_retries=10):
+    """Fetch a single page with retry logic"""
+    wait_time = 2
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, params=params, timeout=60)
+            
+            if response.status_code == 200:
+                data = response.json()
+                records = data.get('data', [])
+                return records, len(records)
+            
+            elif response.status_code == 502:
+                wait_time = min(wait_time * 1.5, 60)
+                print(f"      Page {page_num}: 502 error, attempt {attempt+1}/{max_retries}, waiting {wait_time:.1f}s")
+                time.sleep(wait_time)
+            
+            elif response.status_code == 429:
+                wait_time = min(wait_time * 2, 60)
+                print(f"      Page {page_num}: Rate limited, attempt {attempt+1}/{max_retries}, waiting {wait_time:.1f}s")
+                time.sleep(wait_time)
+            
+            elif response.status_code == 403:
+                print(f"      Page {page_num}: 403 Forbidden - API key may be invalid")
+                return [], 0
+            
+            else:
+                print(f"      Page {page_num}: Error {response.status_code}, attempt {attempt+1}/{max_retries}")
+                time.sleep(3)
+        
+        except requests.exceptions.Timeout:
+            print(f"      Page {page_num}: Timeout, attempt {attempt+1}/{max_retries}")
+            time.sleep(5)
+        
+        except Exception as e:
+            print(f"      Page {page_num}: Exception {str(e)[:50]}, attempt {attempt+1}/{max_retries}")
+            time.sleep(5)
+    
+    print(f"      Page {page_num}: Failed after {max_retries} attempts")
+    return [], 0
+
+def fetch_cmg_online_for_date(date_str, nodes):
+    """Fetch CMG Online data using the CORRECT v4 API with proper pagination"""
+    url = f"{SIP_BASE_URL}/costo-marginal-online/v4/findByDate"
+    
+    all_records = []
+    page = 1
+    consecutive_empty = 0
+    location_hours = defaultdict(set)
+    
+    print(f"📊 Fetching {date_str}: targeting {len(nodes)} nodes")
+    
+    while consecutive_empty < 3:
+        params = {
+            'startDate': date_str,
+            'endDate': date_str,
+            'page': page,
+            'limit': 4000,  # Use 4000 as per working implementation
+            'user_key': SIP_API_KEY  # user_key, not api_key!
+        }
+        
+        records, count = fetch_page_with_retry(url, params, page)
+        
+        if count > 0:
+            consecutive_empty = 0
+            
+            # Filter for our nodes and process
+            our_records = []
+            for record in records:
+                node = record.get('barra_transf', '')  # Use barra_transf field
+                if node in nodes:
+                    # Use hra field for hour (not hora)
+                    hour = record.get('hra', 0)
+                    
+                    # Parse the record properly
+                    parsed = parse_historical_record(record, date_str)
+                    if parsed:
+                        our_records.append(parsed)
+                        location_hours[node].add(hour)
+            
+            all_records.extend(our_records)
+            
+            # Show progress
+            unique_hours = set()
+            for hours in location_hours.values():
+                unique_hours.update(hours)
+            
+            if our_records:
+                print(f"   Page {page:3d}: {count:4d} total, {len(our_records):3d} for our nodes, coverage: {len(unique_hours)}/24 hours")
+            
+            # Check if this is the last page
+            if count < 4000:
+                print(f"   Page {page} is the last page ({count} < 4000)")
+                break
+            
+            page += 1
+            
+            # Safety limit
+            if page > 50:
+                print(f"   Reached page limit (50)")
+                break
+        else:
+            consecutive_empty += 1
+            if consecutive_empty >= 3:
+                print(f"   End of data (3 consecutive empty pages)")
+                break
+            page += 1
+    
+    # Show coverage summary
+    print(f"   Coverage summary:")
+    for node in sorted(nodes):
+        hours = sorted(location_hours.get(node, set()))
+        coverage = len(hours)
+        if coverage == 24:
+            print(f"      ✅ {node}: {coverage}/24 hours")
+        elif coverage > 0:
+            print(f"      ⚠️ {node}: {coverage}/24 hours")
+        else:
+            print(f"      ❌ {node}: 0/24 hours")
+    
+    return all_records
+
+def parse_historical_record(record, date_str):
+    """Parse a historical CMG record from v4 API"""
+    try:
+        # Use 'hra' field for the actual hour
+        hour = record.get('hra', 0)
+        
+        # cmg_clp_kwh_ is in CLP/kWh, convert to CLP/MWh (*1000)
+        cmg_clp_kwh = float(record.get('cmg_clp_kwh_', 0) or 0)
+        cmg_real = cmg_clp_kwh * 1000  # Convert to MWh
+        
+        # cmg_usd_mwh_ is already in USD/MWh
+        cmg_usd = float(record.get('cmg_usd_mwh_', 0) or 0)
+        
+        # Create datetime
+        santiago_tz = pytz.timezone('America/Santiago')
+        dt = datetime.strptime(f"{date_str} {hour:02d}:00:00", '%Y-%m-%d %H:%M:%S')
+        dt = santiago_tz.localize(dt)
+        
+        return {
+            'datetime': dt.strftime('%Y-%m-%dT%H:%M:%S'),
+            'date': date_str,
+            'hour': hour,
+            'node': record.get('barra_transf', ''),
+            'cmg_real': cmg_real,
+            'cmg_usd': cmg_usd
+        }
+    except Exception as e:
+        return None
+
 def fetch_missing_data(missing_hours):
     """Fetch only missing data from API"""
     if not missing_hours:
@@ -89,74 +242,16 @@ def fetch_missing_data(missing_hours):
     for date_str, date_items in by_date.items():
         # Get unique nodes for this date
         nodes_needed = list(set(item['node'] for item in date_items))
-        hours_needed = list(set(item['hour'] for item in date_items))
-        
-        print(f"📊 Fetching {date_str}: {len(hours_needed)} hours × {len(nodes_needed)} nodes")
         
         # Fetch data for this date
         records = fetch_cmg_online_for_date(date_str, nodes_needed)
-        
-        # Filter to only the hours we need
-        filtered = []
-        for record in records:
-            if record['hour'] in hours_needed:
-                filtered.append(record)
-        
-        all_records.extend(filtered)
+        all_records.extend(records)
         
         # Brief pause between dates
         if len(by_date) > 1:
             time.sleep(1)
     
     return all_records
-
-def fetch_cmg_online_for_date(date_str, nodes):
-    """Fetch CMG Online data for specific date and nodes"""
-    url = f"{SIP_BASE_URL}/estadistico/v1/cmg/cmg-online-diario-mdo"
-    
-    params = {
-        'fecha': date_str,
-        'barra_mnemotecnico': ','.join(nodes),
-        'formato': 'json',
-        'api_key': SIP_API_KEY,
-        '_limit': 10000
-    }
-    
-    try:
-        response = requests.get(url, params=params, timeout=30)
-        
-        if response.status_code != 200:
-            print(f"   ⚠️ API returned {response.status_code} for {date_str}")
-            return []
-        
-        data = response.json()
-        records = data.get('data', [])
-        
-        # Process records
-        processed = []
-        for record in records:
-            try:
-                # Parse datetime
-                dt = datetime.fromisoformat(record['fecha'].replace('Z', '+00:00'))
-                santiago_tz = pytz.timezone('America/Santiago')
-                dt_local = dt.astimezone(santiago_tz)
-                
-                processed.append({
-                    'datetime': dt_local.strftime('%Y-%m-%dT%H:%M:%S'),
-                    'date': dt_local.strftime('%Y-%m-%d'),
-                    'hour': dt_local.hour,
-                    'node': record['barra_mnemotecnico'],
-                    'cmg_real': float(record.get('cmg_real', 0)),
-                    'cmg_usd': float(record.get('cmg_usd', 0))
-                })
-            except Exception as e:
-                continue
-        
-        return processed
-        
-    except Exception as e:
-        print(f"   ❌ Error fetching {date_str}: {e}")
-        return []
 
 def merge_with_cache(cache_data, new_records):
     """Merge new records with existing cache"""

@@ -299,13 +299,14 @@ class handler(BaseHTTPRequestHandler):
                 
                 historical_data = data.get('historical_data', {})
             else:
-                # Fallback to Gist (for backwards compatibility)
-                gist_id = '8d7864eb26acf6e780d3c0f7fed69365'
-                url = f'https://api.github.com/gists/{gist_id}'
+                # Fallback to CMG Programado Gist (NOT the CMG Online Gist)
+                cmg_programado_gist_id = 'd68bb21360b1ac549c32a80195f99b09'  # CMG Programado Gist
+                url = f'https://api.github.com/gists/{cmg_programado_gist_id}'
                 
+                print(f"[PERFORMANCE] Fetching CMG Programado from Gist {cmg_programado_gist_id}")
                 response = requests.get(url)
                 if response.status_code != 200:
-                    print(f"[PERFORMANCE] Failed to fetch Gist: {response.status_code}")
+                    print(f"[PERFORMANCE] Failed to fetch CMG Programado Gist: {response.status_code}")
                     return None
                 
                 gist_data = response.json()
@@ -323,7 +324,7 @@ class handler(BaseHTTPRequestHandler):
                             historical_data = data.get('historical_data', {})
                             break
                 else:
-                    print("[PERFORMANCE] No CMG Programado data found")
+                    print("[PERFORMANCE] No CMG Programado data found in Gist")
                     return None
             
             # Extract prices for requested period
