@@ -1,10 +1,11 @@
 name: Hourly CMG Data Update
 
 on:
-  schedule:
-    # Run every hour at minute 5
-    - cron: '5 * * * *'
-  workflow_dispatch:  # Allow manual trigger
+  # DISABLED - Using unified_cmg_update.yml instead
+  # schedule:
+  #   # Run every hour at minute 5
+  #   - cron: '5 * * * *'
+  workflow_dispatch:  # Allow manual trigger only
   push:
     branches: [main]
     paths:

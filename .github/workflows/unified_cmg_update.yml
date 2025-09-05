@@ -1,0 +1,207 @@
+name: Unified CMG Data Update
+
+on:
+  schedule:
+    # Run every hour at minute 5
+    - cron: '5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/unified_cmg_update.yml'
+      - 'scripts/smart_cmg_online_update.py'
+      - 'scripts/sync_from_partner_gist.py'
+
+jobs:
+  update-all-cmg-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          pip install requests pytz numpy
+      
+      # ========== STEP 1: FETCH CMG ONLINE ==========
+      - name: Fetch CMG Online data
+        timeout-minutes: 50
+        run: |
+          cd ${{ github.workspace }}
+          echo "========================================"
+          echo "STEP 1: FETCHING CMG ONLINE DATA"
+          echo "========================================"
+          echo "Starting at $(date)"
+          python scripts/smart_cmg_online_update.py
+          echo "CMG Online fetch completed at $(date)"
+        env:
+          PYTHONPATH: ${{ github.workspace }}/api
+      
+      # ========== STEP 2: SYNC CMG PROGRAMADO ==========
+      - name: Sync CMG Programado from Partner Gist
+        if: success()
+        timeout-minutes: 5
+        run: |
+          echo ""
+          echo "========================================"
+          echo "STEP 2: SYNCING CMG PROGRAMADO"
+          echo "========================================"
+          echo "📊 Syncing CMG Programado from partner's Gist..."
+          python scripts/sync_from_partner_gist.py
+      
+      # ========== STEP 3: UPDATE CMG PROGRAMADO GIST ==========
+      - name: Update CMG Programado Gist
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "STEP 3: UPDATING CMG PROGRAMADO GIST"
+          echo "========================================"
+          python scripts/update_cmg_programado_gist.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+        continue-on-error: true  # Don't fail if token not configured
+      
+      # ========== STEP 4: STORE HISTORICAL TO GIST ==========
+      - name: Store historical data to CMG Online Gist
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "STEP 4: STORING HISTORICAL TO GIST"
+          echo "========================================"
+          python scripts/store_historical.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTHONPATH: ${{ github.workspace }}
+      
+      # ========== STEP 5: VERIFY DATA INTEGRITY ==========
+      - name: Verify data integrity
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "DATA INTEGRITY CHECK"
+          echo "========================================"
+          python -c "
+          import json
+          from pathlib import Path
+          from datetime import datetime
+          import pytz
+          
+          # Check CMG Online cache
+          cache_file = Path('data/cache/cmg_historical_latest.json')
+          if cache_file.exists():
+              with open(cache_file) as f:
+                  data = json.load(f)
+              records = data.get('data', [])
+              print(f'✅ CMG Online: {len(records)} records')
+              
+              # Check completeness by date
+              from collections import defaultdict
+              date_hours = defaultdict(set)
+              for r in records:
+                  date_hours[r['date']].add(r['hour'])
+              
+              for date in sorted(date_hours.keys())[-3:]:
+                  hours = date_hours[date]
+                  if len(hours) == 24:
+                      print(f'   ✅ {date}: Complete (24/24 hours)')
+                  else:
+                      print(f'   ⚠️ {date}: {len(hours)}/24 hours')
+          
+          # Check CMG Programado
+          prog_file = Path('data/cmg_programado_history.json')
+          if prog_file.exists():
+              with open(prog_file) as f:
+                  data = json.load(f)
+              hist = data.get('historical_data', {})
+              total_hours = sum(len(h) for h in hist.values())
+              print(f'✅ CMG Programado: {len(hist)} days, {total_hours} hours')
+          
+          print('========================================')"
+      
+      # ========== STEP 6: COMMIT CHANGES ==========
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet data/ || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push updates
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Pull latest changes first
+          echo "📥 Pulling latest changes..."
+          git pull origin main --rebase || {
+            echo "⚠️ Rebase failed, trying merge..."
+            git rebase --abort 2>/dev/null || true
+            git pull origin main --no-rebase || true
+          }
+          
+          # Add and commit changes
+          git add data/
+          git commit -m "🔄 Unified CMG update - $(date +'%Y-%m-%d %H:%M')
+          
+          - CMG Online data updated
+          - CMG Programado synced from partner
+          - Both Gists updated
+          - Data integrity verified"
+          
+          # Push with retry
+          PUSH_SUCCESS=false
+          for i in 1 2 3; do
+            echo "📤 Push attempt $i of 3..."
+            if git push origin main; then
+              echo "✅ Updates pushed successfully!"
+              PUSH_SUCCESS=true
+              break
+            else
+              echo "❌ Push failed, retrying..."
+              git pull origin main --rebase --autostash || true
+            fi
+          done
+          
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "⚠️ Could not push after 3 attempts"
+            exit 1
+          fi
+      
+      - name: Trigger Vercel deployment
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          echo "✅ Data updated - Vercel will auto-deploy"
+      
+      - name: Final summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "WORKFLOW SUMMARY"
+          echo "========================================"
+          echo "Completed at: $(date)"
+          echo "Status: ${{ job.status }}"
+          if [ -f data/cache/metadata.json ]; then
+            echo "Cache metadata:"
+            cat data/cache/metadata.json | python -m json.tool | head -20
+          fi

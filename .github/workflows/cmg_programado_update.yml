@@ -1,10 +1,11 @@
 name: CMG Programado Update
 
 on:
-  schedule:
-    # Run hourly at minute 35 to avoid conflicts with CMG Online update
-    - cron: '35 * * * *'
-  workflow_dispatch:  # Allow manual trigger
+  # DISABLED - Using unified_cmg_update.yml instead
+  # schedule:
+  #   # Run hourly at minute 35 to avoid conflicts with CMG Online update
+  #   - cron: '35 * * * *'
+  workflow_dispatch:  # Allow manual trigger only
 
 jobs:
   update-cmg-programado:
