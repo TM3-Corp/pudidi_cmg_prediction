@@ -1,6 +1,13 @@
 from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime, timedelta
+import sys
+import os
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent))
+from utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -17,6 +24,7 @@ class handler(BaseHTTPRequestHandler):
         last_value = 60.0
         success = False
         fetch_info = {}
+        last_updated = None
         
         try:
             import pytz
@@ -24,6 +32,19 @@ class handler(BaseHTTPRequestHandler):
             now = datetime.now(santiago_tz)
         except:
             now = datetime.now()
+        
+        # Try to get cached data first
+        try:
+            cache_manager = CacheManager()
+            display_data = cache_manager.get_combined_display_data()
+            
+            # Get last updated from cache
+            if display_data and display_data.get('historical', {}).get('last_updated'):
+                last_updated = display_data['historical']['last_updated']
+            elif display_data and display_data.get('programmed', {}).get('last_updated'):
+                last_updated = display_data['programmed']['last_updated']
+        except:
+            pass
         
         # Try to fetch real data from SIP API
         try:
@@ -193,6 +214,7 @@ class handler(BaseHTTPRequestHandler):
             'node': 'CHILOE________220',
             'data_source': data_source,
             'timestamp': now.strftime('%Y-%m-%d %H:%M:%S'),
+            'last_updated': last_updated if last_updated else now.strftime('%Y-%m-%d %H:%M:%S'),
             'stats': {
                 'avg_value': round(avg_value, 2),
                 'last_value': round(last_value, 2),
