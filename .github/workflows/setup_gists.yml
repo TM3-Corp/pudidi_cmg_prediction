@@ -53,67 +53,11 @@ jobs:
           echo "UPDATING SCRIPTS WITH NEW GIST IDS"
           echo "========================================"
           
-          # Read the configuration
+          # Check if configuration was created
           if [ -f gist_configuration.json ]; then
-            # Extract Gist IDs using Python
-            python -c "
-import json
-with open('gist_configuration.json', 'r') as f:
-    config = json.load(f)
-    
-gists = config.get('gists', {})
-
-# Update CMG Programado script
-if 'cmg_programado' in gists:
-    gist_id = gists['cmg_programado']['id']
-    print(f'Updating CMG Programado Gist ID to: {gist_id}')
-    
-    with open('scripts/update_cmg_programado.py', 'r') as f:
-        content = f.read()
-    
-    # Replace the placeholder or old ID
-    import re
-    content = re.sub(r'GIST_ID = [\"'].*?[\"']', f'GIST_ID = \"{gist_id}\"', content)
-    
-    with open('scripts/update_cmg_programado.py', 'w') as f:
-        f.write(content)
-    
-    print('✅ Updated scripts/update_cmg_programado.py')
-
-# Update optimizer
-if 'optimization' in gists:
-    gist_id = gists['optimization']['id']
-    print(f'Updating Optimization Gist ID to: {gist_id}')
-    
-    with open('api/optimizer.py', 'r') as f:
-        content = f.read()
-    
-    content = re.sub(r'OPTIMIZATION_GIST_ID = [\"'].*?[\"']', f'OPTIMIZATION_GIST_ID = \"{gist_id}\"', content)
-    
-    with open('api/optimizer.py', 'w') as f:
-        f.write(content)
-    
-    print('✅ Updated api/optimizer.py')
-
-# Update performance calculator
-if 'optimization' in gists and 'performance' in gists:
-    opt_id = gists['optimization']['id']
-    perf_id = gists['performance']['id']
-    print(f'Updating Performance Calculator Gist IDs')
-    
-    with open('scripts/daily_performance_calculation.py', 'r') as f:
-        content = f.read()
-    
-    content = re.sub(r'OPTIMIZATION_GIST = [\"'].*?[\"']', f'OPTIMIZATION_GIST = \"{opt_id}\"', content)
-    content = re.sub(r'PERFORMANCE_GIST = [\"'].*?[\"']', f'PERFORMANCE_GIST = \"{perf_id}\"', content)
-    
-    with open('scripts/daily_performance_calculation.py', 'w') as f:
-        f.write(content)
-    
-    print('✅ Updated scripts/daily_performance_calculation.py')
-
-print('All scripts updated!')
-"
+            python scripts/update_gist_ids.py
+          else
+            echo "❌ Configuration file not found"
           fi
       
       - name: Commit changes
