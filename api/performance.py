@@ -695,6 +695,9 @@ class handler(BaseHTTPRequestHandler):
                     'message': 'No historical data available'
                 }
             
+            # Also fetch CMG Programado dates from the dedicated Gist
+            programmed_all_dates = self.fetch_programmed_dates_from_gist()
+            
             # Get date range and statistics
             dates = sorted(data.get('daily_data', {}).keys())
             nodes = data.get('metadata', {}).get('nodes', [])
@@ -738,6 +741,13 @@ class handler(BaseHTTPRequestHandler):
                             total_hours_online += sum(1 for p in cmg_data if p is not None and p > 0)
                             break
             
+            # Merge with dates from CMG Programado Gist (includes August dates)
+            if programmed_all_dates:
+                for date in programmed_all_dates:
+                    if date not in programmed_dates:
+                        programmed_dates.append(date)
+                programmed_dates.sort()
+            
             return {
                 'available': True,
                 'dates': dates,
@@ -759,3 +769,62 @@ class handler(BaseHTTPRequestHandler):
                 'available': False,
                 'message': f'Error checking data: {str(e)}'
             }
+    
+    def calculate_price_following_dispatch(self, prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon):
+        """Simple price-following dispatch strategy"""
+        power = []
+        storage = s0
+        
+        # Normalize prices to 0-1 range
+        if max(prices) > min(prices):
+            normalized = [(p - min(prices)) / (max(prices) - min(prices)) for p in prices]
+        else:
+            normalized = [0.5] * horizon
+        
+        for i in range(horizon):
+            # Higher prices -> higher generation (within constraints)
+            p = p_min + (p_max - p_min) * normalized[i]
+            
+            # Check storage constraints
+            new_storage = storage + (inflow - kappa * p)
+            
+            # Adjust power if storage would violate constraints
+            if new_storage > s_max:
+                # Too much water, generate more
+                p = min(p_max, inflow / kappa + (storage - s_max) / kappa)
+            elif new_storage < s_min:
+                # Too little water, generate less
+                p = max(p_min, inflow / kappa - (s_min - storage) / kappa)
+            
+            power.append(p)
+            storage = storage + (inflow - kappa * p)
+            storage = max(s_min, min(s_max, storage))  # Clamp storage
+        
+        return power
+    
+    def fetch_programmed_dates_from_gist(self):
+        """Fetch all available dates from CMG Programado Gist"""
+        try:
+            cmg_programado_gist_id = 'd68bb21360b1ac549c32a80195f99b09'
+            url = f'https://api.github.com/gists/{cmg_programado_gist_id}'
+            
+            response = requests.get(url)
+            if response.status_code != 200:
+                return None
+            
+            gist_data = response.json()
+            
+            # Look for the JSON file with CMG Programado data
+            for filename, file_info in gist_data.get('files', {}).items():
+                if filename.endswith('.json'):
+                    content = file_info.get('content', '{}')
+                    data = json.loads(content)
+                    
+                    if 'historical_data' in data:
+                        return sorted(list(data['historical_data'].keys()))
+                    elif 'cmg_programado' in data and 'historical_data' in data['cmg_programado']:
+                        return sorted(list(data['cmg_programado']['historical_data'].keys()))
+            
+            return None
+        except:
+            return None

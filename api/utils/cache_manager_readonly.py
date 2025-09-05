@@ -77,6 +77,26 @@ class CacheManagerReadOnly:
                 else:
                     return None
             
+            # Check if timestamp is stale and metadata is fresher
+            if cache_type in ['historical', 'programmed'] and 'timestamp' in data:
+                try:
+                    # Try to read metadata for fresher timestamp
+                    metadata_path = self.get_cache_path('metadata')
+                    if metadata_path.exists():
+                        with open(metadata_path, 'r') as f:
+                            metadata = json.load(f)
+                            if 'timestamp' in metadata:
+                                # Compare timestamps
+                                cache_time = datetime.fromisoformat(data['timestamp'])
+                                meta_time = datetime.fromisoformat(metadata['timestamp'])
+                                
+                                # If metadata is newer, use its timestamp
+                                if meta_time > cache_time:
+                                    data['timestamp'] = metadata['timestamp']
+                                    data['metadata_updated'] = True
+                except:
+                    pass  # Keep original timestamp if metadata check fails
+            
             # Add cache age information
             if 'timestamp' in data:
                 try:
@@ -90,7 +110,11 @@ class CacheManagerReadOnly:
                     age_hours = (now - cache_time).total_seconds() / 3600
                     
                     data['cache_age_hours'] = age_hours
-                    data['is_stale'] = age_hours > 2
+                    # Consider cache fresh if it was updated via metadata (within last 24h)
+                    if data.get('metadata_updated'):
+                        data['is_stale'] = age_hours > 24  # More lenient for metadata-updated caches
+                    else:
+                        data['is_stale'] = age_hours > 2
                 except:
                     data['cache_age_hours'] = 0
                     data['is_stale'] = False
