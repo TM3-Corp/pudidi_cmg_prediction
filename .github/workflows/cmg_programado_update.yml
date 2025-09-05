@@ -44,14 +44,14 @@ jobs:
           python scripts/sync_from_partner_gist.py
         timeout-minutes: 2
       
-      - name: Update CMG Programado Gist
-        if: success()
+      - name: Update CMG Programado Gist (Optional)
+        if: success() && secrets.CMG_GIST_TOKEN != ''
         run: |
           echo "📤 Updating CMG Programado Gist..."
           python scripts/update_cmg_programado_gist.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true  # Don't fail the workflow if Gist update fails
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+        continue-on-error: true  # Don't fail the workflow if token not configured
       
       - name: Commit local changes
         if: success()
