@@ -90,7 +90,7 @@ jobs:
           echo "========================================"
           python scripts/store_historical.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
           PYTHONPATH: ${{ github.workspace }}
       
       # ========== STEP 5: VERIFY DATA INTEGRITY ==========
