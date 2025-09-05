@@ -1,0 +1,78 @@
+name: CMG Programado Update
+
+on:
+  schedule:
+    # Run daily at 6:00 AM Santiago time (9:00 UTC)
+    - cron: '0 9 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-cmg-programado:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      gists: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-playwright-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-playwright-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright requests pytz
+          playwright install chromium
+          playwright install-deps chromium
+      
+      - name: Download CMG Programado
+        run: |
+          echo "📊 Starting CMG Programado download..."
+          python scripts/cmg_scraper_simple.py
+        timeout-minutes: 10
+      
+      - name: Merge with Historical Data
+        if: success()
+        run: |
+          echo "🔀 Merging with historical data..."
+          python scripts/merge_cmg_history.py
+      
+      - name: Update GitHub Gist
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "📤 Updating GitHub Gist..."
+          python scripts/update_cmg_gist.py
+      
+      - name: Commit local changes
+        if: success()
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Add the updated local file
+          git add data/cmg_programado_history.json
+          
+          # Commit if there are changes
+          if ! git diff --staged --quiet; then
+            git commit -m "Update CMG Programado historical data [$(date +'%Y-%m-%d %H:%M')]"
+            git push
+            echo "✅ Changes committed and pushed"
+          else
+            echo "ℹ️ No changes to commit"
+          fi

@@ -288,38 +288,76 @@ class handler(BaseHTTPRequestHandler):
             return None
     
     def fetch_programmed_from_gist(self, start_date, horizon, node):
-        """Fetch historical CMG Programado from the official Gist"""
+        """Fetch historical CMG Programado from the combined Gist"""
         try:
-            import csv
-            from io import StringIO
-            
-            # CMG Programado Gist ID
-            gist_id = 'a63a3a10479bafcc29e10aaca627bc73'
+            # Use the same Gist as CMG Online (now contains both)
+            gist_id = '8d7864eb26acf6e780d3c0f7fed69365'
             url = f'https://api.github.com/gists/{gist_id}'
             
             response = requests.get(url)
             if response.status_code != 200:
+                print(f"[PERFORMANCE] Failed to fetch Gist: {response.status_code}")
                 return None
             
             gist_data = response.json()
             
-            # Map all our nodes to PMontt220 (the only one available in CMG Programado)
-            # All three nodes are in the Chiloé region, so PMontt220 is a reasonable proxy
-            node_mapping = {
-                'NVA_P.MONTT___220': 'PMontt220',  # Direct correspondence
-                'PIDPID________110': 'PMontt220',  # Regional proxy (nearby)
-                'DALCAHUE______110': 'PMontt220'   # Regional proxy (nearby)
-            }
+            # Look for the JSON file with combined data
+            for filename, file_info in gist_data.get('files', {}).items():
+                if filename.endswith('.json'):
+                    content = file_info.get('content', '{}')
+                    data = json.loads(content)
+                    
+                    # Check if it has CMG Programado data
+                    if 'cmg_programado' not in data:
+                        print("[PERFORMANCE] No CMG Programado data in Gist")
+                        return None
+                    
+                    cmg_prog = data['cmg_programado']
+                    historical_data = cmg_prog.get('historical_data', {})
+                    
+                    # Parse start date
+                    current_date = datetime.fromisoformat(start_date)
+                    prices = []
+                    
+                    for h in range(horizon):
+                        date_str = current_date.strftime('%Y-%m-%d')
+                        hour = current_date.hour
+                        
+                        if date_str in historical_data:
+                            hour_data = historical_data[date_str].get(str(hour))
+                            if hour_data:
+                                prices.append(hour_data.get('value', 0))
+                            else:
+                                prices.append(None)
+                        else:
+                            prices.append(None)
+                        
+                        current_date += timedelta(hours=1)
+                    
+                    # Check if we have enough valid data
+                    valid_count = sum(1 for p in prices if p is not None)
+                    if valid_count < horizon * 0.8:
+                        print(f"[PERFORMANCE] Insufficient CMG Programado data: {valid_count}/{horizon}")
+                        return None
+                    
+                    # Fill gaps with interpolation
+                    for i in range(len(prices)):
+                        if prices[i] is None:
+                            prices[i] = 70.0  # Default fallback
+                    
+                    print(f"[PERFORMANCE] Fetched {valid_count}/{horizon} CMG Programado values from Gist")
+                    return prices
             
-            mapped_node = node_mapping.get(node, node)
+            print("[PERFORMANCE] No JSON file found in Gist")
+            return None
             
-            # Parse start date
-            current_date = datetime.fromisoformat(start_date)
-            
-            # Look for CSV files that might contain data for our dates
-            best_prices = []
-            best_valid_count = 0
-            
+        except Exception as e:
+            print(f"[PERFORMANCE] Error fetching CMG Programado from Gist: {e}")
+            return None
+    
+    def OLD_fetch_programmed_from_csv(self, start_date, horizon, node):
+        """Old CSV-based method (kept for reference)"""
+        try:
             for filename, file_info in gist_data.get('files', {}).items():
                 if filename.endswith('.csv'):
                     csv_content = file_info.get('content', '')
