@@ -44,13 +44,12 @@ jobs:
           python scripts/sync_from_partner_gist.py
         timeout-minutes: 2
       
-      - name: Update CMG Programado Gist
+      - name: Store in CMG Programado Gist
         env:
-          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "📤 Updating YOUR CMG Programado Gist..."
-          python scripts/update_cmg_programado_gist.py || echo "Gist update requires CMG_GIST_TOKEN secret"
-        continue-on-error: true
+          echo "📤 Storing CMG Programado in GitHub Gist..."
+          python scripts/store_cmg_programado.py
         timeout-minutes: 1
       
       - name: Commit local changes
@@ -59,8 +58,9 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # Add the updated local file
+          # Add the updated files
           git add data/cmg_programado_history.json
+          git add .cmg_programado_gist_id 2>/dev/null || true
           
           # Commit if there are changes
           if ! git diff --staged --quiet; then
