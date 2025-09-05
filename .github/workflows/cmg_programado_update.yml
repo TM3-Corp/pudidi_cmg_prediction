@@ -44,6 +44,15 @@ jobs:
           python scripts/sync_from_partner_gist.py
         timeout-minutes: 2
       
+      - name: Update CMG Programado Gist
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+        run: |
+          echo "📤 Updating YOUR CMG Programado Gist..."
+          python scripts/update_cmg_programado_gist.py || echo "Gist update requires CMG_GIST_TOKEN secret"
+        continue-on-error: true
+        timeout-minutes: 1
+      
       - name: Commit local changes
         if: success()
         run: |
