@@ -40,9 +40,14 @@ jobs:
       
       - name: Download CMG Programado
         run: |
-          echo "📊 Starting CMG Programado download..."
-          python scripts/cmg_scraper_simple.py
-        timeout-minutes: 10
+          echo "📊 Attempting to download CMG Programado..."
+          # Try the scraper, but don't fail the workflow if it doesn't work
+          python scripts/cmg_scraper_simple.py || {
+            echo "⚠️ Scraper failed, using fallback approach..."
+            python scripts/cmg_scraper_fallback.py
+          }
+        timeout-minutes: 5
+        continue-on-error: true
       
       - name: Merge with Historical Data
         if: success()

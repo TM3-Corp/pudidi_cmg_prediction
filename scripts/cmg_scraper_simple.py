@@ -12,7 +12,8 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 import os
 
 # === CONFIG ===
-HEADLESS = False  # Visible browser like partner's code
+# Use headless mode in GitHub Actions, visible mode locally
+HEADLESS = os.environ.get('GITHUB_ACTIONS', 'false').lower() == 'true'
 date_suffix = datetime.now().strftime("-%m-%d")
 downloads_dir = Path("downloads")
 downloads_dir.mkdir(exist_ok=True)
@@ -22,33 +23,48 @@ FIXED_NAME = "costo_marginal_programado.csv"
 
 async def run():
     async with async_playwright() as p:
-        print("Launching browser...")
+        print(f"Launching browser (headless={HEADLESS})...")
         browser = await p.chromium.launch(headless=HEADLESS)
         context = await browser.new_context(accept_downloads=True)
         page = await context.new_page()
-        page.set_default_timeout(180_000)
+        page.set_default_timeout(300_000)  # Increase to 5 minutes
 
         # 1) Navigate
         print("Navigating to Coordinador website...")
-        await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="load")
+        try:
+            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="domcontentloaded", timeout=60000)
+        except Exception as e:
+            print(f"Warning: Initial navigation had issues: {e}")
+            print("Continuing anyway...")
+        print("Page loaded, waiting for content...")
+        await page.wait_for_timeout(5000)
         
         print("Clicking on Costo Marginal Programado...")
         await page.get_by_role("link", name="Costo Marginal Programado").click()
+        print("Link clicked, waiting for navigation...")
 
         # 2) Target PowerBI iframe
-        print("Waiting for iframe...")
-        await page.wait_for_timeout(5000)  # Give it time to load
+        print("Waiting for PowerBI iframe to load (10 seconds)...")
+        await page.wait_for_timeout(10000)  # Increase wait for slow PowerBI
         frame = page.frame_locator("#Costo-Marginal-Programado iframe").nth(1)
 
         # 3) Trigger download
-        print("Triggering download...")
+        print("Looking for download button...")
         try:
-            async with page.expect_download() as dl_info:
-                await frame.get_by_title("Descargar").click()
+            download_button = frame.get_by_title("Descargar")
+            await download_button.wait_for(state="visible", timeout=30000)
+            print("Download button found, clicking...")
+            
+            async with page.expect_download(timeout=60000) as dl_info:
+                await download_button.click()
             download = await dl_info.value
             print("Download completed!")
-        except PlaywrightTimeoutError:
-            print("Download failed or timed out")
+        except PlaywrightTimeoutError as e:
+            print(f"Download failed: {e}")
+            await browser.close()
+            return None
+        except Exception as e:
+            print(f"Unexpected error during download: {e}")
             await browser.close()
             return None
 
