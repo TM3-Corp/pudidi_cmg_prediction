@@ -2,8 +2,8 @@ name: CMG Programado Update
 
 on:
   schedule:
-    # Run daily at 6:00 AM Santiago time (9:00 UTC)
-    - cron: '0 9 * * *'
+    # Run hourly at minute 35 to avoid conflicts with CMG Online update
+    - cron: '35 * * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:

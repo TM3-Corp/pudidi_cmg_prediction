@@ -33,7 +33,7 @@ METADATA_FILE = CACHE_DIR / 'metadata.json'
 def load_existing_cache():
     """Load existing cache data"""
     if not CACHE_FILE.exists():
-        return {}, set()
+        return {}, set(), {}
     
     try:
         with open(CACHE_FILE, 'r') as f:
@@ -41,20 +41,64 @@ def load_existing_cache():
         
         # Extract existing records as a set for quick lookup
         existing = set()
+        # Also track completeness by date/node
+        date_node_hours = defaultdict(set)
+        
         for record in cache_data.get('data', []):
             key = f"{record['datetime']}_{record['node']}"
             existing.add(key)
+            # Track which hours we have for each date/node
+            date = record['date']
+            node = record['node']
+            hour = record['hour']
+            date_node_hours[f"{date}_{node}"].add(hour)
         
-        return cache_data, existing
+        return cache_data, existing, date_node_hours
     except Exception as e:
         print(f"Error loading cache: {e}")
-        return {}, set()
+        return {}, set(), {}
 
-def determine_missing_hours(existing_keys, target_dates, nodes):
+def determine_missing_hours(existing_keys, target_dates, nodes, date_node_hours=None):
     """Determine which date/hour/node combinations are missing"""
     missing = []
     santiago_tz = pytz.timezone('America/Santiago')
     
+    # Show completeness status
+    if date_node_hours:
+        print("📊 Checking data completeness:")
+        for date_str in target_dates:
+            for node in nodes:
+                key = f"{date_str}_{node}"
+                hours_present = date_node_hours.get(key, set())
+                if len(hours_present) == 24:
+                    print(f"   ✅ {date_str} {node}: Complete (24/24 hours)")
+                elif hours_present:
+                    print(f"   ⚠️ {date_str} {node}: Incomplete ({len(hours_present)}/24 hours)")
+                    # Show which hours are missing
+                    missing_hours = set(range(24)) - hours_present
+                    if missing_hours:
+                        missing_ranges = []
+                        sorted_missing = sorted(missing_hours)
+                        start = sorted_missing[0]
+                        end = start
+                        for h in sorted_missing[1:]:
+                            if h == end + 1:
+                                end = h
+                            else:
+                                if start == end:
+                                    missing_ranges.append(f"{start:02d}:00")
+                                else:
+                                    missing_ranges.append(f"{start:02d}:00-{end:02d}:59")
+                                start = end = h
+                        if start == end:
+                            missing_ranges.append(f"{start:02d}:00")
+                        else:
+                            missing_ranges.append(f"{start:02d}:00-{end:02d}:59")
+                        print(f"      Missing hours: {', '.join(missing_ranges)}")
+                else:
+                    print(f"   ❌ {date_str} {node}: No data")
+    
+    # Find missing hours
     for date_str in target_dates:
         for hour in range(24):
             dt = datetime.strptime(f"{date_str} {hour:02d}:00:00", '%Y-%m-%d %H:%M:%S')
@@ -301,7 +345,7 @@ def main():
     
     # Load existing cache
     print("📂 Loading existing cache...")
-    cache_data, existing_keys = load_existing_cache()
+    cache_data, existing_keys, date_node_hours = load_existing_cache()
     print(f"   Found {len(existing_keys)} existing records")
     
     # Determine target dates (last 3 days including today)
@@ -315,7 +359,7 @@ def main():
     
     # Determine missing data
     print("🔍 Checking for missing data...")
-    missing = determine_missing_hours(existing_keys, target_dates, CMG_NODES)
+    missing = determine_missing_hours(existing_keys, target_dates, CMG_NODES, date_node_hours)
     print(f"   Need to fetch: {len(missing)} records")
     
     # Fetch only missing data
