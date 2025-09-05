@@ -551,15 +551,25 @@ class handler(BaseHTTPRequestHandler):
                 )
                 power_programmed = solution_programmed['P']
             else:
-                # Optimization failed, use fallback
-                print("[PERFORMANCE] CMG Programado optimization failed, using fallback")
-                revenue_programmed = revenue_stable * 1.1  # Assume 10% improvement
-                power_programmed = power_stable
+                # Optimization failed, use price-following strategy
+                print("[PERFORMANCE] CMG Programado optimization failed, using price-following strategy")
+                power_programmed = self.calculate_price_following_dispatch(
+                    programmed_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                )
+                revenue_programmed = sum(
+                    power_programmed[i] * historical_prices[i] 
+                    for i in range(min(len(power_programmed), len(historical_prices)))
+                )
         else:
-            # Fallback if optimizer not available
-            print("[PERFORMANCE] No stored optimization and optimizer not available")
-            revenue_programmed = revenue_stable * 1.1  # Assume 10% improvement
-            power_programmed = power_stable
+            # Fallback if optimizer not available - use price-following
+            print("[PERFORMANCE] No stored optimization and optimizer not available, using price-following")
+            power_programmed = self.calculate_price_following_dispatch(
+                programmed_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+            )
+            revenue_programmed = sum(
+                power_programmed[i] * historical_prices[i] 
+                for i in range(min(len(power_programmed), len(historical_prices)))
+            )
         
         # 3. PERFECT HINDSIGHT OPTIMIZATION (Ideal case)
         if OPTIMIZER_AVAILABLE:
@@ -571,13 +581,19 @@ class handler(BaseHTTPRequestHandler):
                 revenue_hindsight = solution_hindsight['revenue']
                 power_hindsight = solution_hindsight['P']
             else:
-                # Optimization failed, use fallback
-                print("[PERFORMANCE] Hindsight optimization failed, using fallback")
-                revenue_hindsight = revenue_stable * 1.2  # Assume 20% improvement possible
-                power_hindsight = power_stable
+                # Optimization failed, use price-following with historical prices
+                print("[PERFORMANCE] Hindsight optimization failed, using price-following with historical prices")
+                power_hindsight = self.calculate_price_following_dispatch(
+                    historical_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+                )
+                revenue_hindsight = sum(power_hindsight[i] * historical_prices[i] for i in range(len(power_hindsight)))
         else:
-            revenue_hindsight = revenue_stable * 1.2  # Assume 20% improvement possible
-            power_hindsight = power_stable
+            # Use price-following with historical prices as best possible
+            print("[PERFORMANCE] No optimizer for hindsight, using price-following with historical prices")
+            power_hindsight = self.calculate_price_following_dispatch(
+                historical_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
+            )
+            revenue_hindsight = sum(power_hindsight[i] * historical_prices[i] for i in range(len(power_hindsight)))
         
         # Calculate performance metrics
         improvement_vs_stable = ((revenue_programmed - revenue_stable) / revenue_stable * 100) if revenue_stable > 0 else 0
@@ -598,7 +614,11 @@ class handler(BaseHTTPRequestHandler):
                         for i in range(day_start, min(day_end, len(power_programmed)))
                     )
                 else:
-                    day_revenue_programmed = day_revenue_stable * 1.1
+                    # Recalculate for this day segment
+                    day_power_prog = self.calculate_price_following_dispatch(
+                        day_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, len(day_prices)
+                    )
+                    day_revenue_programmed = sum(day_power_prog[i] * day_prices[i] for i in range(len(day_prices)))
                 
                 # Safe calculation for hindsight revenue
                 if isinstance(power_hindsight, list) and len(power_hindsight) > day_start:
@@ -607,7 +627,11 @@ class handler(BaseHTTPRequestHandler):
                         for i in range(day_start, min(day_end, len(power_hindsight)))
                     )
                 else:
-                    day_revenue_hindsight = day_revenue_stable * 1.2
+                    # Recalculate hindsight for this day
+                    day_power_hind = self.calculate_price_following_dispatch(
+                        day_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, len(day_prices)
+                    )
+                    day_revenue_hindsight = sum(day_power_hind[i] * day_prices[i] for i in range(len(day_prices)))
                 
                 daily_performance.append({
                     'day': day_start // 24 + 1,

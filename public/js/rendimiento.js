@@ -53,6 +53,21 @@ async function checkDataAvailability() {
                 programmedDates = ['2025-08-31', '2025-09-03', '2025-09-04', '2025-09-05'];
             }
             
+            // Calculate the UNION of all available dates (CMG Online + CMG Programado)
+            let allAvailableDates = [...data.dates]; // CMG Online dates
+            programmedDates.forEach(date => {
+                if (!allAvailableDates.includes(date)) {
+                    allAvailableDates.push(date);
+                }
+            });
+            allAvailableDates.sort();
+            
+            // Get the full range for date selectors
+            const earliestDate = allAvailableDates[0];
+            const latestDate = allAvailableDates[allAvailableDates.length - 1];
+            console.log('Date range available:', earliestDate, 'to', latestDate);
+            console.log('Total dates with data:', allAvailableDates.length);
+            
             // Add warning about CMG Programado availability
             if (programmedDates.length > 0) {
                 const formatDateList = (dates) => {
@@ -74,23 +89,27 @@ async function checkDataAvailability() {
                 // Update help text with available dates
                 const helpText = document.getElementById('dateHelpText');
                 if (helpText) {
-                    helpText.innerHTML = `CMG Programado disponible: ${formatDateList(programmedDates)}`;
+                    helpText.innerHTML = `CMG Programado: ${formatDateList(programmedDates)}<br>` +
+                                        `Rango total disponible: ${formatDate(earliestDate)} - ${formatDate(latestDate)}`;
                 }
             }
             
             availabilityContent.innerHTML = availabilityHTML;
             
-            // Set default dates
-            if (data.newest_date) {
-                // Default to analyzing just the newest date
-                document.getElementById('startDate').value = data.newest_date;
-                document.getElementById('endDate').value = data.newest_date;
+            // Set default dates using the UNION of both datasets
+            if (allAvailableDates.length > 0) {
+                // Default to the most recent date with any data
+                const defaultDate = latestDate;
+                document.getElementById('startDate').value = defaultDate;
+                document.getElementById('endDate').value = defaultDate;
                 
-                // Set min/max constraints
-                document.getElementById('startDate').max = data.newest_date;
-                document.getElementById('startDate').min = data.oldest_date;
-                document.getElementById('endDate').max = data.newest_date;
-                document.getElementById('endDate').min = data.oldest_date;
+                // Set min/max constraints to include ALL available dates
+                document.getElementById('startDate').max = latestDate;
+                document.getElementById('startDate').min = earliestDate;
+                document.getElementById('endDate').max = latestDate;
+                document.getElementById('endDate').min = earliestDate;
+                
+                console.log('Date selectors configured:', earliestDate, 'to', latestDate);
             }
             
             // Auto-run analysis with available data
