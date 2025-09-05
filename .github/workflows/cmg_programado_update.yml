@@ -38,22 +38,19 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
       
-      - name: Download CMG Programado
+      - name: Sync CMG Programado from Partner Gist
         run: |
-          echo "📊 Attempting to download CMG Programado..."
-          # Try the scraper, but don't fail the workflow if it doesn't work
-          python scripts/cmg_scraper_simple.py || {
-            echo "⚠️ Scraper failed, using fallback approach..."
-            python scripts/cmg_scraper_fallback.py
-          }
-        timeout-minutes: 5
-        continue-on-error: true
+          echo "📊 Syncing CMG Programado from partner's Gist..."
+          python scripts/sync_from_partner_gist.py
+        timeout-minutes: 2
       
-      - name: Merge with Historical Data
-        if: success()
+      - name: Optional - Try Direct Scraper
         run: |
-          echo "🔀 Merging with historical data..."
-          python scripts/merge_cmg_history.py
+          echo "🔍 Attempting direct scraper (optional)..."
+          # Try the scraper but don't fail if it doesn't work
+          timeout 60 python scripts/cmg_scraper_simple.py || echo "Direct scraper failed (expected)"
+        continue-on-error: true
+        timeout-minutes: 2
       
       - name: Update GitHub Gist
         if: success()
