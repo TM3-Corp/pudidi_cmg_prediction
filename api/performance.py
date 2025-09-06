@@ -18,9 +18,17 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from api.utils.optimizer_lp import optimize_hydro_lp
     OPTIMIZER_AVAILABLE = True
-except ImportError:
-    OPTIMIZER_AVAILABLE = False
-    print("[PERFORMANCE] Optimizer not available")
+    print("[PERFORMANCE] Optimizer loaded successfully")
+except ImportError as e:
+    print(f"[PERFORMANCE] Failed to import optimizer from api.utils: {e}")
+    # Try alternative import path for Vercel
+    try:
+        from utils.optimizer_lp import optimize_hydro_lp
+        OPTIMIZER_AVAILABLE = True
+        print("[PERFORMANCE] Optimizer loaded via alternative path")
+    except ImportError as e2:
+        OPTIMIZER_AVAILABLE = False
+        print(f"[PERFORMANCE] Optimizer not available: {e2}")
 
 class handler(BaseHTTPRequestHandler):
     def do_OPTIONS(self):
@@ -523,6 +531,9 @@ class handler(BaseHTTPRequestHandler):
             )
         elif OPTIMIZER_AVAILABLE:
             # No stored results, run optimization now
+            print(f"[PERFORMANCE] Running optimizer with CMG Programado prices")
+            print(f"[PERFORMANCE] Price range: ${min(programmed_prices):.2f} - ${max(programmed_prices):.2f}")
+            print(f"[PERFORMANCE] Parameters: p_min={p_min}, p_max={p_max}, s0={s0}, kappa={kappa}, inflow={inflow}")
             solution_programmed = optimize_hydro_lp(
                 programmed_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
             )
@@ -557,6 +568,7 @@ class handler(BaseHTTPRequestHandler):
         
         # 3. PERFECT HINDSIGHT OPTIMIZATION (Ideal case)
         if OPTIMIZER_AVAILABLE:
+            print(f"[PERFORMANCE] Running hindsight optimization with historical prices")
             solution_hindsight = optimize_hydro_lp(
                 historical_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
             )
@@ -588,14 +600,16 @@ class handler(BaseHTTPRequestHandler):
         # Stable generation = total energy / hours (flat generation)
         p_stable = total_energy_optimized / horizon
         
+        # Calculate water balance (always define it for fallback)
+        water_balance = inflow / kappa
+        
         # Ensure stable generation is within constraints
         p_stable = max(p_min, min(p_max, p_stable))
         
         # If constrained, adjust to maintain feasibility
         if p_stable == p_min or p_stable == p_max:
             print(f"[PERFORMANCE] Warning: Stable generation {p_stable:.2f} MW at constraint boundary")
-            # Use water balance as fallback
-            water_balance = inflow / kappa
+            print(f"[PERFORMANCE] Using water balance fallback: {water_balance:.2f} MW")
             p_stable = max(p_min, min(p_max, water_balance))
         
         # Calculate revenue for stable generation
