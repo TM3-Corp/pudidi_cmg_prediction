@@ -11,19 +11,38 @@ from io import StringIO
 from datetime import datetime
 from pathlib import Path
 import pytz
+import os
 
 # Partner's working Gist that has CMG Programado data
 PARTNER_GIST_ID = 'a63a3a10479bafcc29e10aaca627bc73'
+
+# Get GitHub token for API authentication (optional for public gists but helps with rate limits)
+GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')
 
 def fetch_partner_gist_data():
     """Fetch CMG Programado data from partner's Gist"""
     print("📥 Fetching data from partner's Gist...")
     
     url = f'https://api.github.com/gists/{PARTNER_GIST_ID}'
-    response = requests.get(url)
+    
+    # Add authentication header if token is available
+    headers = {}
+    if GITHUB_TOKEN:
+        headers['Authorization'] = f'token {GITHUB_TOKEN}'
+        print("   Using authentication token")
+    else:
+        print("   Warning: No GITHUB_TOKEN, may hit rate limits")
+    
+    response = requests.get(url, headers=headers)
     
     if response.status_code != 200:
         print(f"❌ Failed to fetch Gist: {response.status_code}")
+        if response.status_code == 401:
+            print("   401 Unauthorized - Check if GITHUB_TOKEN is valid")
+        elif response.status_code == 403:
+            print("   403 Forbidden - Likely rate limited")
+        elif response.status_code == 404:
+            print("   404 Not Found - Check if Gist ID is correct")
         return None
     
     gist_data = response.json()

@@ -44,6 +44,8 @@ jobs:
           echo "📊 Syncing CMG Programado from partner's Gist..."
           python scripts/sync_from_partner_gist.py
         timeout-minutes: 2
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
       
       - name: Update CMG Programado Gist
         if: success()

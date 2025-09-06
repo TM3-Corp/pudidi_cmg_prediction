@@ -66,6 +66,8 @@ jobs:
           echo "========================================"
           echo "📊 Syncing CMG Programado from partner's Gist..."
           python scripts/sync_from_partner_gist.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
       
       # ========== STEP 3: UPDATE CMG PROGRAMADO GIST ==========
       - name: Update CMG Programado Gist
