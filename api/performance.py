@@ -505,23 +505,7 @@ class handler(BaseHTTPRequestHandler):
         historical_prices = historical_prices[:horizon]
         programmed_prices = programmed_prices[:horizon]
         
-        # 1. STABLE GENERATION (Baseline)
-        # Generate at water balance point (true steady-state operation)
-        # Water balance is the generation level where inflow equals outflow: P = inflow/kappa
-        water_balance = inflow / kappa  # Theoretical water balance point
-        
-        # Use a more realistic stable generation strategy:
-        # If we have excess inflow (water_balance > p_max), we need to operate differently
-        # A truly stable strategy would be to generate at a sustainable level
-        # Let's use the midpoint of operational range as stable generation
-        p_stable = (p_min + p_max) / 2  # Midpoint strategy: 1.75 MW
-        
-        # This represents a conservative, stable operation that maintains reservoir level
-        # without trying to maximize revenue or follow price signals
-        revenue_stable = sum(p_stable * price for price in historical_prices)
-        
-        # Power pattern for stable
-        power_stable = [p_stable] * horizon
+        # We'll calculate stable generation AFTER optimized scenarios to match total energy
         
         # 2. CMG PROGRAMADO OPTIMIZATION (Forecast-based)
         # First try to fetch stored optimization results
@@ -594,6 +578,40 @@ class handler(BaseHTTPRequestHandler):
                 historical_prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
             )
             revenue_hindsight = sum(power_hindsight[i] * historical_prices[i] for i in range(len(power_hindsight)))
+        
+        # NOW CALCULATE STABLE GENERATION to match total energy
+        # 1. STABLE GENERATION (Baseline) - Same total energy, flat distribution
+        
+        # Calculate total energy from the optimized scenario (use programmed as reference)
+        total_energy_optimized = sum(power_programmed) if isinstance(power_programmed, list) else horizon * 1.75
+        
+        # Stable generation = total energy / hours (flat generation)
+        p_stable = total_energy_optimized / horizon
+        
+        # Ensure stable generation is within constraints
+        p_stable = max(p_min, min(p_max, p_stable))
+        
+        # If constrained, adjust to maintain feasibility
+        if p_stable == p_min or p_stable == p_max:
+            print(f"[PERFORMANCE] Warning: Stable generation {p_stable:.2f} MW at constraint boundary")
+            # Use water balance as fallback
+            water_balance = inflow / kappa
+            p_stable = max(p_min, min(p_max, water_balance))
+        
+        # Calculate revenue for stable generation
+        revenue_stable = sum(p_stable * price for price in historical_prices)
+        power_stable = [p_stable] * horizon
+        
+        # Log energy balance
+        energy_stable = sum(power_stable)
+        energy_programmed = sum(power_programmed) if isinstance(power_programmed, list) else 0
+        energy_hindsight = sum(power_hindsight) if isinstance(power_hindsight, list) else 0
+        
+        print(f"[PERFORMANCE] Energy balance check:")
+        print(f"  Stable: {energy_stable:.1f} MWh (flat {p_stable:.2f} MW)")
+        print(f"  Programmed: {energy_programmed:.1f} MWh")
+        print(f"  Hindsight: {energy_hindsight:.1f} MWh")
+        print(f"  Balance matched: {abs(energy_stable - energy_programmed) < 0.1}")
         
         # Calculate performance metrics
         improvement_vs_stable = ((revenue_programmed - revenue_stable) / revenue_stable * 100) if revenue_stable > 0 else 0
