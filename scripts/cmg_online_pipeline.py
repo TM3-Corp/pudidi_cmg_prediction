@@ -18,7 +18,7 @@ import requests
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
-from download_cmg_en_linea_final import run as download_cmg
+from download_cmg_working import run as download_cmg
 
 # Configuration
 GIST_ID = "8d7864eb26acf6e780d3c0f7fed69365"
