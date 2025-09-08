@@ -49,45 +49,99 @@ async def download_cmg_online():
             
             # 4) Select date (Today)
             print("📅 Selecting today's date...")
-            # Click on the date selector
-            await frame.locator("//span[contains(@class, 'slicer-value')]").first.click()
-            await asyncio.sleep(1)
-            
-            # Select "Hoy" (Today)
-            await frame.locator("//div[contains(text(), 'Hoy')]").click()
-            await asyncio.sleep(2)
+            try:
+                # Try to find and click the date selector
+                date_selector = frame.locator("span.slicer-value").first
+                await date_selector.wait_for(timeout=10000)
+                await date_selector.click()
+                await asyncio.sleep(1)
+                
+                # Select "Hoy" (Today)
+                hoy_option = frame.locator("div:has-text('Hoy')").first
+                await hoy_option.click()
+                await asyncio.sleep(2)
+            except Exception as e:
+                print(f"⚠️ Could not select date, continuing anyway: {e}")
             
             # 5) Select nodes (P.MONTT_______220 and DALCAHUE______023)
             print("🔌 Selecting nodes...")
-            
-            # Click on Barra selector
-            await frame.locator("//div[@aria-label='Barra']").click()
-            await asyncio.sleep(1)
-            
-            # Clear all selections first
             try:
-                await frame.locator("//button[contains(@title, 'Borrar selecciones')]").click()
-                await asyncio.sleep(1)
-            except:
-                pass  # If no selections to clear
-            
-            # Select P.MONTT_______220
-            await frame.locator("//span[contains(text(), 'P.MONTT') and contains(text(), '220')]").click()
-            await asyncio.sleep(0.5)
-            
-            # Select DALCAHUE______023
-            await frame.locator("//span[contains(text(), 'DALCAHUE') and contains(text(), '023')]").click()
-            await asyncio.sleep(2)
+                # Look for Barra selector - it might be in different places
+                barra_selectors = [
+                    "div[aria-label='Barra']",
+                    "div:has-text('Barra')",
+                    "div.slicer-dropdown-menu",
+                    "div[title*='Barra']"
+                ]
+                
+                clicked = False
+                for selector in barra_selectors:
+                    try:
+                        element = frame.locator(selector).first
+                        await element.click(timeout=5000)
+                        clicked = True
+                        print(f"   ✓ Found Barra selector with: {selector}")
+                        break
+                    except:
+                        continue
+                
+                if clicked:
+                    await asyncio.sleep(1)
+                    
+                    # Try to select P.MONTT_______220
+                    try:
+                        await frame.locator("span:has-text('P.MONTT'):has-text('220')").first.click()
+                        print("   ✓ Selected P.MONTT_______220")
+                    except:
+                        print("   ⚠️ Could not select P.MONTT_______220")
+                    
+                    await asyncio.sleep(0.5)
+                    
+                    # Try to select DALCAHUE______023
+                    try:
+                        await frame.locator("span:has-text('DALCAHUE')").first.click()
+                        print("   ✓ Selected DALCAHUE______023")
+                    except:
+                        print("   ⚠️ Could not select DALCAHUE______023")
+                    
+                    await asyncio.sleep(2)
+                else:
+                    print("   ⚠️ Could not find Barra selector, will download all available data")
+            except Exception as e:
+                print(f"   ⚠️ Error selecting nodes: {e}")
             
             # 6) Trigger download
             print("⬇️ Downloading CSV...")
             try:
-                async with page.expect_download() as dl_info:
-                    # Click the download button
-                    await frame.get_by_title("Descargar").click()
-                download = await dl_info.value
-            except PlaywrightTimeoutError:
-                print("❌ Download failed or timed out")
+                # Look for download button with various selectors
+                download_selectors = [
+                    "[title='Descargar']",
+                    "[aria-label='Descargar']",
+                    "button:has-text('Descargar')",
+                    "[title='Download']",
+                    "[aria-label='Export']",
+                    "button[title*='Export']"
+                ]
+                
+                download_clicked = False
+                for selector in download_selectors:
+                    try:
+                        async with page.expect_download(timeout=5000) as dl_info:
+                            await frame.locator(selector).first.click()
+                            download = await dl_info.value
+                            download_clicked = True
+                            print(f"   ✓ Download triggered with: {selector}")
+                            break
+                    except:
+                        continue
+                
+                if not download_clicked:
+                    print("❌ Could not find download button")
+                    await browser.close()
+                    return None
+                    
+            except Exception as e:
+                print(f"❌ Download failed: {e}")
                 await browser.close()
                 return None
 

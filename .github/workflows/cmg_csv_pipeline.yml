@@ -1,0 +1,152 @@
+name: CMG CSV Pipeline
+
+on:
+  schedule:
+    # Run every hour at minute 15 (to avoid conflicts with other workflows)
+    - cron: '15 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-cmg-from-csv:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-playwright-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-playwright-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright requests pytz
+          playwright install chromium
+          playwright install-deps chromium
+      
+      # ========== STEP 1: RUN CMG ONLINE PIPELINE ==========
+      - name: Run CMG Online CSV Pipeline
+        timeout-minutes: 10
+        run: |
+          echo "========================================"
+          echo "CMG ONLINE CSV PIPELINE"
+          echo "========================================"
+          echo "Starting at $(date)"
+          python scripts/cmg_online_pipeline.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Token with gist permissions
+      
+      # ========== STEP 2: SYNC CMG PROGRAMADO (keep existing) ==========
+      - name: Sync CMG Programado from Partner Gist
+        if: success()
+        timeout-minutes: 5
+        run: |
+          echo ""
+          echo "========================================"
+          echo "SYNCING CMG PROGRAMADO"
+          echo "========================================"
+          python scripts/sync_from_partner_gist.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+      
+      # ========== STEP 3: UPDATE CMG PROGRAMADO CACHE ==========
+      - name: Update CMG Programado Cache
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "UPDATING CMG PROGRAMADO CACHE"
+          echo "========================================"
+          python scripts/update_programmed_cache.py
+      
+      # ========== STEP 4: VERIFY DATA ==========
+      - name: Verify data integrity
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "DATA VERIFICATION"
+          echo "========================================"
+          python -c "
+          import json
+          from pathlib import Path
+          
+          # Check CMG Online
+          online_file = Path('data/cache/cmg_online_historical.json')
+          if online_file.exists():
+              with open(online_file) as f:
+                  data = json.load(f)
+              print(f'✅ CMG Online: {len(data.get(\"daily_data\", {}))} dates')
+              print(f'   Source: {data.get(\"metadata\", {}).get(\"source\", \"unknown\")}')
+          
+          # Check CMG Programado
+          prog_file = Path('data/cache/cmg_programmed_latest.json')
+          if prog_file.exists():
+              with open(prog_file) as f:
+                  data = json.load(f)
+              print(f'✅ CMG Programado: {len(data.get(\"data\", []))} hours ahead')
+          
+          print('========================================')"
+      
+      # ========== STEP 5: COMMIT CHANGES ==========
+      - name: Commit and push updates
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check for changes
+          if git diff --quiet data/; then
+            echo "ℹ️ No changes to commit"
+          else
+            # Add and commit
+            git add data/
+            git commit -m "🔄 CMG CSV Pipeline update - $(date +'%Y-%m-%d %H:%M')
+            
+            - CMG Online data from CSV download
+            - CMG Programado synced from partner
+            - Cache files updated" || true
+            
+            # Push
+            git push origin main || {
+              echo "⚠️ Push failed, pulling and retrying..."
+              git pull origin main --no-rebase
+              git push origin main
+            }
+            
+            echo "✅ Changes pushed successfully!"
+          fi
+      
+      - name: Final summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "WORKFLOW SUMMARY"
+          echo "========================================"
+          echo "Completed at: $(date)"
+          echo "Status: ${{ job.status }}"
+          
+          # Show what CSV files were created
+          echo ""
+          echo "CSV files in downloads:"
+          ls -la downloads/*.csv 2>/dev/null || echo "No CSV files found"
+          
+          # Show cache status
+          echo ""
+          echo "Cache files:"
+          ls -la data/cache/*.json 2>/dev/null || echo "No cache files found"
