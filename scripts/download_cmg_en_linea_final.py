@@ -17,19 +17,61 @@ santiago_tz = pytz.timezone('America/Santiago')
 
 async def run():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=HEADLESS)
-        context = await browser.new_context(accept_downloads=True)
+        browser = await p.chromium.launch(
+            headless=HEADLESS,
+            args=['--disable-blink-features=AutomationControlled']
+        )
+        
+        # Create context with user agent to avoid detection
+        context = await browser.new_context(
+            accept_downloads=True,
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            viewport={'width': 1920, 'height': 1080}
+        )
+        
         page = await context.new_page()
-        page.set_default_timeout(180_000)  # 3 minutes
+        page.set_default_timeout(60_000)  # 1 minute for individual operations
 
         try:
-            # 1) Navigate
+            # 1) Navigate with retry logic
             print("Step 1: Navigating to Coordinador...")
-            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="networkidle")
-            print("   ✓ Page loaded")
             
-            # Wait for page to fully load
-            await asyncio.sleep(3)
+            # Try navigation with different wait strategies
+            navigation_success = False
+            for attempt in range(3):
+                try:
+                    if attempt == 0:
+                        # First try: domcontentloaded (fastest)
+                        print(f"   Attempt {attempt + 1}: Using domcontentloaded...")
+                        await page.goto("https://www.coordinador.cl/costos-marginales/", 
+                                      wait_until="domcontentloaded", 
+                                      timeout=30_000)
+                    elif attempt == 1:
+                        # Second try: load event
+                        print(f"   Attempt {attempt + 1}: Using load event...")
+                        await page.goto("https://www.coordinador.cl/costos-marginales/", 
+                                      wait_until="load", 
+                                      timeout=30_000)
+                    else:
+                        # Third try: commit (minimal wait)
+                        print(f"   Attempt {attempt + 1}: Using commit...")
+                        await page.goto("https://www.coordinador.cl/costos-marginales/", 
+                                      wait_until="commit", 
+                                      timeout=30_000)
+                    
+                    navigation_success = True
+                    print(f"   ✓ Page loaded on attempt {attempt + 1}")
+                    break
+                except Exception as e:
+                    print(f"   ⚠️ Attempt {attempt + 1} failed: {str(e)[:100]}")
+                    if attempt < 2:
+                        await asyncio.sleep(2)
+            
+            if not navigation_success:
+                raise Exception("Failed to navigate after 3 attempts")
+            
+            # Wait for page to stabilize
+            await asyncio.sleep(5)
             
             # 2) Click on "Costo Marginal en Línea" - try multiple selectors
             print("Step 2: Clicking on 'Costo Marginal en Línea'...")
@@ -57,7 +99,7 @@ async def run():
             if not clicked:
                 print("   ⚠️ Could not click tab, trying to navigate directly...")
                 # Try to navigate directly to the tab content
-                await page.goto("https://www.coordinador.cl/costos-marginales/#Costo-Marginal-en-L--nea", wait_until="networkidle")
+                await page.goto("https://www.coordinador.cl/costos-marginales/#Costo-Marginal-en-L--nea", wait_until="domcontentloaded")
             
             print("   ✓ Tab accessed")
             
@@ -234,6 +276,15 @@ async def run():
             print(f"❌ Error: {e}")
             import traceback
             traceback.print_exc()
+            
+            # Try to capture a screenshot for debugging in GitHub Actions
+            try:
+                screenshot_path = downloads_dir / f"error_{datetime.now(santiago_tz).strftime('%Y%m%d_%H%M%S')}.png"
+                await page.screenshot(path=str(screenshot_path))
+                print(f"   📸 Screenshot saved: {screenshot_path}")
+            except:
+                pass
+            
             await browser.close()
             return None
 
