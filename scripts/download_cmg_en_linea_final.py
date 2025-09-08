@@ -25,29 +25,68 @@ async def run():
         try:
             # 1) Navigate
             print("Step 1: Navigating to Coordinador...")
-            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="load")
+            await page.goto("https://www.coordinador.cl/costos-marginales/", wait_until="networkidle")
             print("   ✓ Page loaded")
             
-            # 2) Click on "Costo Marginal en Línea" - use exact match to avoid confusion with Dashboard
+            # Wait for page to fully load
+            await asyncio.sleep(3)
+            
+            # 2) Click on "Costo Marginal en Línea" - try multiple selectors
             print("Step 2: Clicking on 'Costo Marginal en Línea'...")
-            # Use the href to target the exact link we want
-            await page.locator('a[href="#Costo-Marginal-en-L--nea"]').click()
-            # Alternative: await page.get_by_role("link", name="Costo Marginal en Línea", exact=True).click()
-            print("   ✓ Tab clicked")
+            
+            # Try different selectors in order of preference
+            selectors_to_try = [
+                'a[href="#Costo-Marginal-en-L--nea"]',
+                'a:has-text("Costo Marginal en Línea")',
+                'text="Costo Marginal en Línea"',
+                '//a[contains(text(), "Costo Marginal en Línea")]'
+            ]
+            
+            clicked = False
+            for selector in selectors_to_try:
+                try:
+                    element = page.locator(selector).first
+                    await element.wait_for(state="visible", timeout=5000)
+                    await element.click()
+                    clicked = True
+                    print(f"   ✓ Tab clicked using selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not clicked:
+                print("   ⚠️ Could not click tab, trying to navigate directly...")
+                # Try to navigate directly to the tab content
+                await page.goto("https://www.coordinador.cl/costos-marginales/#Costo-Marginal-en-L--nea", wait_until="networkidle")
+            
+            print("   ✓ Tab accessed")
             
             # 3) Wait for iframe to load
             print("Step 3: Waiting for PowerBI iframe to load...")
             await asyncio.sleep(5)
             
-            # 4) Target the iframe - use the ID from the href
+            # 4) Target the iframe - try multiple approaches
             print("Step 4: Locating iframe...")
-            # The href is #Costo-Marginal-en-L--nea so use that as the ID
-            frame = page.frame_locator("#Costo-Marginal-en-L--nea iframe").nth(1)
             
-            # Alternative: if the ID doesn't work, try generic iframe
-            # frame = page.frame_locator("iframe").nth(1)
+            # Try to find the iframe
+            try:
+                # First try: Look for iframe inside the tab content div
+                frame = page.frame_locator("#Costo-Marginal-en-L--nea iframe").nth(1)
+                # Test if we can access something in the frame
+                await frame.locator("div").first.wait_for(state="visible", timeout=5000)
+                print("   ✓ Iframe located using tab ID")
+            except:
+                try:
+                    # Second try: Just get the second iframe on the page (usually the PowerBI one)
+                    frame = page.frame_locator("iframe").nth(1)
+                    await frame.locator("div").first.wait_for(state="visible", timeout=5000)
+                    print("   ✓ Iframe located using index")
+                except:
+                    # Third try: Get any PowerBI iframe
+                    frame = page.frame_locator("iframe[title*='Power']").first
+                    print("   ✓ Iframe located using PowerBI title")
             
-            print("   ✓ Iframe located")
+            print("   ✓ Iframe ready")
             
             # 5) Select date using the exact selector you provided
             print("Step 5: Selecting date...")
