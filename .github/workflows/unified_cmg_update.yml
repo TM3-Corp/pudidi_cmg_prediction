@@ -69,33 +69,43 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
       
-      # ========== STEP 3: UPDATE CMG PROGRAMADO GIST ==========
+      # ========== STEP 3: UPDATE CMG PROGRAMADO CACHE ==========
+      - name: Update CMG Programado Cache
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "STEP 3: UPDATING CMG PROGRAMADO CACHE"
+          echo "========================================"
+          python scripts/update_programmed_cache.py
+      
+      # ========== STEP 4: UPDATE CMG PROGRAMADO GIST ==========
       - name: Update CMG Programado Gist
         if: success()
         run: |
           echo ""
           echo "========================================"
-          echo "STEP 3: UPDATING CMG PROGRAMADO GIST"
+          echo "STEP 4: UPDATING CMG PROGRAMADO GIST"
           echo "========================================"
           python scripts/update_cmg_programado_gist.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
         continue-on-error: true  # Don't fail if token not configured
       
-      # ========== STEP 4: STORE HISTORICAL TO GIST ==========
+      # ========== STEP 5: STORE HISTORICAL TO GIST ==========
       - name: Store historical data to CMG Online Gist
         if: success()
         run: |
           echo ""
           echo "========================================"
-          echo "STEP 4: STORING HISTORICAL TO GIST"
+          echo "STEP 5: STORING HISTORICAL TO GIST"
           echo "========================================"
           python scripts/store_historical.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
           PYTHONPATH: ${{ github.workspace }}
       
-      # ========== STEP 5: VERIFY DATA INTEGRITY ==========
+      # ========== STEP 6: VERIFY DATA INTEGRITY ==========
       - name: Verify data integrity
         if: success()
         run: |
