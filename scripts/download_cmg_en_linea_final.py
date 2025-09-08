@@ -10,7 +10,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 import pytz
 
 # === CONFIG ===
-HEADLESS = False  # Set to True for production
+HEADLESS = True  # Set to False for debugging
 downloads_dir = Path("downloads")
 downloads_dir.mkdir(exist_ok=True)
 santiago_tz = pytz.timezone('America/Santiago')
