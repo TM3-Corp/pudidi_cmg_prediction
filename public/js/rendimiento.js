@@ -154,27 +154,10 @@ async function analyzePerformance() {
         return;
     }
     
-    // Calculate the period in hours
-    const start = new Date(startDate + 'T00:00:00');
-    const end = new Date(endDate + 'T23:59:59');
-    const diffInMs = end - start;
-    const diffInHours = Math.ceil(diffInMs / (1000 * 60 * 60));
-    
-    // Convert to period format (24h, 48h, or Xd for days)
-    let period;
-    if (diffInHours <= 24) {
-        period = '24h';
-    } else if (diffInHours <= 48) {
-        period = '48h';
-    } else {
-        const days = Math.ceil(diffInHours / 24);
-        period = `${days}d`;
-    }
-    
-    // Prepare request
+    // Prepare request with date range (no more period conversion!)
     const params = {
-        period: period,
         start_date: startDate + 'T00:00:00',
+        end_date: endDate + 'T23:59:59',
         node: node,
         p_min: 0.5,
         p_max: 3.0,
@@ -184,6 +167,9 @@ async function analyzePerformance() {
         kappa: 0.667,
         inflow: 2.5
     };
+    
+    // Log the date range for debugging
+    console.log(`[Rendimiento] Requesting performance for ${startDate} to ${endDate}`);
     
     try {
         const response = await fetch('/api/performance', {

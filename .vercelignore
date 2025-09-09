@@ -1,36 +1,77 @@
-# Ignore everything in archive
+# Test files in root
+test*.py
+test*.txt
+test*.ipynb
+*.ipynb:Zone.Identifier
+
+# Archive folder (old unused code)
 archive/
 
-# Ignore all Python files except in api directory
-*.py
-!api/*.py
-!api/**/*.py
+# Downloads folder (temporary files)
+downloads/
 
-# Ignore test files
-test*.py
-tests/
-*_test.py
-
-# Ignore scripts and development files
-scripts/
-src/
-werkzeug/
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
 
-# Ignore notebook files
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Git and GitHub
+.git/
+.github/
+
+# Documentation
+README.md
+docs/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Notebooks
 *.ipynb
 .ipynb_checkpoints/
 
-# Ignore GitHub workflows
-.github/
-
-# Ignore data processing scripts
-simple_sequential_update.py
-simple_sequential_update_final.py
-simple_sequential_update_gist.py
-fetch_programmed_from_gist.py
-manual_update.py
-
-# Ignore Vercel cache
+# Vercel cache
 .vercel/
+
+# Development files in root
+werkzeug/
+src/
+
+# Scripts - ONLY ignore unused ones
+# Keep the 11 actively used scripts for GitHub Actions
+scripts/download*.py
+scripts/cmg_scraper*.py
+scripts/scraper*.py
+scripts/debug*.py
+scripts/test*.py
+scripts/validate*.py
+scripts/merge*.py
+scripts/upload*.py
+
+# But explicitly include the used ones
+!scripts/cmg_online_pipeline.py
+!scripts/sync_from_partner_gist.py
+!scripts/update_programmed_cache.py
+!scripts/daily_performance_calculation.py
+!scripts/trigger_optimization.py
+!scripts/smart_cmg_online_update.py
+!scripts/store_historical.py
+!scripts/create_all_gists.py
+!scripts/update_gist_ids.py
+!scripts/update_cmg_programado_gist.py
+!scripts/update_cmg_gist.py

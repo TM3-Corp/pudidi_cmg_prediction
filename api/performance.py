@@ -45,10 +45,13 @@ class handler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             params = json.loads(post_data.decode('utf-8'))
             
-            # Get parameters
-            period = params.get('period', '24h')  # 24h, 48h, 5d, 7d
+            # Get parameters - NOW ACCEPTS DATE RANGES
             start_date = params.get('start_date')
+            end_date = params.get('end_date')
             node = params.get('node', 'NVA_P.MONTT___220')
+            
+            # Legacy period support (will be deprecated)
+            period = params.get('period')
             
             # Hydro parameters
             p_min = params.get('p_min', 0.5)
@@ -59,14 +62,35 @@ class handler(BaseHTTPRequestHandler):
             kappa = params.get('kappa', 0.667)
             inflow = params.get('inflow', 2.5)
             
-            # Determine horizon from period
-            horizon_map = {
-                '24h': 24,
-                '48h': 48,
-                '5d': 120,
-                '7d': 168
-            }
-            horizon = horizon_map.get(period, 24)
+            # Calculate horizon from date range
+            if end_date and start_date:
+                # New logic: calculate hours between dates
+                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00') if 'Z' in start_date else start_date)
+                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00') if 'Z' in end_date else end_date)
+                
+                # If end_date doesn't have time, assume end of day
+                if 'T' not in end_date:
+                    end_dt = end_dt.replace(hour=23, minute=59, second=59)
+                
+                # Calculate hours between dates
+                delta = end_dt - start_dt
+                horizon = int(delta.total_seconds() / 3600) + 1  # +1 to include the end hour
+                
+                print(f"[PERFORMANCE] Date range: {start_date} to {end_date} = {horizon} hours")
+            elif period:
+                # Legacy period mapping (deprecated but kept for compatibility)
+                horizon_map = {
+                    '24h': 24,
+                    '48h': 48,
+                    '5d': 120,
+                    '7d': 168
+                }
+                horizon = horizon_map.get(period, 24)
+                print(f"[PERFORMANCE] Using legacy period: {period} = {horizon} hours")
+            else:
+                # Default to 24 hours if nothing specified
+                horizon = 24
+                print("[PERFORMANCE] No date range or period specified, defaulting to 24 hours")
             
             # Fetch historical CMG Online data
             historical_prices = self.fetch_historical_prices(start_date, horizon, node)
@@ -736,9 +760,10 @@ class handler(BaseHTTPRequestHandler):
                         'GET /?check_availability=true': 'Get available historical data dates',
                         'POST /': 'Calculate performance metrics',
                         'parameters': {
-                            'period': '24h | 48h | 5d | 7d',
-                            'start_date': 'ISO date string',
-                            'node': 'CMG node name'
+                            'start_date': 'ISO date string (e.g., 2025-09-04T00:00:00)',
+                            'end_date': 'ISO date string (e.g., 2025-09-06T23:59:59)',
+                            'node': 'CMG node name (default: NVA_P.MONTT___220)',
+                            'hydro_params': 'p_min, p_max, s0, s_min, s_max, kappa, inflow'
                         }
                     }
                 }
