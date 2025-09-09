@@ -689,6 +689,12 @@ class handler(BaseHTTPRequestHandler):
                     'efficiency': round(day_efficiency, 1)
                 })
         
+        # Debug logging for multi-day issue
+        if len(daily_performance) > 0:
+            print(f"[PERFORMANCE] Returning {len(daily_performance)} days of daily performance")
+            for dp in daily_performance:
+                print(f"  Day {dp['day']}: stable=${dp['revenue_stable']}, prog=${dp['revenue_programmed']}, hind=${dp['revenue_hindsight']}, eff={dp['efficiency']}%")
+        
         return {
             'summary': {
                 'revenue_stable': round(revenue_stable, 2),
