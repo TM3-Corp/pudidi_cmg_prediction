@@ -12,6 +12,11 @@ on:
       - 'scripts/smart_cmg_online_update.py'
       - 'scripts/sync_from_partner_gist.py'
 
+# Prevent concurrent runs to avoid merge conflicts
+concurrency:
+  group: cmg-update-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel, wait for previous to finish
+
 jobs:
   update-all-cmg-data:
     runs-on: ubuntu-latest

@@ -12,6 +12,9 @@ from datetime import datetime
 from pathlib import Path
 import pytz
 import os
+import re
+import shutil
+import time
 
 # Partner's working Gist that has CMG Programado data
 PARTNER_GIST_ID = 'a63a3a10479bafcc29e10aaca627bc73'
@@ -105,14 +108,89 @@ def fetch_partner_gist_data():
     
     return all_data
 
-def load_our_data():
-    """Load our existing CMG Programado historical data"""
-    history_file = Path('data/cmg_programado_history.json')
+def clean_merge_conflicts(content):
+    """Clean Git merge conflict markers from JSON content"""
+    lines = content.split('\n')
+    cleaned_lines = []
+    in_conflict = False
+    conflict_section = 'ours'
     
-    if history_file.exists():
+    for line in lines:
+        if line.startswith('<<<<<<< '):
+            in_conflict = True
+            conflict_section = 'ours'
+            continue
+        elif line.startswith('======='):
+            conflict_section = 'theirs'
+            continue
+        elif line.startswith('>>>>>>> '):
+            in_conflict = False
+            continue
+        
+        if not in_conflict:
+            cleaned_lines.append(line)
+        elif conflict_section == 'theirs':  # Prefer the newer version (theirs)
+            cleaned_lines.append(line)
+    
+    return '\n'.join(cleaned_lines)
+
+def load_our_data():
+    """Load our existing CMG Programado historical data with error recovery"""
+    history_file = Path('data/cmg_programado_history.json')
+    backup_file = Path('data/cmg_programado_history.backup.json')
+    
+    if not history_file.exists():
+        return {
+            'historical_data': {},
+            'metadata': {}
+        }
+    
+    # Try to load the JSON file
+    try:
         with open(history_file, 'r') as f:
             return json.load(f)
-    else:
+    except json.JSONDecodeError as e:
+        print(f"⚠️  JSON parsing error detected: {e}")
+        print("   Attempting to auto-recover...")
+        
+        # Try to clean merge conflicts
+        with open(history_file, 'r') as f:
+            content = f.read()
+        
+        if '<<<<<<< ' in content or '=======' in content or '>>>>>>> ' in content:
+            print("   Found Git merge conflict markers, cleaning...")
+            cleaned_content = clean_merge_conflicts(content)
+            
+            try:
+                # Validate the cleaned JSON
+                data = json.loads(cleaned_content)
+                
+                # Create backup of corrupted file
+                print(f"   Creating backup: {backup_file}")
+                shutil.copy2(history_file, backup_file)
+                
+                # Save the cleaned version
+                with open(history_file, 'w') as f:
+                    f.write(cleaned_content)
+                
+                print("   ✅ Successfully recovered from merge conflict")
+                return data
+            except json.JSONDecodeError:
+                print("   ❌ Failed to recover from merge conflict")
+        
+        # Try to load from backup if available
+        if backup_file.exists():
+            print(f"   Trying to load from backup: {backup_file}")
+            try:
+                with open(backup_file, 'r') as f:
+                    data = json.load(f)
+                print("   ✅ Successfully loaded from backup")
+                return data
+            except:
+                print("   ❌ Backup also corrupted")
+        
+        # If all recovery attempts fail, start fresh
+        print("   ⚠️  Starting with empty data (all recovery attempts failed)")
         return {
             'historical_data': {},
             'metadata': {}
@@ -222,14 +300,41 @@ def verify_no_gaps(data):
     return not gaps_found
 
 def save_merged_data(data):
-    """Save the merged data"""
+    """Save the merged data with backup and validation"""
     output_path = Path('data/cmg_programado_history.json')
+    backup_path = Path('data/cmg_programado_history.backup.json')
+    temp_path = Path('data/cmg_programado_history.tmp.json')
+    
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    
-    print(f"\n💾 Saved merged data to: {output_path}")
+    # First, write to a temporary file
+    try:
+        with open(temp_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        
+        # Validate the written JSON
+        with open(temp_path, 'r') as f:
+            json.load(f)  # This will raise an exception if JSON is invalid
+        
+        # If current file exists and is valid, create backup
+        if output_path.exists():
+            try:
+                with open(output_path, 'r') as f:
+                    json.load(f)  # Check if current file is valid
+                shutil.copy2(output_path, backup_path)
+                print(f"   📦 Created backup: {backup_path}")
+            except:
+                print("   ⚠️  Current file is corrupted, skipping backup")
+        
+        # Move temp file to final location
+        shutil.move(temp_path, output_path)
+        print(f"\n💾 Saved merged data to: {output_path}")
+        
+    except Exception as e:
+        print(f"\n❌ Error saving data: {e}")
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
 
 def main():
     """Main execution"""
