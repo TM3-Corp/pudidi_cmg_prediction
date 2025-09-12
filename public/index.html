@@ -101,14 +101,17 @@
                             </svg>
                             <span>Optimización</span>
                         </a>
+                        <!-- Rendimiento button hidden for now
                         <a href="rendimiento.html" 
-                           class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                           class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                           style="display: none;">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                             </svg>
                             <span>Rendimiento</span>
                         </a>
+                        -->
                         <!-- Actualizar button hidden
                         <button id="refresh-btn" onclick="manualRefresh()" 
                                 class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -239,7 +242,7 @@
                     </div>
                     <div>
                         <div class="flex justify-between text-sm mb-1">
-                            <span>Confiabilidad</span>
+                            <span>Completitud de Datos</span>
                             <span id="prog-confidence-text" class="font-semibold">0%</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2">
@@ -641,16 +644,45 @@
                 document.getElementById('hist-nodes-bar').style.width = `${(nodes/3)*100}%`;
             }
             
-            // Programmed data quality
-            if (data.programmed && data.programmed.data) {
-                const uniqueHours = new Set(data.programmed.data.map(d => d.hour));
-                const hours = uniqueHours.size;
-                document.getElementById('prog-hours-text').textContent = `${hours}h`;
-                document.getElementById('prog-hours-bar').style.width = `${Math.min((hours/48)*100, 100)}%`;
+            // Programmed data quality - show ACTUAL data
+            if (data.programmed) {
+                let hoursAhead = 0;
+                let dataCompleteness = 0;
                 
-                const confidence = data.programmed.data.length > 0 ? 95 : 0;
-                document.getElementById('prog-confidence-text').textContent = `${confidence}%`;
-                document.getElementById('prog-confidence-bar').style.width = `${confidence}%`;
+                if (data.programmed.statistics) {
+                    // Use actual statistics from the API
+                    hoursAhead = data.programmed.statistics.hours_ahead || 0;
+                    const totalRecords = data.programmed.statistics.total_records || 0;
+                    
+                    // Calculate completeness: we expect 24 records per day
+                    // For 52 hours ahead, we expect ~52 records
+                    dataCompleteness = hoursAhead > 0 ? Math.round((totalRecords / hoursAhead) * 100) : 0;
+                    dataCompleteness = Math.min(dataCompleteness, 100); // Cap at 100%
+                } else if (data.programmed.data) {
+                    // Fallback to counting unique hours
+                    const records = data.programmed.data;
+                    hoursAhead = records.length;
+                    
+                    // Check data completeness by seeing if we have all expected hours
+                    const dates = new Set(records.map(d => d.date));
+                    const expectedRecords = dates.size * 24;
+                    dataCompleteness = expectedRecords > 0 ? Math.round((records.length / expectedRecords) * 100) : 0;
+                    dataCompleteness = Math.min(dataCompleteness, 100);
+                }
+                
+                // Update hours ahead display
+                document.getElementById('prog-hours-text').textContent = `${hoursAhead}h`;
+                document.getElementById('prog-hours-bar').style.width = `${Math.min((hoursAhead/72)*100, 100)}%`;
+                
+                // Update data completeness (instead of fake "confidence")
+                document.getElementById('prog-confidence-text').textContent = `${dataCompleteness}%`;
+                document.getElementById('prog-confidence-bar').style.width = `${dataCompleteness}%`;
+            } else {
+                // No data available
+                document.getElementById('prog-hours-text').textContent = '0h';
+                document.getElementById('prog-hours-bar').style.width = '0%';
+                document.getElementById('prog-confidence-text').textContent = '0%';
+                document.getElementById('prog-confidence-bar').style.width = '0%';
             }
         }
 
