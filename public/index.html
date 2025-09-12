@@ -206,8 +206,8 @@
                 <div class="space-y-4">
                     <div>
                         <div class="flex justify-between text-sm mb-1">
-                            <span>Cobertura Temporal</span>
-                            <span id="hist-coverage-text" class="font-semibold">0%</span>
+                            <span>Cobertura Temporal (últimas 24h)</span>
+                            <span id="hist-coverage-text" class="font-semibold">0h / 24h</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2">
                             <div id="hist-coverage-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
@@ -621,7 +621,7 @@
         function updateQualityIndicators(data) {
             // Historical data quality
             if (data.historical) {
-                const totalHours = 24;
+                const totalHours = 24;  // Last 24 hours is our target
                 const uniqueHours = new Set();
                 const uniqueNodes = new Set();
                 
@@ -632,8 +632,12 @@
                     });
                 }
                 
-                const coverage = (uniqueHours.size / totalHours) * 100;
-                document.getElementById('hist-coverage-text').textContent = `${coverage.toFixed(0)}%`;
+                const hoursAvailable = uniqueHours.size;
+                const coverage = (hoursAvailable / totalHours) * 100;
+                
+                // Show actual hours out of 24h target
+                document.getElementById('hist-coverage-text').textContent = 
+                    `${hoursAvailable}h / 24h (${coverage.toFixed(0)}%)`;
                 document.getElementById('hist-coverage-bar').style.width = `${coverage}%`;
                 
                 const nodes = uniqueNodes.size;
