@@ -719,23 +719,5 @@ window.addEventListener('DOMContentLoaded', () => {
     // Update data availability on load
     updateDataAvailability();
     
-    // Add link to main page
-    const nav = document.createElement('div');
-    nav.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1000;';
-    nav.innerHTML = `
-        <a href="/" style="
-            background: white;
-            color: #667eea;
-            padding: 10px 20px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            display: inline-block;
-            transition: all 0.3s ease;
-        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-            ← Back to CMG Predictions
-        </a>
-    `;
-    document.body.appendChild(nav);
+    // Removed duplicate back button - using the one in HTML instead
 });
