@@ -205,7 +205,7 @@ async function fetchCMGPrices(node, horizon) {
     try {
         // First, try to fetch programmed data from cache API
         console.log('[FETCH] Attempting to fetch programmed CMG data from cache...');
-        const cacheResponse = await fetch('/api/cache/programmed');
+        const cacheResponse = await fetch('/api/cache?type=programmed');
         
         let prices = [];
         let realPriceCount = 0;
@@ -655,7 +655,7 @@ function resetParameters() {
 // Function to update data availability info
 async function updateDataAvailability() {
     try {
-        const response = await fetch('/api/cache/programmed');
+        const response = await fetch('/api/cache?type=programmed');
         if (response.ok) {
             const data = await response.json();
             if (data.data && Array.isArray(data.data)) {

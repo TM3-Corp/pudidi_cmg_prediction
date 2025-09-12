@@ -11,15 +11,20 @@ class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Serve cache files"""
         
-        # Parse the requested cache file
-        path = self.path.strip('/')
+        # Parse query parameters
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
         
-        # Map common requests
-        if path == 'api/cache/programmed' or path == 'cache/programmed':
+        # Get the type parameter
+        cache_type = query_params.get('type', [''])[0]
+        
+        # Map cache type to file
+        if cache_type == 'programmed':
             cache_file = 'cmg_programmed_latest.json'
-        elif path == 'api/cache/historical' or path == 'cache/historical':
+        elif cache_type == 'historical':
             cache_file = 'cmg_historical_latest.json'
-        elif path == 'api/cache/metadata' or path == 'cache/metadata':
+        elif cache_type == 'metadata':
             cache_file = 'metadata.json'
         else:
             # Return 404
