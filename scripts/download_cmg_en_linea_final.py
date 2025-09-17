@@ -97,11 +97,12 @@ async def run():
         page = await context.new_page()
         page.set_default_timeout(30000)
         
-        # Try up to 3 times
-        for attempt in range(3):
+        # Try up to 10 times with progressive delays
+        MAX_ATTEMPTS = 10
+        for attempt in range(MAX_ATTEMPTS):
             try:
                 print(f"\n{'='*40}", flush=True)
-                print(f"ATTEMPT {attempt + 1} OF 3", flush=True)
+                print(f"ATTEMPT {attempt + 1} OF {MAX_ATTEMPTS}", flush=True)
                 print(f"{'='*40}", flush=True)
                 
                 # Navigate to Coordinador
@@ -252,9 +253,11 @@ async def run():
             except Exception as e:
                 print(f"\n❌ Attempt {attempt + 1} failed: {e}", flush=True)
                 
-                if attempt < 2:
-                    print(f"   Retrying in 5 seconds...", flush=True)
-                    await asyncio.sleep(5)
+                if attempt < MAX_ATTEMPTS - 1:
+                    # Progressive delay: 5s, 10s, 15s, 20s, etc.
+                    delay = min(5 * (attempt + 1), 30)  # Cap at 30 seconds
+                    print(f"   Retrying in {delay} seconds...", flush=True)
+                    await asyncio.sleep(delay)
                     
                     # Reload page for next attempt
                     try:
@@ -288,7 +291,7 @@ async def main():
         print(f"\n✅ SUCCESS! Downloaded: {result}", flush=True)
         return 0
     else:
-        print("\n❌ FAILED to download CSV after 3 attempts", flush=True)
+        print(f"\n❌ FAILED to download CSV after {MAX_ATTEMPTS} attempts", flush=True)
         return 1
 
 if __name__ == "__main__":

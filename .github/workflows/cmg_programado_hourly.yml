@@ -1,0 +1,140 @@
+name: CMG Programado Hourly Update
+
+on:
+  schedule:
+    # Run every hour at minute 5
+    - cron: '5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-cmg-programado:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-playwright-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-playwright-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright requests pytz
+          playwright install chromium
+          playwright install-deps chromium
+      
+      # ========== MAIN PIPELINE ==========
+      - name: Run CMG Programado Pipeline (PMontt220)
+        timeout-minutes: 10
+        run: |
+          echo "========================================"
+          echo "CMG PROGRAMADO PIPELINE - PMONTT220"
+          echo "========================================"
+          echo "Starting at $(date)"
+          echo ""
+          
+          # Set environment for headless mode
+          export GITHUB_ACTIONS=true
+          
+          # Run the pipeline
+          python scripts/cmg_programado_pipeline.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Token with gist permissions
+      
+      # ========== VERIFY DATA ==========
+      - name: Verify data
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "DATA VERIFICATION"
+          echo "========================================"
+          python -c "
+          import json
+          from pathlib import Path
+          from datetime import datetime
+          import pytz
+          
+          santiago_tz = pytz.timezone('America/Santiago')
+          
+          # Check PMontt cache
+          cache_file = Path('data/cache/pmontt_programado.json')
+          if cache_file.exists():
+              with open(cache_file) as f:
+                  data = json.load(f)
+              forecast = data.get('forecast_data', {})
+              total_hours = sum(len(hours) for hours in forecast.values())
+              print(f'✅ PMontt220 forecast: {total_hours} hours')
+              print(f'   Dates: {list(forecast.keys())}')
+              print(f'   Last update: {data.get("metadata", {}).get("last_updated", "unknown")}')
+          else:
+              print('❌ No cache file found')
+          
+          print('=========================================')"
+      
+      # ========== COMMIT CHANGES ==========
+      - name: Commit and push updates
+        if: success()
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check for changes
+          if git diff --quiet data/; then
+            echo "ℹ️ No changes to commit"
+          else
+            # Add and commit
+            git add data/
+            git commit -m "🔄 CMG Programado Update (PMontt220) - $(date +'%Y-%m-%d %H:%M')
+            
+            - Downloaded latest CMG Programado forecast
+            - Extracted PMontt220 values (Puerto Montt)
+            - Updated cache with $(python -c "import json; d=json.load(open('data/cache/pmontt_programado.json')); print(sum(len(h) for h in d.get('forecast_data',{}).values()))") forecast hours" || true
+            
+            # Push
+            git push origin main || {
+              echo "⚠️ Push failed, pulling and retrying..."
+              git pull origin main --no-rebase
+              git push origin main
+            }
+            
+            echo "✅ Changes pushed successfully!"
+          fi
+      
+      - name: Final summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "WORKFLOW SUMMARY"
+          echo "========================================"
+          echo "Completed at: $(date)"
+          echo "Status: ${{ job.status }}"
+          echo ""
+          echo "🎯 Check results at: https://pudidicmgprediction.vercel.app/index.html"
+          echo "   Look for '🔮 Datos Programados Disponibles' section"
+          echo ""
+          
+          # Show downloaded CSV files
+          echo "CSV files:"
+          ls -la downloads/cmg_programado_*.csv 2>/dev/null || echo "No CSV files found"
+          
+          # Show cache status
+          echo ""
+          echo "Cache files:"
+          ls -la data/cache/pmontt_programado.json 2>/dev/null || echo "No cache file found"
