@@ -81,7 +81,9 @@ async def run():
                 print(f"Step 3: Navigating to CMG Programado page...", flush=True)
                 print(f"   URL: {url}", flush=True)
                 
-                await page.goto(url, wait_until="networkidle", timeout=60000)
+                # Use domcontentloaded instead of networkidle to avoid timeout
+                # The page has continuous network activity that never settles
+                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 print("   ✓ Initial page loaded, waiting for QlikView...", flush=True)
                 
                 # Wait for QlikView to load 
