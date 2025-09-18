@@ -81,7 +81,7 @@ jobs:
               total_hours = sum(len(hours) for hours in forecast.values())
               print(f'✅ PMontt220 forecast: {total_hours} hours')
               print(f'   Dates: {list(forecast.keys())}')
-              print(f'   Last update: {data.get("metadata", {}).get("last_updated", "unknown")}')
+              print(f'   Last update: {data.get(\"metadata\", {}).get(\"last_updated\", \"unknown\")}')
           else:
               print('❌ No cache file found')
           
