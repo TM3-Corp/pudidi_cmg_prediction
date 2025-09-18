@@ -15,7 +15,7 @@ from typing import Dict, List, Optional
 
 # Configuration
 santiago_tz = pytz.timezone('America/Santiago')
-GIST_ID = "03ad6c3b2a0cc887df39f13e3cb27231"  # Your Gist ID for CMG predictions
+GIST_ID = "d68bb21360b1ac549c32a80195f99b09"  # Gist ID for CMG Programado data
 
 def read_latest_csv() -> Optional[Path]:
     """Find the most recent CMG Programado CSV file"""
@@ -77,13 +77,13 @@ def update_gist(pmontt_data: Dict) -> bool:
     
     token = os.environ.get('GITHUB_TOKEN')
     if not token:
-        print("⚠️ No GitHub token found, trying without auth")
-        headers = {'Accept': 'application/vnd.github.v3+json'}
-    else:
-        headers = {
-            'Authorization': f'token {token}',
-            'Accept': 'application/vnd.github.v3+json'
-        }
+        print("⚠️ No GitHub token found, cannot update Gist")
+        return False
+    
+    headers = {
+        'Authorization': f'token {token}',
+        'Accept': 'application/vnd.github.v3+json'
+    }
     
     # First, get the existing Gist data
     url = f"https://api.github.com/gists/{GIST_ID}"
@@ -93,37 +93,43 @@ def update_gist(pmontt_data: Dict) -> bool:
         if response.status_code == 200:
             gist = response.json()
             
-            # Get existing data
-            existing_content = gist['files'].get('cmg_predictions.json', {}).get('content', '{}')
+            # Get existing data from cmg_programado_historical.json
+            existing_content = gist['files'].get('cmg_programado_historical.json', {}).get('content', '{}')
             existing_data = json.loads(existing_content)
             
-            # Merge with new PMontt220 data
-            if 'forecast_data' not in existing_data:
-                existing_data['forecast_data'] = {}
+            # Initialize historical_data if it doesn't exist
+            if 'historical_data' not in existing_data:
+                existing_data = {'historical_data': {}}
             
-            # Update forecast_data with PMontt220 values
-            existing_data['forecast_data'] = pmontt_data
+            # Convert PMontt220 data to match the existing format
+            # Add new forecast data to historical_data
+            for date, hours_data in pmontt_data.items():
+                if date not in existing_data['historical_data']:
+                    existing_data['historical_data'][date] = {}
+                
+                # Update each hour with the new forecast
+                for hour, value in hours_data.items():
+                    hour_int = str(int(hour))  # Convert "00" to "0"
+                    existing_data['historical_data'][date][hour_int] = {
+                        'value': value,
+                        'node': 'PMontt220',
+                        'timestamp': f"{date}T{hour}:00:00-03:00",
+                        'source': 'CMG Programado',
+                        'update_time': datetime.now(santiago_tz).isoformat()
+                    }
             
-            # Update metadata
+            # Add metadata at the root level
             existing_data['metadata'] = {
                 'last_updated': datetime.now(santiago_tz).isoformat(),
                 'source': 'CMG Programado - PMontt220',
-                'update_frequency': 'hourly',
-                'location': 'Puerto Montt (PMontt220)'
+                'total_hours': sum(len(hours) for hours in pmontt_data.values()),
+                'dates_available': list(pmontt_data.keys())
             }
             
-            # Calculate available hours
-            total_hours = sum(len(hours) for hours in pmontt_data.values())
-            existing_data['summary'] = {
-                'total_forecast_hours': total_hours,
-                'dates_available': list(pmontt_data.keys()),
-                'last_update': datetime.now(santiago_tz).strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-            # Update the Gist
+            # Update the Gist with the correct file name
             update_data = {
                 'files': {
-                    'cmg_predictions.json': {
+                    'cmg_programado_historical.json': {
                         'content': json.dumps(existing_data, indent=2, ensure_ascii=False)
                     }
                 }
@@ -133,8 +139,8 @@ def update_gist(pmontt_data: Dict) -> bool:
             
             if response.status_code == 200:
                 print(f"✅ Gist updated successfully!")
-                print(f"   URL: https://gist.github.com/pmorenoz/{GIST_ID}")
-                print(f"   Total forecast hours: {total_hours}")
+                print(f"   URL: https://gist.github.com/PVSH97/{GIST_ID}")
+                print(f"   Total forecast hours: {sum(len(hours) for hours in pmontt_data.values())}")
                 return True
             else:
                 print(f"❌ Failed to update Gist: {response.status_code}")
