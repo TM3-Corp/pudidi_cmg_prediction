@@ -156,12 +156,12 @@ def update_gist(pmontt_data: Dict) -> bool:
         return False
 
 def save_local_cache(pmontt_data: Dict):
-    """Save PMontt220 data to local cache"""
+    """Save PMontt220 data to local cache files"""
     cache_dir = Path("data/cache")
     cache_dir.mkdir(parents=True, exist_ok=True)
     
+    # Save to pmontt_programado.json (for reference)
     cache_file = cache_dir / "pmontt_programado.json"
-    
     cache_data = {
         'forecast_data': pmontt_data,
         'metadata': {
@@ -174,7 +174,42 @@ def save_local_cache(pmontt_data: Dict):
     with open(cache_file, 'w', encoding='utf-8') as f:
         json.dump(cache_data, f, indent=2, ensure_ascii=False)
     
-    print(f"💾 Saved to local cache: {cache_file}")
+    print(f"💾 Saved to: {cache_file}")
+    
+    # IMPORTANT: Also save to cmg_programmed_latest.json for the API
+    api_cache_file = cache_dir / "cmg_programmed_latest.json"
+    
+    # Convert to API format
+    api_data = []
+    for date, hours_data in pmontt_data.items():
+        for hour, value in hours_data.items():
+            hour_int = int(hour)
+            api_data.append({
+                "datetime": f"{date}T{hour}:00:00",
+                "date": date,
+                "hour": hour_int,
+                "node": "PMontt220",
+                "cmg_programmed": value
+            })
+    
+    # Sort by datetime
+    api_data.sort(key=lambda x: x['datetime'])
+    
+    api_cache = {
+        'timestamp': datetime.now(santiago_tz).isoformat(),
+        'data': api_data,
+        'source': 'CMG Programado Download',
+        'metadata': {
+            'total_hours': len(api_data),
+            'dates': list(pmontt_data.keys()),
+            'node': 'PMontt220'
+        }
+    }
+    
+    with open(api_cache_file, 'w', encoding='utf-8') as f:
+        json.dump(api_cache, f, indent=2, ensure_ascii=False)
+    
+    print(f"💾 Saved to: {api_cache_file} (for API)")
 
 def main():
     print("="*60)
