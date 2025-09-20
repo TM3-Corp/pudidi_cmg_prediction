@@ -2,8 +2,8 @@ name: CMG Programado Hourly Update
 
 on:
   schedule:
-    # Run every hour at minute 5
-    - cron: '5 * * * *'
+    # Run every hour at minute 35 (avoiding conflict with unified_cmg_update at :05)
+    - cron: '35 * * * *'
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
