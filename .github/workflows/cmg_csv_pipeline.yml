@@ -1,14 +1,15 @@
-name: CMG CSV Pipeline
+name: CMG CSV Pipeline (DISABLED - Redundant with unified_cmg_update.yml)
 
 on:
-  schedule:
-    # Run every hour at minute 15 (to avoid conflicts with other workflows)
-    - cron: '15 * * * *'
-  workflow_dispatch:  # Allow manual trigger
+  # DISABLED 2025-10-02: This workflow is redundant with unified_cmg_update.yml
+  # and was causing data overwriting conflicts. See ARCHITECTURE_ANALYSIS.md for details.
+  workflow_dispatch:  # Keep manual trigger only for emergency testing
 
 jobs:
   update-cmg-from-csv:
     runs-on: ubuntu-latest
+    # Disable automatic runs - this workflow is deprecated
+    if: false
     permissions:
       contents: write
     

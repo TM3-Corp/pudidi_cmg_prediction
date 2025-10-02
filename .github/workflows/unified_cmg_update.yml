@@ -60,57 +60,43 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/api
       
-      # ========== STEP 2: SYNC CMG PROGRAMADO ==========
-      - name: Sync CMG Programado from Partner Gist
+      # ========== STEP 2: SYNC CMG PROGRAMADO FOR HISTORICAL REFERENCE ==========
+      # NOTE: This only syncs to cmg_programado_history.json for historical comparison
+      # It does NOT update the API cache (cmg_programmed_latest.json)
+      # The cmg_programado_hourly.yml workflow is the sole owner of CMG Programado API cache
+      - name: Sync CMG Programado from Partner Gist (Historical Only)
         if: success()
         timeout-minutes: 5
         run: |
           echo ""
           echo "========================================"
-          echo "STEP 2: SYNCING CMG PROGRAMADO"
+          echo "STEP 2: SYNCING CMG PROGRAMADO (HISTORICAL)"
           echo "========================================"
-          echo "📊 Syncing CMG Programado from partner's Gist..."
+          echo "📊 Syncing CMG Programado from partner's Gist for historical comparison..."
+          echo "⚠️  Note: This does NOT update the API cache (handled by cmg_programado_hourly.yml)"
           python scripts/sync_from_partner_gist.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
-      
-      # ========== STEP 3: UPDATE CMG PROGRAMADO CACHE ==========
-      - name: Update CMG Programado Cache
+
+      # REMOVED STEP 3 & 4: CMG Programado cache/gist updates
+      # Reason: Caused data overwriting conflicts (72h → 28h)
+      # These functions are now exclusively handled by cmg_programado_hourly.yml
+      # See ARCHITECTURE_ANALYSIS.md for details
+
+      # ========== STEP 3: STORE CMG ONLINE HISTORICAL TO GIST ==========
+      - name: Store CMG Online historical data to Gist
         if: success()
         run: |
           echo ""
           echo "========================================"
-          echo "STEP 3: UPDATING CMG PROGRAMADO CACHE"
-          echo "========================================"
-          python scripts/update_programmed_cache.py
-      
-      # ========== STEP 4: UPDATE CMG PROGRAMADO GIST ==========
-      - name: Update CMG Programado Gist
-        if: success()
-        run: |
-          echo ""
-          echo "========================================"
-          echo "STEP 4: UPDATING CMG PROGRAMADO GIST"
-          echo "========================================"
-          python scripts/update_cmg_programado_gist.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
-        continue-on-error: true  # Don't fail if token not configured
-      
-      # ========== STEP 5: STORE HISTORICAL TO GIST ==========
-      - name: Store historical data to CMG Online Gist
-        if: success()
-        run: |
-          echo ""
-          echo "========================================"
-          echo "STEP 5: STORING HISTORICAL TO GIST"
+          echo "STEP 3: STORING CMG ONLINE TO GIST"
           echo "========================================"
           python scripts/store_historical.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
           PYTHONPATH: ${{ github.workspace }}
-      
-      # ========== STEP 6: VERIFY DATA INTEGRITY ==========
+
+      # ========== STEP 4: VERIFY DATA INTEGRITY ==========
       - name: Verify data integrity
         if: success()
         run: |
@@ -155,8 +141,8 @@ jobs:
               print(f'✅ CMG Programado: {len(hist)} days, {total_hours} hours')
           
           print('========================================')"
-      
-      # ========== STEP 6: COMMIT CHANGES ==========
+
+      # ========== STEP 5: COMMIT CHANGES ==========
       - name: Check for changes
         id: check_changes
         run: |
@@ -184,12 +170,14 @@ jobs:
           
           # Add and commit changes
           git add data/
-          git commit -m "🔄 Unified CMG update - $(date +'%Y-%m-%d %H:%M')
-          
-          - CMG Online data updated
-          - CMG Programado synced from partner
-          - Both Gists updated
-          - Data integrity verified" || {
+          git commit -m "🔄 CMG Online update - $(date +'%Y-%m-%d %H:%M')
+
+          - CMG Online data fetched from SIP API
+          - CMG Online Gist updated
+          - CMG Programado historical synced (reference only)
+          - Data integrity verified
+
+          Note: CMG Programado API cache managed by cmg_programado_hourly.yml" || {
             echo "⚠️ Nothing to commit"
             exit 0
           }
