@@ -177,11 +177,11 @@
         <div class="bg-white rounded-lg shadow-md p-4 mb-8">
             <div class="flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-700">Selección de Nodo</h3>
-                <select id="node-selector" onchange="updateNode(this.value)" 
+                <select id="node-selector" onchange="updateNode(this.value)"
                         class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
                     <option value="all">📊 Todos los Nodos</option>
                     <option value="NVA_P.MONTT___220">⚡ NVA P.MONTT 220kV (Histórico)</option>
-                    <option value="PIDPID________110">⚡ PIDPID 110kV (Histórico)</option>
+                    <!-- <option value="PIDPID________110">⚡ PIDPID 110kV (Histórico)</option> -->
                     <option value="DALCAHUE______110">⚡ DALCAHUE 110kV (Histórico)</option>
                     <option value="PMontt220">📈 Puerto Montt 220kV (Programado)</option>
                 </select>
@@ -261,7 +261,7 @@
         // Node colors for multi-line chart
         const nodeColors = {
             'NVA_P.MONTT___220': '#ef4444',  // red
-            'PIDPID________110': '#3b82f6',  // blue
+            // 'PIDPID________110': '#3b82f6',  // blue - COMMENTED OUT: Not in use
             'DALCAHUE______110': '#10b981',  // green
             'PMontt220': '#8b5cf6'           // purple
         };
