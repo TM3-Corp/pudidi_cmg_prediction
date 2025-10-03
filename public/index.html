@@ -512,11 +512,14 @@
                     });
                 }
                 
-                // Create traces for each node
+                // Create traces for each node (excluding PIDPID)
                 Object.keys(nodeGroups).forEach(node => {
+                    // Skip PIDPID node - not in use
+                    if (node === 'PIDPID________110') return;
+
                     const nodeData = nodeGroups[node];
                     const color = nodeColors[node] || '#6b7280';
-                    
+
                     // Historical trace for this node
                     if (nodeData.historical.length > 0) {
                         traces.push({
