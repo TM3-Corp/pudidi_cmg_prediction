@@ -70,18 +70,13 @@ def optimize_hydro_lp(prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, hor
     
     A_ub = []
     b_ub = []
-    
-    # Add equality constraint for S[T] = S[0]
-    # This means: Σ(inflow - kappa*P[i])*vol = 0 over the entire horizon
-    # Or: Σ(kappa*P[i]) = T * inflow
+
+    # NO EQUAL STORAGE CONSTRAINT (removed to match notebook specification)
+    # The optimizer can end with any storage level between s_min and s_max
+    # This allows it to save water during low-price periods instead of being
+    # forced to generate at CMG=$0 just to meet a discharge quota
     A_eq = []
     b_eq = []
-    
-    # Equal storage constraint: sum of all discharges equals sum of all inflows
-    equal_storage_row = [kappa * vol_per_step] * T
-    equal_storage_value = T * inflow * vol_per_step
-    A_eq.append(equal_storage_row)
-    b_eq.append(equal_storage_value)
     
     for t in range(T):
         # Lower bound: -S[t] <= -s_min
