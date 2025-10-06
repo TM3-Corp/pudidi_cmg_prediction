@@ -1,0 +1,205 @@
+name: CMG Online Hourly Update
+
+on:
+  schedule:
+    # Run every hour at minute 5
+    - cron: '5 * * * *'
+  workflow_dispatch:  # Allow manual trigger
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cmg_online_hourly.yml'
+      - 'scripts/smart_cmg_online_update.py'
+      - 'scripts/store_historical.py'
+
+# Prevent concurrent runs to avoid merge conflicts
+concurrency:
+  group: cmg-online-update
+  cancel-in-progress: false  # Wait for previous run to finish
+
+jobs:
+  update-cmg-online:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install requests pytz numpy
+
+      # ========== STEP 1: FETCH CMG ONLINE ==========
+      - name: Fetch CMG Online data from SIP API
+        timeout-minutes: 50
+        run: |
+          echo "========================================"
+          echo "CMG ONLINE - FETCH FROM SIP API"
+          echo "========================================"
+          echo "Starting at $(date)"
+          echo ""
+          python scripts/smart_cmg_online_update.py
+          echo ""
+          echo "CMG Online fetch completed at $(date)"
+        env:
+          PYTHONPATH: ${{ github.workspace }}/api
+
+      # ========== STEP 2: STORE TO GIST ==========
+      - name: Store CMG Online historical data to Gist
+        if: success()
+        timeout-minutes: 5
+        run: |
+          echo ""
+          echo "========================================"
+          echo "CMG ONLINE - STORE TO GIST"
+          echo "========================================"
+          python scripts/store_historical.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
+          PYTHONPATH: ${{ github.workspace }}
+
+      # ========== STEP 3: VERIFY DATA INTEGRITY ==========
+      - name: Verify data integrity
+        if: success()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "CMG ONLINE - DATA VERIFICATION"
+          echo "========================================"
+          python -c "
+          import json
+          from pathlib import Path
+          from collections import defaultdict
+
+          # Check CMG Online cache
+          cache_file = Path('data/cache/cmg_historical_latest.json')
+          if cache_file.exists():
+              with open(cache_file) as f:
+                  data = json.load(f)
+              records = data.get('data', [])
+              print(f'✅ Total records: {len(records)}')
+
+              # Check completeness by date
+              date_hours = defaultdict(set)
+              for r in records:
+                  date_hours[r['date']].add(r['hour'])
+
+              print(f'📊 Last 3 days coverage:')
+              for date in sorted(date_hours.keys())[-3:]:
+                  hours = date_hours[date]
+                  if len(hours) == 24:
+                      print(f'   ✅ {date}: Complete (24/24 hours)')
+                  else:
+                      print(f'   ⚠️  {date}: Incomplete ({len(hours)}/24 hours)')
+
+              # Show metadata
+              if 'metadata' in data:
+                  meta = data['metadata']
+                  print(f'📅 Date range: {meta.get(\"oldest_date\")} to {meta.get(\"newest_date\")}')
+          else:
+              print('❌ Cache file not found!')
+              exit(1)
+
+          print('========================================')
+          "
+
+      # ========== STEP 4: COMMIT CHANGES ==========
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet data/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push updates
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Pull latest changes first
+          echo "📥 Pulling latest changes..."
+          git pull origin main --no-rebase || {
+            echo "⚠️  Pull failed, resetting to origin/main"
+            git fetch origin
+            git reset --hard origin/main
+          }
+
+          # Add and commit changes
+          git add data/
+          git commit -m "🔄 CMG Online update - $(date +'%Y-%m-%d %H:%M')
+
+          - Fetched from SIP API (v4/findByDate)
+          - Updated historical cache (cmg_historical_latest.json)
+          - Updated Gist: 8d7864eb26acf6e780d3c0f7fed69365
+          - Data verified and committed
+
+          Workflow: cmg_online_hourly.yml" || {
+            echo "⚠️  Nothing to commit"
+            exit 0
+          }
+
+          # Push with retry
+          PUSH_SUCCESS=false
+          for i in 1 2 3; do
+            echo "📤 Push attempt $i of 3..."
+            if git push origin main; then
+              echo "✅ Updates pushed successfully!"
+              PUSH_SUCCESS=true
+              break
+            else
+              echo "❌ Push failed, pulling and retrying..."
+              git pull origin main --no-rebase || true
+              # In case of conflicts, take the latest data
+              git checkout --theirs data/ || true
+              git add data/ || true
+              git commit --amend --no-edit || true
+            fi
+          done
+
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "⚠️  Could not push after 3 attempts"
+            echo "Data is saved locally but not pushed to remote"
+            exit 1
+          fi
+
+      - name: Trigger Vercel deployment
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          echo "✅ Data updated - Vercel will auto-deploy from main branch"
+
+      - name: Final summary
+        if: always()
+        run: |
+          echo ""
+          echo "========================================"
+          echo "CMG ONLINE - WORKFLOW SUMMARY"
+          echo "========================================"
+          echo "Completed at: $(date)"
+          echo "Status: ${{ job.status }}"
+
+          if [ -f data/cache/metadata.json ]; then
+            echo ""
+            echo "Cache metadata:"
+            cat data/cache/metadata.json | python -m json.tool | head -15
+          fi
+
+          echo ""
+          echo "🌐 View results:"
+          echo "   https://pudidicmgprediction.vercel.app/validation.html"
+          echo ""

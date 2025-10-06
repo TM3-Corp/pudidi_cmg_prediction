@@ -136,11 +136,13 @@ def merge_historical_data(existing_data, new_data):
     # Merge new data
     for date, data in new_data.items():
         if date >= cutoff_date:
-            # If date exists, merge programado data with existing online data
+            # If date exists, UPDATE with new online data, preserve programado
             if date in existing_data['daily_data']:
-                # Keep existing CMG Online data if present
-                if 'cmg_online' in existing_data['daily_data'][date]:
-                    data['cmg_online'] = existing_data['daily_data'][date]['cmg_online']
+                # UPDATE with NEW CMG Online data (not keep old!)
+                # This is the fix: new data should OVERWRITE old data, not vice versa
+                if 'cmg_online' in data and data['cmg_online']:
+                    # New online data available - use it!
+                    existing_data['daily_data'][date]['cmg_online'] = data['cmg_online']
                 # Update with new CMG Programado if available
                 if 'cmg_programado' in data and data['cmg_programado']:
                     existing_data['daily_data'][date]['cmg_programado'] = data['cmg_programado']
@@ -148,7 +150,7 @@ def merge_historical_data(existing_data, new_data):
                     # Keep existing programado if new doesn't have it
                     if 'cmg_programado' in existing_data['daily_data'][date]:
                         data['cmg_programado'] = existing_data['daily_data'][date]['cmg_programado']
-            
+
             existing_data['daily_data'][date] = data
     
     # Remove old data beyond rolling window
