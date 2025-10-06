@@ -1,0 +1,69 @@
+name: CMG Programado 5PM Daily Snapshot
+
+on:
+  schedule:
+    # Run at 5PM Chilean time (20:00 UTC = 17:00 Chile UTC-3)
+    - cron: '0 20 * * *'
+
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  capture-snapshot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Full history for proper git operations
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests pytz
+
+      - name: Capture 5PM CMG Programado Snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CMG_SNAPSHOT_GIST_ID: ${{ secrets.CMG_SNAPSHOT_GIST_ID }}
+        run: |
+          python scripts/capture_5pm_cmg_snapshot.py
+
+      - name: Commit snapshot metadata (if created)
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Commit Gist ID file if it was created
+          if [ -f .cmg_snapshot_gist_id ]; then
+            git add .cmg_snapshot_gist_id
+            git commit -m "chore: Save CMG snapshot Gist ID" || echo "No Gist ID to commit"
+          fi
+
+          # Commit local cache if Gist creation failed
+          if [ -f data/cache/cmg_programado_snapshots.json ]; then
+            git add data/cache/cmg_programado_snapshots.json
+            git commit -m "feat: CMG Programado 5PM snapshot - $(date -u +%Y-%m-%d\ %H:%M)" || echo "No local snapshot to commit"
+          fi
+
+      - name: Push changes
+        run: |
+          git push origin main || echo "Nothing to push"
+
+      - name: Workflow Summary
+        run: |
+          echo "## 📸 5PM CMG Programado Snapshot Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Time:** $(date -u +%Y-%m-%d\ %H:%M\ UTC)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f .cmg_snapshot_gist_id ]; then
+            GIST_ID=$(cat .cmg_snapshot_gist_id)
+            echo "**Snapshot Gist:** https://gist.github.com/$GIST_ID" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** Saved locally (no Gist configured yet)" >> $GITHUB_STEP_SUMMARY
+          fi
