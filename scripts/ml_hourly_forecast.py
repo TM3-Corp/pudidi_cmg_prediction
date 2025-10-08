@@ -46,54 +46,89 @@ def load_cmg_online_data():
 
     Returns last 168 hours (1 week) needed for feature engineering.
     Automatically finds the LATEST timestamp to use as base for predictions.
+
+    Tries multiple cache files in order of preference.
     """
-    print(f"[1/5] Loading CMG Online data from {CMG_ONLINE_FILE}...")
+    print(f"[1/5] Loading CMG Online data...")
 
-    try:
-        with open(CMG_ONLINE_FILE, 'r') as f:
-            data = json.load(f)
+    # Try multiple cache files
+    cache_files = [
+        DATA_DIR / "cache" / "cmg_historical_latest.json",  # Preferred
+        DATA_DIR / "cache" / "cmg_online_historical.json",  # Fallback
+    ]
 
-        # Parse cache structure: data key contains list of records
-        records = data.get('data', [])
+    for cache_file in cache_files:
+        if not cache_file.exists():
+            continue
 
-        if not records:
-            raise ValueError("No CMG data found in cache file")
+        print(f"  Trying: {cache_file.name}")
 
-        # Convert to DataFrame
-        df = pd.DataFrame(records)
+        try:
+            with open(cache_file, 'r') as f:
+                data = json.load(f)
 
-        # Parse datetime
-        df['fecha_hora'] = pd.to_datetime(df['datetime'])
+            # Try different data structures
+            records = []
 
-        # Use cmg_usd as the CMG value
-        df['CMG [$/MWh]'] = df['cmg_usd']
+            # Structure 1: data key contains list of records
+            if 'data' in data and data['data']:
+                print(f"    Format: data key with list")
+                records = data['data']
+                df = pd.DataFrame(records)
+                df['fecha_hora'] = pd.to_datetime(df['datetime'])
+                df['CMG [$/MWh]'] = df['cmg_usd']
 
-        # Set index and sort
-        df = df.set_index('fecha_hora').sort_index()
+            # Structure 2: daily_data key with nested structure
+            elif 'daily_data' in data and data['daily_data']:
+                print(f"    Format: daily_data key with nested structure")
+                for date_str, day_data in data['daily_data'].items():
+                    for node, node_data in day_data.get('cmg_online', {}).items():
+                        for hour, cmg_usd in zip(day_data.get('hours', []), node_data.get('cmg_usd', [])):
+                            if cmg_usd is not None:
+                                records.append({
+                                    'fecha_hora': f"{date_str} {hour:02d}:00:00",
+                                    'CMG [$/MWh]': float(cmg_usd)
+                                })
+                df = pd.DataFrame(records)
+                df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
 
-        # Take average across nodes if multiple nodes for same timestamp
-        df = df.groupby('fecha_hora')['CMG [$/MWh]'].mean().to_frame()
+            else:
+                print(f"    ⚠️  Unknown format, skipping")
+                continue
 
-        # Get last 168 hours (1 week) - needed for lag features and rolling statistics
-        # The models use up to 168-hour lag features
-        df = df.tail(168)
+            if len(df) == 0:
+                print(f"    ⚠️  No records found, skipping")
+                continue
 
-        latest_time = df.index[-1]
-        latest_value = df['CMG [$/MWh]'].iloc[-1]
+            # Process DataFrame
+            df = df.set_index('fecha_hora').sort_index()
 
-        print(f"  ✓ Loaded {len(df)} hours of CMG data (last week)")
-        print(f"  📅 Latest timestamp: {latest_time}")
-        print(f"  💵 Latest value: ${latest_value:.2f}/MWh")
-        print(f"  🎯 Predictions will start from: {latest_time + timedelta(hours=1)}")
+            # Take average across nodes if multiple nodes for same timestamp
+            if df.index.duplicated().any():
+                df = df.groupby('fecha_hora')['CMG [$/MWh]'].mean().to_frame()
 
-        return df
+            # Get last 168 hours (1 week) - needed for lag features
+            df = df.tail(168)
 
-    except FileNotFoundError:
-        print(f"  ⚠️  CMG Online cache not found at {CMG_ONLINE_FILE}")
-        raise FileNotFoundError(f"CMG cache file not found: {CMG_ONLINE_FILE}")
-    except Exception as e:
-        print(f"  ❌ Error loading CMG data: {e}")
-        raise
+            latest_time = df.index[-1]
+            latest_value = df['CMG [$/MWh]'].iloc[-1]
+
+            print(f"  ✅ Successfully loaded {len(df)} hours of CMG data")
+            print(f"  📅 Latest timestamp: {latest_time}")
+            print(f"  💵 Latest value: ${latest_value:.2f}/MWh")
+            print(f"  🎯 Predictions will start from: {latest_time + timedelta(hours=1)}")
+
+            return df
+
+        except Exception as e:
+            print(f"    ❌ Error: {e}")
+            continue
+
+    # If we get here, no cache file worked
+    raise FileNotFoundError(
+        f"Could not load CMG data from any cache file. "
+        f"Tried: {[str(f.name) for f in cache_files]}"
+    )
 
 
 def generate_stage1_meta_features(X_base):
