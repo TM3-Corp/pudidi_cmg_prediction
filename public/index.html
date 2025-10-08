@@ -608,7 +608,7 @@
             if (mlPredictions && mlPredictions.predictions && selectedNode === 'all') {
                 const mlData = mlPredictions.predictions;
 
-                // ML Prediction line (green, dotted)
+                // ML Prediction line (blue, dotted)
                 traces.push({
                     x: mlData.map(d => d.datetime),
                     y: mlData.map(d => d.cmg_predicted),
@@ -616,14 +616,14 @@
                     type: 'scatter',
                     mode: 'lines+markers',
                     line: {
-                        color: '#22c55e',  // Green
+                        color: '#3b82f6',  // Blue
                         width: 3,
                         dash: 'dot'
                     },
                     marker: {
                         size: 6,
-                        color: mlData.map(d => d.cmg_predicted === 0 ? '#ef4444' : '#22c55e'),  // Red for zeros
-                        symbol: mlData.map(d => d.cmg_predicted === 0 ? 'circle' : 'circle')
+                        color: '#3b82f6',  // Blue for all points
+                        symbol: 'circle'
                     },
                     hovertemplate:
                         '<b>ML Prediction</b><br>' +
@@ -631,35 +631,6 @@
                         'CMG: $%{y:.2f}<br>' +
                         '<extra></extra>'
                 });
-
-                // Add confidence interval (shaded area)
-                if (mlData.length > 0 && mlData[0].confidence_lower !== undefined) {
-                    // Upper bound
-                    traces.push({
-                        x: mlData.map(d => d.datetime),
-                        y: mlData.map(d => d.confidence_upper),
-                        name: 'Intervalo de Confianza',
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: { width: 0 },
-                        showlegend: false,
-                        hoverinfo: 'skip'
-                    });
-
-                    // Lower bound with fill
-                    traces.push({
-                        x: mlData.map(d => d.datetime),
-                        y: mlData.map(d => d.confidence_lower),
-                        name: 'Confianza 80%',
-                        type: 'scatter',
-                        mode: 'lines',
-                        fill: 'tonexty',
-                        fillcolor: 'rgba(34, 197, 94, 0.1)',  // Light green
-                        line: { width: 0 },
-                        showlegend: true,
-                        hoverinfo: 'skip'
-                    });
-                }
             }
 
             // Update chart title
