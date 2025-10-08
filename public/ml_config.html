@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Model Configuration - CMG Monitor</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .threshold-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #10b981 0%, #3b82f6 50%, #ef4444 100%);
+            outline: none;
+        }
+
+        .threshold-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .threshold-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        🤖 ML Model Configuration
+                    </h1>
+                    <p class="text-gray-600 mt-2">
+                        Configure decision thresholds for CMG prediction models
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="index.html"
+                       class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span>Inicio</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Loading State -->
+    <div id="loading-container" class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-xl shadow-lg p-8">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loading-spinner mb-4"></div>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">
+                    Loading ML configuration...
+                </h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="container mx-auto px-4 py-8 hidden">
+
+        <!-- Model Information Card -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Model Information</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Model Version</h3>
+                    <p id="model-version" class="text-xl font-bold text-blue-600">--</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Last Update</h3>
+                    <p id="last-update" class="text-xl font-bold text-green-600">--</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Prediction Horizon</h3>
+                    <p id="prediction-horizon" class="text-xl font-bold text-purple-600">24 hours</p>
+                </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ About the Model</h3>
+                <ul class="text-sm text-blue-800 space-y-1">
+                    <li>• <strong>144 ML models</strong>: 48 zero-detection + 96 value-prediction models</li>
+                    <li>• <strong>Two-stage architecture</strong>: Stage 1 predicts zeros, Stage 2 predicts values</li>
+                    <li>• <strong>Ensemble approach</strong>: LightGBM + XGBoost with quantile regression</li>
+                    <li>• <strong>Optimal thresholds</strong>: F1-maximized, profit-optimized for each horizon</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Decision Thresholds -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">🎯 Decision Thresholds</h2>
+                <div class="text-sm text-gray-600">
+                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span> Low Risk
+                    <span class="inline-block w-3 h-3 bg-blue-500 rounded-full ml-3 mr-1"></span> Optimal
+                    <span class="inline-block w-3 h-3 bg-red-500 rounded-full ml-3 mr-1"></span> High Risk
+                </div>
+            </div>
+
+            <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <h3 class="font-semibold text-yellow-900 mb-2">⚠️ About Thresholds</h3>
+                <p class="text-sm text-yellow-800">
+                    Decision thresholds determine when the model predicts CMG = $0. Lower thresholds → more zero predictions (conservative).
+                    Higher thresholds → fewer zero predictions (aggressive). Current thresholds are <strong>profit-optimized</strong> and
+                    <strong>read-only</strong> to maintain model accuracy.
+                </p>
+            </div>
+
+            <!-- Thresholds Grid -->
+            <div id="thresholds-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Thresholds will be populated here -->
+            </div>
+        </div>
+
+        <!-- Performance Metrics Chart -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Model Performance by Horizon</h2>
+            <div id="performance-chart" style="height: 400px;"></div>
+        </div>
+
+        <!-- Threshold Distribution Chart -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Threshold Distribution</h2>
+            <div id="threshold-chart" style="height: 300px;"></div>
+        </div>
+
+    </div>
+
+    <script>
+        let thresholdsData = null;
+        let mlPredictionsData = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                // Fetch thresholds
+                const thresholdsResponse = await fetch('/api/ml_thresholds');
+                const thresholdsJson = await thresholdsResponse.json();
+
+                if (thresholdsJson.success) {
+                    thresholdsData = thresholdsJson;
+
+                    // Also fetch ML predictions for model info
+                    try {
+                        const predictionsResponse = await fetch('/api/ml_forecast');
+                        const predictionsJson = await predictionsResponse.json();
+                        if (predictionsJson.success) {
+                            mlPredictionsData = predictionsJson;
+                        }
+                    } catch (e) {
+                        console.warn('Could not load predictions:', e);
+                    }
+
+                    // Update UI
+                    updateModelInfo();
+                    renderThresholds();
+                    renderPerformanceChart();
+                    renderThresholdChart();
+
+                    // Hide loading, show content
+                    document.getElementById('loading-container').classList.add('hidden');
+                    document.getElementById('main-content').classList.remove('hidden');
+                } else {
+                    throw new Error('Failed to load thresholds');
+                }
+            } catch (error) {
+                console.error('Error initializing:', error);
+                document.getElementById('loading-container').innerHTML =
+                    '<div class="text-center text-red-600">Error loading ML configuration. Please try again.</div>';
+            }
+        }
+
+        function updateModelInfo() {
+            if (mlPredictionsData) {
+                document.getElementById('model-version').textContent = mlPredictionsData.model_version || 'v1.0';
+                document.getElementById('last-update').textContent =
+                    new Date(mlPredictionsData.generated_at).toLocaleString('es-CL', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+            }
+        }
+
+        function renderThresholds() {
+            const grid = document.getElementById('thresholds-grid');
+            grid.innerHTML = '';
+
+            thresholdsData.thresholds.forEach(threshold => {
+                const card = document.createElement('div');
+                card.className = 'border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow';
+
+                const optimalPercent = (threshold.optimal_threshold * 100).toFixed(1);
+                const minPercent = (threshold.min_allowed * 100).toFixed(1);
+                const maxPercent = (threshold.max_allowed * 100).toFixed(1);
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-bold text-gray-800">Horizon ${threshold.horizon_label}</h3>
+                        <span class="text-2xl font-bold text-blue-600">${optimalPercent}%</span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>Min: ${minPercent}%</span>
+                                <span>Max: ${maxPercent}%</span>
+                            </div>
+                            <div class="relative">
+                                <div class="threshold-slider" style="background: linear-gradient(to right, #10b981 0%, #3b82f6 50%, #ef4444 100%);"></div>
+                                <div class="absolute" style="left: ${optimalPercent}%; top: -4px; width: 3px; height: 14px; background: #1e40af; border-radius: 2px;"></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-xs">
+                            <div class="text-center p-2 bg-green-50 rounded">
+                                <div class="font-semibold text-green-700">Precision</div>
+                                <div class="text-green-900">${(threshold.precision * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="text-center p-2 bg-blue-50 rounded">
+                                <div class="font-semibold text-blue-700">Recall</div>
+                                <div class="text-blue-900">${(threshold.recall * 100).toFixed(1)}%</div>
+                            </div>
+                            <div class="text-center p-2 bg-purple-50 rounded">
+                                <div class="font-semibold text-purple-700">F1</div>
+                                <div class="text-purple-900">${(threshold.f1 * 100).toFixed(1)}%</div>
+                            </div>
+                        </div>
+
+                        <div class="text-xs text-gray-600 pt-2 border-t">
+                            <strong>AUC:</strong> ${(threshold.auc * 100).toFixed(1)}%
+                        </div>
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function renderPerformanceChart() {
+            const thresholds = thresholdsData.thresholds;
+
+            const traces = [
+                {
+                    x: thresholds.map(t => t.horizon),
+                    y: thresholds.map(t => t.precision * 100),
+                    name: 'Precision',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#10b981', width: 2 },
+                    marker: { size: 6 }
+                },
+                {
+                    x: thresholds.map(t => t.horizon),
+                    y: thresholds.map(t => t.recall * 100),
+                    name: 'Recall',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#3b82f6', width: 2 },
+                    marker: { size: 6 }
+                },
+                {
+                    x: thresholds.map(t => t.horizon),
+                    y: thresholds.map(t => t.f1 * 100),
+                    name: 'F1 Score',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#8b5cf6', width: 3 },
+                    marker: { size: 8 }
+                }
+            ];
+
+            const layout = {
+                xaxis: { title: 'Forecast Horizon (hours ahead)' },
+                yaxis: { title: 'Score (%)', range: [0, 100] },
+                showlegend: true,
+                legend: { x: 1, y: 1, xanchor: 'right' },
+                hovermode: 'x unified',
+                margin: { t: 20, r: 20, b: 60, l: 60 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+
+            Plotly.newPlot('performance-chart', traces, layout, config);
+        }
+
+        function renderThresholdChart() {
+            const thresholds = thresholdsData.thresholds;
+
+            const trace = {
+                x: thresholds.map(t => t.horizon),
+                y: thresholds.map(t => t.optimal_threshold * 100),
+                type: 'bar',
+                marker: {
+                    color: thresholds.map(t => {
+                        const val = t.optimal_threshold;
+                        if (val < 0.3) return '#10b981'; // green
+                        if (val < 0.5) return '#3b82f6'; // blue
+                        return '#ef4444'; // red
+                    })
+                },
+                text: thresholds.map(t => (t.optimal_threshold * 100).toFixed(1) + '%'),
+                textposition: 'outside'
+            };
+
+            const layout = {
+                xaxis: { title: 'Forecast Horizon (hours ahead)' },
+                yaxis: { title: 'Optimal Threshold (%)', range: [0, 100] },
+                showlegend: false,
+                hovermode: 'x',
+                margin: { t: 20, r: 20, b: 60, l: 60 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: false
+            };
+
+            Plotly.newPlot('threshold-chart', [trace], layout, config);
+        }
+    </script>
+</body>
+</html>

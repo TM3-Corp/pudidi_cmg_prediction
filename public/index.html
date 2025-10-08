@@ -93,13 +93,21 @@
                         </p>
                     </div>
                     <div class="flex gap-2">
-                        <a href="optimizer.html" 
+                        <a href="optimizer.html"
                            class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                             </svg>
                             <span>Optimización</span>
+                        </a>
+                        <a href="ml_config.html"
+                           class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                            </svg>
+                            <span>🤖 ML Config</span>
                         </a>
                         <!-- Rendimiento button hidden for now
                         <a href="rendimiento.html" 
@@ -254,6 +262,7 @@
     <script>
         // Global variables
         let currentData = null;
+        let mlPredictions = null;  // ML predictions from Railway
         let selectedNode = 'all';
         let isRefreshing = false;
         let autoRefreshInterval = null;
@@ -319,10 +328,24 @@
 
         async function fetchAndUpdateData() {
             try {
+                // Fetch historical/programmed data
                 const response = await fetchWithTimeout('/api/cmg/current', 30000);
-                
+
                 if (response.success) {
                     currentData = response.data;
+
+                    // Also fetch ML predictions (don't fail if unavailable)
+                    try {
+                        const mlResponse = await fetchWithTimeout('/api/ml_forecast', 10000);
+                        if (mlResponse.success) {
+                            mlPredictions = mlResponse;
+                            console.log('✅ ML predictions loaded:', mlResponse.predictions_count);
+                        }
+                    } catch (mlError) {
+                        console.warn('⚠️ ML predictions not available:', mlError);
+                        mlPredictions = null;
+                    }
+
                     updateUI(currentData);
                 } else {
                     throw new Error(response.error || 'Failed to fetch data');
@@ -580,11 +603,69 @@
                     }
                 }
             }
-            
+
+            // Add ML Predictions trace (always shown for all nodes view)
+            if (mlPredictions && mlPredictions.predictions && selectedNode === 'all') {
+                const mlData = mlPredictions.predictions;
+
+                // ML Prediction line (green, dotted)
+                traces.push({
+                    x: mlData.map(d => d.datetime),
+                    y: mlData.map(d => d.cmg_predicted),
+                    name: '🤖 Predicción ML',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: {
+                        color: '#22c55e',  // Green
+                        width: 3,
+                        dash: 'dot'
+                    },
+                    marker: {
+                        size: 6,
+                        color: mlData.map(d => d.cmg_predicted === 0 ? '#ef4444' : '#22c55e'),  // Red for zeros
+                        symbol: mlData.map(d => d.cmg_predicted === 0 ? 'circle' : 'circle')
+                    },
+                    hovertemplate:
+                        '<b>ML Prediction</b><br>' +
+                        'Fecha: %{x}<br>' +
+                        'CMG: $%{y:.2f}<br>' +
+                        '<extra></extra>'
+                });
+
+                // Add confidence interval (shaded area)
+                if (mlData.length > 0 && mlData[0].confidence_lower !== undefined) {
+                    // Upper bound
+                    traces.push({
+                        x: mlData.map(d => d.datetime),
+                        y: mlData.map(d => d.confidence_upper),
+                        name: 'Intervalo de Confianza',
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { width: 0 },
+                        showlegend: false,
+                        hoverinfo: 'skip'
+                    });
+
+                    // Lower bound with fill
+                    traces.push({
+                        x: mlData.map(d => d.datetime),
+                        y: mlData.map(d => d.confidence_lower),
+                        name: 'Confianza 80%',
+                        type: 'scatter',
+                        mode: 'lines',
+                        fill: 'tonexty',
+                        fillcolor: 'rgba(34, 197, 94, 0.1)',  // Light green
+                        line: { width: 0 },
+                        showlegend: true,
+                        hoverinfo: 'skip'
+                    });
+                }
+            }
+
             // Update chart title
-            document.getElementById('chart-title').textContent = 
+            document.getElementById('chart-title').textContent =
                 selectedNode === 'all' ? 'Todos los Nodos' : selectedNode;
-            
+
             const layout = {
                 xaxis: {
                     title: 'Fecha y Hora',
