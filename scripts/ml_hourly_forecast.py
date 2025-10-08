@@ -41,75 +41,59 @@ ARCHIVE_DIR = OUTPUT_DIR / "archive"
 
 
 def load_cmg_online_data():
-    """Load latest CMG Online data from JSON"""
+    """
+    Load latest CMG Online data from cache.
+
+    Returns last 168 hours (1 week) needed for feature engineering.
+    Automatically finds the LATEST timestamp to use as base for predictions.
+    """
     print(f"[1/5] Loading CMG Online data from {CMG_ONLINE_FILE}...")
 
     try:
         with open(CMG_ONLINE_FILE, 'r') as f:
             data = json.load(f)
 
-        # Parse structure: daily_data -> date -> cmg_online -> node -> cmg_usd
-        records = []
-
-        # Get the node we're interested in (PID PID or first available)
-        target_node = "PIDPID________110"  # Default to PID PID
-
-        daily_data = data.get('daily_data', {})
-
-        for date_str, date_data in daily_data.items():
-            hours = date_data.get('hours', [])
-            cmg_online = date_data.get('cmg_online', {})
-
-            # Try to get target node, or first available node
-            if target_node in cmg_online:
-                node_data = cmg_online[target_node]
-            else:
-                # Use first available node
-                node_data = list(cmg_online.values())[0] if cmg_online else {}
-
-            cmg_values = node_data.get('cmg_usd', [])
-
-            # Create hourly records
-            for hour, cmg_value in zip(hours, cmg_values):
-                if cmg_value is not None:  # Skip null values
-                    datetime_str = f"{date_str} {hour:02d}:00:00"
-                    records.append({
-                        'fecha_hora': datetime_str,
-                        'CMG [$/MWh]': float(cmg_value)
-                    })
+        # Parse cache structure: data key contains list of records
+        records = data.get('data', [])
 
         if not records:
-            raise ValueError("No CMG data found in JSON file")
+            raise ValueError("No CMG data found in cache file")
 
+        # Convert to DataFrame
         df = pd.DataFrame(records)
-        df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
-        df = df.sort_values('fecha_hora').set_index('fecha_hora')
 
-        # Get last 168 hours (needed for features)
+        # Parse datetime
+        df['fecha_hora'] = pd.to_datetime(df['datetime'])
+
+        # Use cmg_usd as the CMG value
+        df['CMG [$/MWh]'] = df['cmg_usd']
+
+        # Set index and sort
+        df = df.set_index('fecha_hora').sort_index()
+
+        # Take average across nodes if multiple nodes for same timestamp
+        df = df.groupby('fecha_hora')['CMG [$/MWh]'].mean().to_frame()
+
+        # Get last 168 hours (1 week) - needed for lag features and rolling statistics
+        # The models use up to 168-hour lag features
         df = df.tail(168)
 
-        print(f"  ✓ Loaded {len(df)} hours of CMG data")
-        print(f"  Latest: {df.index[-1]}")
-        print(f"  Value: ${df['CMG [$/MWh]'].iloc[-1]:.2f}")
+        latest_time = df.index[-1]
+        latest_value = df['CMG [$/MWh]'].iloc[-1]
+
+        print(f"  ✓ Loaded {len(df)} hours of CMG data (last week)")
+        print(f"  📅 Latest timestamp: {latest_time}")
+        print(f"  💵 Latest value: ${latest_value:.2f}/MWh")
+        print(f"  🎯 Predictions will start from: {latest_time + timedelta(hours=1)}")
 
         return df
 
     except FileNotFoundError:
-        print(f"  ⚠️  CMG Online data not found at {CMG_ONLINE_FILE}")
-        print("  Using fallback: loading from CSV if available")
-
-        # Fallback: try loading from CSV
-        csv_file = Path(__file__).parent.parent.parent.parent / "CMG_Real_ML_2023_2025.csv"
-        if csv_file.exists():
-            df = pd.read_csv(csv_file)
-            df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
-            df = df.rename(columns={'CMG_real': 'CMG [$/MWh]'})
-            df = df.set_index('fecha_hora').sort_index()
-            df = df.tail(168)
-            print(f"  ✓ Loaded {len(df)} hours from CSV")
-            return df
-        else:
-            raise FileNotFoundError("No CMG data available")
+        print(f"  ⚠️  CMG Online cache not found at {CMG_ONLINE_FILE}")
+        raise FileNotFoundError(f"CMG cache file not found: {CMG_ONLINE_FILE}")
+    except Exception as e:
+        print(f"  ❌ Error loading CMG data: {e}")
+        raise
 
 
 def generate_stage1_meta_features(X_base):
