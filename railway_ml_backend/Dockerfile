@@ -1,25 +1,21 @@
 # Railway ML Backend Dockerfile
 FROM python:3.11-slim
 
-# Set working directory
+# Set working directory to /app
 WORKDIR /app
 
-# Copy requirements first (for caching)
-COPY railway_ml_backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the entire project (models, data, backend code)
+# Copy the entire project first (needed for relative paths in main.py)
 COPY . .
 
-# Set working directory to railway_ml_backend for running the app
-WORKDIR /app/railway_ml_backend
+# Install dependencies from railway_ml_backend
+RUN pip install --no-cache-dir -r railway_ml_backend/requirements.txt
 
 # Expose port (Railway will use PORT env var)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health')"
+# Set environment variable for Python
+ENV PYTHONUNBUFFERED=1
 
-# Run the FastAPI application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI application from railway_ml_backend directory
+WORKDIR /app/railway_ml_backend
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}

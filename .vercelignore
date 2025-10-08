@@ -1,3 +1,11 @@
+# ============================================
+# CRITICAL: Exclude ML models from Vercel
+# These are 103MB and will be served from Railway
+# ============================================
+models_24h/
+railway_ml_backend/
+data/ml_predictions/
+
 # Test files (now in tests/ directory)
 tests/
 test*.py
@@ -31,6 +39,7 @@ ENV/
 # Documentation
 README.md
 docs/
+*.md
 
 # IDE files
 .vscode/
