@@ -35,7 +35,7 @@ from ml_feature_engineering import CleanCMGFeatureEngineering
 # Constants
 MODELS_DIR = Path(__file__).parent.parent / "models_24h"
 DATA_DIR = Path(__file__).parent.parent / "data"
-CMG_ONLINE_FILE = DATA_DIR / "cmg_online_from_csv.json"
+CMG_ONLINE_FILE = DATA_DIR / "cache" / "cmg_historical_latest.json"  # Use latest cache
 OUTPUT_DIR = DATA_DIR / "ml_predictions"
 ARCHIVE_DIR = OUTPUT_DIR / "archive"
 

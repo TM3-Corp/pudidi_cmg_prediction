@@ -44,7 +44,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests pytz numpy
+          pip install requests pytz numpy pandas lightgbm xgboost scikit-learn
 
       # ========== STEP 1: FETCH CMG ONLINE ==========
       - name: Fetch CMG Online data from SIP API
@@ -61,7 +61,22 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/api
 
-      # ========== STEP 2: STORE TO GIST ==========
+      # ========== STEP 2: GENERATE ML PREDICTIONS ==========
+      - name: Generate ML 24-hour forecast
+        if: success()
+        timeout-minutes: 5
+        run: |
+          echo ""
+          echo "========================================"
+          echo "ML FORECAST - GENERATE PREDICTIONS"
+          echo "========================================"
+          echo "Starting at $(date)"
+          python scripts/ml_hourly_forecast.py
+          echo "ML forecast completed at $(date)"
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      # ========== STEP 3: STORE TO GIST ==========
       - name: Store CMG Online historical data to Gist
         if: success()
         timeout-minutes: 5
@@ -75,7 +90,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
           PYTHONPATH: ${{ github.workspace }}
 
-      # ========== STEP 3: VERIFY DATA INTEGRITY ==========
+      # ========== STEP 4: VERIFY DATA INTEGRITY ==========
       - name: Verify data integrity
         if: success()
         run: |
@@ -120,7 +135,7 @@ jobs:
           print('========================================')
           "
 
-      # ========== STEP 4: COMMIT CHANGES ==========
+      # ========== STEP 5: COMMIT CHANGES ==========
       - name: Check for changes
         id: check_changes
         run: |
@@ -142,10 +157,12 @@ jobs:
 
           # Add and commit changes
           git add data/
-          git commit -m "🔄 CMG Online update - $(date +'%Y-%m-%d %H:%M')
+          git commit -m "🔄 CMG Online update + ML Predictions - $(date +'%Y-%m-%d %H:%M')
 
           - Fetched from SIP API (v4/findByDate)
+          - Generated ML 24-hour forecast
           - Updated historical cache (cmg_historical_latest.json)
+          - Updated ML predictions (ml_predictions/latest.json)
           - Updated Gist: 8d7864eb26acf6e780d3c0f7fed69365
           - Data verified and committed
 
