@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Model Configuration - CMG Monitor</title>
+    <title>Configuración Modelo ML - Monitor CMG</title>
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -57,6 +57,45 @@
             border: 2px solid white;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
+
+        .tooltip-trigger {
+            cursor: help;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.active {
+            max-height: 1000px;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .confidence-high {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .confidence-medium {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .confidence-low {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
@@ -66,10 +105,10 @@
             <div class="flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl font-bold text-gray-800">
-                        🤖 ML Model Configuration
+                        🤖 Configuración Modelo ML
                     </h1>
                     <p class="text-gray-600 mt-2">
-                        Configure decision thresholds for CMG prediction models
+                        Configuración de umbrales y análisis de pronósticos CMG
                     </p>
                 </div>
                 <div class="flex gap-2">
@@ -92,7 +131,7 @@
             <div class="flex flex-col items-center justify-center">
                 <div class="loading-spinner mb-4"></div>
                 <h2 class="text-xl font-semibold text-gray-700 mb-2">
-                    Loading ML configuration...
+                    Cargando configuración ML...
                 </h2>
             </div>
         </div>
@@ -103,50 +142,112 @@
 
         <!-- Model Information Card -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Model Information</h2>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Información del Modelo</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-1">Model Version</h3>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Versión del Modelo</h3>
                     <p id="model-version" class="text-xl font-bold text-blue-600">--</p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-1">Last Update</h3>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Última Actualización</h3>
                     <p id="last-update" class="text-xl font-bold text-green-600">--</p>
                 </div>
                 <div>
-                    <h3 class="text-sm font-medium text-gray-500 mb-1">Prediction Horizon</h3>
-                    <p id="prediction-horizon" class="text-xl font-bold text-purple-600">24 hours</p>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Horizonte de Predicción</h3>
+                    <p id="prediction-horizon" class="text-xl font-bold text-purple-600">24 horas</p>
                 </div>
             </div>
 
             <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ About the Model</h3>
+                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Acerca del Modelo</h3>
                 <ul class="text-sm text-blue-800 space-y-1">
-                    <li>• <strong>144 ML models</strong>: 48 zero-detection + 96 value-prediction models</li>
-                    <li>• <strong>Two-stage architecture</strong>: Stage 1 predicts zeros, Stage 2 predicts values</li>
-                    <li>• <strong>Ensemble approach</strong>: LightGBM + XGBoost with quantile regression</li>
-                    <li>• <strong>Optimal thresholds</strong>: F1-maximized, profit-optimized for each horizon</li>
+                    <li>• <strong>144 modelos ML</strong>: 48 de detección de ceros + 96 de predicción de valores</li>
+                    <li>• <strong>Arquitectura de 2 etapas</strong>: Etapa 1 predice ceros, Etapa 2 predice valores</li>
+                    <li>• <strong>Ensamble</strong>: LightGBM + XGBoost con regresión cuantílica</li>
+                    <li>• <strong>Umbrales óptimos</strong>: Maximizados por F1 y optimizados por ganancia para cada horizonte</li>
                 </ul>
             </div>
+        </div>
+
+        <!-- Current Forecast - NEW! -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">🔮 Pronóstico Actual (24 horas)</h2>
+                <div id="uncertainty-summary" class="text-sm font-semibold">
+                    <!-- Will be populated with uncertainty count -->
+                </div>
+            </div>
+
+            <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900 mb-2">📖 Cómo Leer Esta Tabla</h3>
+                <div class="text-sm text-blue-800 space-y-1">
+                    <p>• <strong>Probabilidad de CMG=0</strong>: Confianza del modelo en que el CMG será cero (0-100%)</p>
+                    <p>• <strong>Umbral Óptimo</strong>: Punto de corte para decidir si predecir cero o valor</p>
+                    <p>• <strong>Confianza</strong>:</p>
+                    <ul class="ml-6 mt-1">
+                        <li><span class="confidence-badge confidence-high">Alta</span> - Predicción muy segura (lejos del umbral)</li>
+                        <li><span class="confidence-badge confidence-medium">Media</span> - Predicción moderada (cercana al umbral ±10%)</li>
+                        <li><span class="confidence-badge confidence-low">Baja</span> - Predicción incierta (muy cerca del umbral ±5%)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Forecast Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700">Hora</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-700">Horizonte</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-700">Predicción CMG</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-700">Prob. CMG=0</th>
+                            <th class="px-4 py-3 text-right font-semibold text-gray-700">Umbral</th>
+                            <th class="px-4 py-3 text-center font-semibold text-gray-700">Confianza</th>
+                        </tr>
+                    </thead>
+                    <tbody id="forecast-table-body" class="divide-y divide-gray-200">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Reliability Analysis Chart - REPLACED static performance chart -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Análisis de Confiabilidad del Pronóstico</h2>
+
+            <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 class="font-semibold text-green-900 mb-2">💡 ¿Qué Muestra Este Gráfico?</h3>
+                <p class="text-sm text-green-800">
+                    Este gráfico muestra la <strong>probabilidad de CMG=0</strong> (puntos azules) vs el <strong>umbral óptimo</strong> (línea roja)
+                    para cada horizonte. Los puntos alejados del umbral indican predicciones más confiables.
+                    Los puntos cerca del umbral (±10%) son predicciones inciertas.
+                </p>
+            </div>
+
+            <div id="reliability-chart" style="height: 400px;"></div>
         </div>
 
         <!-- Decision Thresholds -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">🎯 Decision Thresholds</h2>
+                <h2 class="text-2xl font-bold text-gray-800">🎯 Umbrales de Decisión</h2>
                 <div class="text-sm text-gray-600">
-                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span> Low Risk
-                    <span class="inline-block w-3 h-3 bg-blue-500 rounded-full ml-3 mr-1"></span> Optimal
-                    <span class="inline-block w-3 h-3 bg-red-500 rounded-full ml-3 mr-1"></span> High Risk
+                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-1"></span> Bajo Riesgo
+                    <span class="inline-block w-3 h-3 bg-blue-500 rounded-full ml-3 mr-1"></span> Óptimo
+                    <span class="inline-block w-3 h-3 bg-red-500 rounded-full ml-3 mr-1"></span> Alto Riesgo
                 </div>
             </div>
 
             <div class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                <h3 class="font-semibold text-yellow-900 mb-2">⚠️ About Thresholds</h3>
+                <h3 class="font-semibold text-yellow-900 mb-2">⚠️ Acerca de los Umbrales</h3>
                 <p class="text-sm text-yellow-800">
-                    Decision thresholds determine when the model predicts CMG = $0. Lower thresholds → more zero predictions (conservative).
-                    Higher thresholds → fewer zero predictions (aggressive). Current thresholds are <strong>profit-optimized</strong> and
-                    <strong>read-only</strong> to maintain model accuracy.
+                    Los umbrales de decisión determinan cuándo el modelo predice CMG = $0. Umbrales más bajos → más predicciones de cero (conservador).
+                    Umbrales más altos → menos predicciones de cero (agresivo). Los umbrales actuales están <strong>optimizados por ganancia</strong> y son
+                    <strong>solo lectura</strong> para mantener la precisión del modelo.
+                </p>
+                <p class="text-sm text-yellow-800 mt-2">
+                    <strong>Nota:</strong> Estos valores provienen de la validación del modelo en datos históricos que el modelo nunca vio durante el entrenamiento.
                 </p>
             </div>
 
@@ -156,16 +257,122 @@
             </div>
         </div>
 
-        <!-- Performance Metrics Chart -->
+        <!-- Threshold Distribution Chart -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Model Performance by Horizon</h2>
-            <div id="performance-chart" style="height: 400px;"></div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Distribución de Umbrales</h2>
+            <div class="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <p class="text-sm text-purple-800">
+                    Este gráfico muestra cómo varían los umbrales óptimos según el horizonte de predicción.
+                    Los horizontes con umbrales más altos (rojo) requieren mayor evidencia para predecir CMG > 0.
+                </p>
+            </div>
+            <div id="threshold-chart" style="height: 300px;"></div>
         </div>
 
-        <!-- Threshold Distribution Chart -->
+        <!-- Metrics Explanation - NEW! -->
         <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Threshold Distribution</h2>
-            <div id="threshold-chart" style="height: 300px;"></div>
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleMetricsExplanation()">
+                <h2 class="text-2xl font-bold text-gray-800">💡 Interpretación de Métricas</h2>
+                <svg id="metrics-toggle-icon" class="w-6 h-6 text-gray-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+
+            <div id="metrics-explanation" class="collapsible-content mt-4">
+                <div class="space-y-6">
+                    <!-- Precision -->
+                    <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h3 class="font-bold text-green-900 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">🎯</span> Precisión (Precision)
+                        </h3>
+                        <p class="text-sm text-green-800 mb-2">
+                            <strong>Definición:</strong> De todas las veces que el modelo predijo CMG > $0, ¿en cuántas acertó?
+                        </p>
+                        <div class="bg-white p-3 rounded border border-green-300">
+                            <p class="text-sm text-gray-700 font-mono">
+                                Precisión = (CMG > 0 correctos) / (Todas las predicciones CMG > 0)
+                            </p>
+                        </div>
+                        <p class="text-sm text-green-800 mt-2">
+                            <strong>Ejemplo:</strong> Si Precisión = 60%, significa que de 100 veces que predijo CMG > $0, acertó en 60 ocasiones.
+                            Las otras 40 fueron "falsas alarmas" (predijo valor pero fue cero).
+                        </p>
+                    </div>
+
+                    <!-- Recall -->
+                    <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <h3 class="font-bold text-blue-900 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">🔍</span> Exhaustividad (Recall)
+                        </h3>
+                        <p class="text-sm text-blue-800 mb-2">
+                            <strong>Definición:</strong> De todas las horas que realmente tuvieron CMG > $0, ¿cuántas detectó el modelo?
+                        </p>
+                        <div class="bg-white p-3 rounded border border-blue-300">
+                            <p class="text-sm text-gray-700 font-mono">
+                                Recall = (CMG > 0 detectados) / (Todos los CMG > 0 reales)
+                            </p>
+                        </div>
+                        <p class="text-sm text-blue-800 mt-2">
+                            <strong>Ejemplo:</strong> Si Recall = 75%, significa que de 100 horas con CMG > $0, el modelo detectó 75.
+                            Las otras 25 fueron "oportunidades perdidas" (predijo cero pero fue valor).
+                        </p>
+                    </div>
+
+                    <!-- F1 Score -->
+                    <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <h3 class="font-bold text-purple-900 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">⚖️</span> Puntuación F1 (F1 Score)
+                        </h3>
+                        <p class="text-sm text-purple-800 mb-2">
+                            <strong>Definición:</strong> Promedio armónico entre Precisión y Recall. Equilibra ambas métricas.
+                        </p>
+                        <div class="bg-white p-3 rounded border border-purple-300">
+                            <p class="text-sm text-gray-700 font-mono">
+                                F1 = 2 × (Precisión × Recall) / (Precisión + Recall)
+                            </p>
+                        </div>
+                        <p class="text-sm text-purple-800 mt-2">
+                            <strong>Ejemplo:</strong> Si F1 = 67%, el modelo tiene un buen balance entre no generar falsas alarmas (precisión)
+                            y no perder oportunidades (recall). Valores más altos indican mejor rendimiento general.
+                        </p>
+                    </div>
+
+                    <!-- How calculated -->
+                    <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <h3 class="font-bold text-gray-900 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">🧪</span> ¿Cómo se Calcularon Estas Métricas?
+                        </h3>
+                        <p class="text-sm text-gray-700">
+                            Durante el entrenamiento del modelo, se separó un conjunto de datos de <strong>validación</strong> (datos históricos
+                            que el modelo nunca vio). El modelo hizo predicciones sobre estos datos y comparamos con los valores reales:
+                        </p>
+                        <ul class="text-sm text-gray-700 mt-2 space-y-1 ml-4">
+                            <li>• <strong>Aciertos:</strong> Modelo predijo CMG > 0 Y fue CMG > 0 ✅</li>
+                            <li>• <strong>Falsas Alarmas:</strong> Modelo predijo CMG > 0 PERO fue CMG = 0 ❌</li>
+                            <li>• <strong>Oportunidades Perdidas:</strong> Modelo predijo CMG = 0 PERO fue CMG > 0 ⚠️</li>
+                            <li>• <strong>Rechazos Correctos:</strong> Modelo predijo CMG = 0 Y fue CMG = 0 ✅</li>
+                        </ul>
+                    </div>
+
+                    <!-- Why they matter -->
+                    <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <h3 class="font-bold text-orange-900 mb-2 flex items-center">
+                            <span class="text-2xl mr-2">🎓</span> ¿Por Qué Importan?
+                        </h3>
+                        <p class="text-sm text-orange-800">
+                            Estas métricas te ayudan a entender la <strong>confiabilidad</strong> del modelo:
+                        </p>
+                        <ul class="text-sm text-orange-800 mt-2 space-y-1 ml-4">
+                            <li>• <strong>Precisión alta</strong> → Pocas falsas alarmas, puedes confiar en predicciones CMG > 0</li>
+                            <li>• <strong>Recall alto</strong> → Pocas oportunidades perdidas, detecta la mayoría de casos CMG > 0</li>
+                            <li>• <strong>F1 alto</strong> → Buen balance general, modelo confiable</li>
+                        </ul>
+                        <p class="text-sm text-orange-800 mt-2">
+                            <strong>Nota:</strong> Los valores varían por horizonte porque predecir 1 hora adelante es más fácil que 24 horas adelante.
+                        </p>
+                    </div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -187,7 +394,7 @@
                 if (thresholdsJson.success) {
                     thresholdsData = thresholdsJson;
 
-                    // Also fetch ML predictions for model info
+                    // Also fetch ML predictions for model info and live forecast
                     try {
                         const predictionsResponse = await fetch('/api/ml_forecast');
                         const predictionsJson = await predictionsResponse.json();
@@ -195,25 +402,26 @@
                             mlPredictionsData = predictionsJson;
                         }
                     } catch (e) {
-                        console.warn('Could not load predictions:', e);
+                        console.warn('No se pudieron cargar las predicciones:', e);
                     }
 
                     // Update UI
                     updateModelInfo();
+                    renderCurrentForecast();
+                    renderReliabilityChart();
                     renderThresholds();
-                    renderPerformanceChart();
                     renderThresholdChart();
 
                     // Hide loading, show content
                     document.getElementById('loading-container').classList.add('hidden');
                     document.getElementById('main-content').classList.remove('hidden');
                 } else {
-                    throw new Error('Failed to load thresholds');
+                    throw new Error('Error al cargar umbrales');
                 }
             } catch (error) {
-                console.error('Error initializing:', error);
+                console.error('Error al inicializar:', error);
                 document.getElementById('loading-container').innerHTML =
-                    '<div class="text-center text-red-600">Error loading ML configuration. Please try again.</div>';
+                    '<div class="text-center text-red-600">Error al cargar la configuración ML. Por favor, intenta de nuevo.</div>';
             }
         }
 
@@ -230,6 +438,170 @@
             }
         }
 
+        function renderCurrentForecast() {
+            if (!mlPredictionsData || !mlPredictionsData.predictions) {
+                return;
+            }
+
+            const tbody = document.getElementById('forecast-table-body');
+            tbody.innerHTML = '';
+
+            let uncertainCount = 0;
+
+            mlPredictionsData.predictions.forEach(pred => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+
+                // Calculate confidence
+                const zeroProbPercent = pred.zero_probability * 100;
+                const thresholdPercent = pred.decision_threshold * 100;
+                const distance = Math.abs(zeroProbPercent - thresholdPercent);
+
+                let confidenceBadge, confidenceClass;
+                if (distance > 10) {
+                    confidenceBadge = 'Alta';
+                    confidenceClass = 'confidence-high';
+                } else if (distance > 5) {
+                    confidenceBadge = 'Media';
+                    confidenceClass = 'confidence-medium';
+                    uncertainCount++;
+                } else {
+                    confidenceBadge = 'Baja';
+                    confidenceClass = 'confidence-low';
+                    uncertainCount++;
+                }
+
+                const cmgDisplay = pred.cmg_predicted === 0
+                    ? '<span class="text-gray-600 font-semibold">$0.00</span>'
+                    : `<span class="text-green-600 font-semibold">$${pred.cmg_predicted.toFixed(2)}</span>`;
+
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-gray-700">${new Date(pred.datetime).toLocaleString('es-CL', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    })}</td>
+                    <td class="px-4 py-3 text-gray-600">t+${pred.horizon}</td>
+                    <td class="px-4 py-3 text-right">${cmgDisplay}</td>
+                    <td class="px-4 py-3 text-right text-blue-700 font-medium">${zeroProbPercent.toFixed(1)}%</td>
+                    <td class="px-4 py-3 text-right text-gray-600">${thresholdPercent.toFixed(1)}%</td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="confidence-badge ${confidenceClass}">${confidenceBadge}</span>
+                    </td>
+                `;
+
+                tbody.appendChild(row);
+            });
+
+            // Update uncertainty summary
+            const summary = document.getElementById('uncertainty-summary');
+            if (uncertainCount > 0) {
+                summary.innerHTML = `
+                    <span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                        ⚠️ ${uncertainCount} predicciones inciertas
+                    </span>
+                `;
+            } else {
+                summary.innerHTML = `
+                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full">
+                        ✅ Todas las predicciones confiables
+                    </span>
+                `;
+            }
+        }
+
+        function renderReliabilityChart() {
+            if (!mlPredictionsData || !mlPredictionsData.predictions) {
+                return;
+            }
+
+            const predictions = mlPredictionsData.predictions;
+
+            // Scatter plot: zero probability vs threshold
+            const scatterTrace = {
+                x: predictions.map(p => p.horizon),
+                y: predictions.map(p => p.zero_probability * 100),
+                name: 'Probabilidad CMG=0',
+                type: 'scatter',
+                mode: 'markers',
+                marker: {
+                    size: 10,
+                    color: predictions.map(p => {
+                        const distance = Math.abs(p.zero_probability * 100 - p.decision_threshold * 100);
+                        if (distance > 10) return '#10b981'; // green - high confidence
+                        if (distance > 5) return '#f59e0b';  // yellow - medium
+                        return '#ef4444'; // red - low confidence
+                    }),
+                    line: {
+                        color: '#1f2937',
+                        width: 1
+                    }
+                },
+                text: predictions.map(p => {
+                    const distance = Math.abs(p.zero_probability * 100 - p.decision_threshold * 100);
+                    return `Horizonte ${p.horizon}<br>` +
+                           `Prob CMG=0: ${(p.zero_probability * 100).toFixed(1)}%<br>` +
+                           `Umbral: ${(p.decision_threshold * 100).toFixed(1)}%<br>` +
+                           `Distancia: ${distance.toFixed(1)}%`;
+                }),
+                hovertemplate: '%{text}<extra></extra>'
+            };
+
+            // Line plot: thresholds
+            const thresholdTrace = {
+                x: predictions.map(p => p.horizon),
+                y: predictions.map(p => p.decision_threshold * 100),
+                name: 'Umbral Óptimo',
+                type: 'scatter',
+                mode: 'lines',
+                line: {
+                    color: '#ef4444',
+                    width: 2,
+                    dash: 'dash'
+                }
+            };
+
+            const layout = {
+                xaxis: {
+                    title: 'Horizonte de Pronóstico (horas)',
+                    dtick: 1
+                },
+                yaxis: {
+                    title: 'Probabilidad (%)',
+                    range: [0, 100]
+                },
+                showlegend: true,
+                legend: { x: 0.02, y: 0.98 },
+                hovermode: 'closest',
+                margin: { t: 20, r: 20, b: 60, l: 60 },
+                shapes: [
+                    // Uncertainty band ±10% around threshold
+                    {
+                        type: 'rect',
+                        xref: 'paper',
+                        x0: 0,
+                        x1: 1,
+                        yref: 'y',
+                        y0: 0,
+                        y1: 100,
+                        fillcolor: '#fee2e2',
+                        opacity: 0.1,
+                        layer: 'below',
+                        line: { width: 0 }
+                    }
+                ]
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+
+            Plotly.newPlot('reliability-chart', [thresholdTrace, scatterTrace], layout, config);
+        }
+
         function renderThresholds() {
             const grid = document.getElementById('thresholds-grid');
             grid.innerHTML = '';
@@ -244,15 +616,15 @@
 
                 card.innerHTML = `
                     <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-lg font-bold text-gray-800">Horizon ${threshold.horizon_label}</h3>
+                        <h3 class="text-lg font-bold text-gray-800">Horizonte ${threshold.horizon_label}</h3>
                         <span class="text-2xl font-bold text-blue-600">${optimalPercent}%</span>
                     </div>
 
                     <div class="space-y-3">
                         <div>
                             <div class="flex justify-between text-xs text-gray-600 mb-1">
-                                <span>Min: ${minPercent}%</span>
-                                <span>Max: ${maxPercent}%</span>
+                                <span>Mín: ${minPercent}%</span>
+                                <span>Máx: ${maxPercent}%</span>
                             </div>
                             <div class="relative">
                                 <div class="threshold-slider" style="background: linear-gradient(to right, #10b981 0%, #3b82f6 50%, #ef4444 100%);"></div>
@@ -262,78 +634,34 @@
 
                         <div class="grid grid-cols-3 gap-2 text-xs">
                             <div class="text-center p-2 bg-green-50 rounded">
-                                <div class="font-semibold text-green-700">Precision</div>
+                                <div class="font-semibold text-green-700 tooltip-trigger" title="Precisión: De todas las predicciones CMG > 0, cuántas fueron correctas">
+                                    Precisión
+                                </div>
                                 <div class="text-green-900">${(threshold.precision * 100).toFixed(1)}%</div>
                             </div>
                             <div class="text-center p-2 bg-blue-50 rounded">
-                                <div class="font-semibold text-blue-700">Recall</div>
+                                <div class="font-semibold text-blue-700 tooltip-trigger" title="Recall: De todos los CMG > 0 reales, cuántos detectó el modelo">
+                                    Recall
+                                </div>
                                 <div class="text-blue-900">${(threshold.recall * 100).toFixed(1)}%</div>
                             </div>
                             <div class="text-center p-2 bg-purple-50 rounded">
-                                <div class="font-semibold text-purple-700">F1</div>
+                                <div class="font-semibold text-purple-700 tooltip-trigger" title="F1: Balance entre Precisión y Recall">
+                                    F1
+                                </div>
                                 <div class="text-purple-900">${(threshold.f1 * 100).toFixed(1)}%</div>
                             </div>
                         </div>
 
                         <div class="text-xs text-gray-600 pt-2 border-t">
                             <strong>AUC:</strong> ${(threshold.auc * 100).toFixed(1)}%
+                            <span class="tooltip-trigger" title="AUC: Área bajo la curva ROC, mide capacidad de discriminación del modelo">ℹ️</span>
                         </div>
                     </div>
                 `;
 
                 grid.appendChild(card);
             });
-        }
-
-        function renderPerformanceChart() {
-            const thresholds = thresholdsData.thresholds;
-
-            const traces = [
-                {
-                    x: thresholds.map(t => t.horizon),
-                    y: thresholds.map(t => t.precision * 100),
-                    name: 'Precision',
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    line: { color: '#10b981', width: 2 },
-                    marker: { size: 6 }
-                },
-                {
-                    x: thresholds.map(t => t.horizon),
-                    y: thresholds.map(t => t.recall * 100),
-                    name: 'Recall',
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    line: { color: '#3b82f6', width: 2 },
-                    marker: { size: 6 }
-                },
-                {
-                    x: thresholds.map(t => t.horizon),
-                    y: thresholds.map(t => t.f1 * 100),
-                    name: 'F1 Score',
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    line: { color: '#8b5cf6', width: 3 },
-                    marker: { size: 8 }
-                }
-            ];
-
-            const layout = {
-                xaxis: { title: 'Forecast Horizon (hours ahead)' },
-                yaxis: { title: 'Score (%)', range: [0, 100] },
-                showlegend: true,
-                legend: { x: 1, y: 1, xanchor: 'right' },
-                hovermode: 'x unified',
-                margin: { t: 20, r: 20, b: 60, l: 60 }
-            };
-
-            const config = {
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false
-            };
-
-            Plotly.newPlot('performance-chart', traces, layout, config);
         }
 
         function renderThresholdChart() {
@@ -356,11 +684,17 @@
             };
 
             const layout = {
-                xaxis: { title: 'Forecast Horizon (hours ahead)' },
-                yaxis: { title: 'Optimal Threshold (%)', range: [0, 100] },
+                xaxis: {
+                    title: 'Horizonte de Pronóstico (horas)',
+                    dtick: 1
+                },
+                yaxis: {
+                    title: 'Umbral Óptimo (%)',
+                    range: [0, 100]
+                },
                 showlegend: false,
                 hovermode: 'x',
-                margin: { t: 20, r: 20, b: 60, l: 60 }
+                margin: { t: 40, r: 20, b: 60, l: 60 }
             };
 
             const config = {
@@ -369,6 +703,14 @@
             };
 
             Plotly.newPlot('threshold-chart', [trace], layout, config);
+        }
+
+        function toggleMetricsExplanation() {
+            const content = document.getElementById('metrics-explanation');
+            const icon = document.getElementById('metrics-toggle-icon');
+
+            content.classList.toggle('active');
+            icon.classList.toggle('rotate-180');
         }
     </script>
 </body>
