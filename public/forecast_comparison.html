@@ -84,9 +84,13 @@
 
             <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Cómo Usar</h3>
-                <p class="text-sm text-blue-800">
+                <p class="text-sm text-blue-800 mb-2">
                     Selecciona una fecha y hora específica para ver qué pronósticos se hicieron en ese momento.
                     Se mostrarán las predicciones ML, el CMG Programado, y los valores reales CMG Online (si están disponibles).
+                </p>
+                <p class="text-sm text-blue-800">
+                    <strong>Nota:</strong> Las matrices de pronóstico (ML y CMG Programado) se guardan automáticamente cada hora.
+                    Los datos históricos se acumularán progresivamente con cada ciclo del workflow.
                 </p>
             </div>
         </div>
@@ -180,11 +184,16 @@
                 return;
             }
 
-            // Get available dates with forecast matrices
+            // Get available dates with forecast matrices OR any CMG data
+            // This makes it backward compatible with v2.0 structure
             const datesWithForecasts = Object.keys(historicalData.daily_data)
                 .filter(date => {
                     const day = historicalData.daily_data[date];
-                    return day.ml_forecasts || day.cmg_programado_forecasts;
+                    // v3.0: Has new forecast matrices
+                    const hasV3Forecasts = day.ml_forecasts || day.cmg_programado_forecasts;
+                    // v2.0: Has any CMG data
+                    const hasV2Data = day.cmg_online || day.cmg_programado;
+                    return hasV3Forecasts || hasV2Data;
                 })
                 .sort()
                 .reverse();
@@ -210,11 +219,30 @@
                 const dayData = historicalData.daily_data[selectedDate];
                 const availableHours = new Set();
 
+                // v3.0: Get hours from forecast matrices
                 if (dayData.ml_forecasts) {
                     Object.keys(dayData.ml_forecasts).forEach(h => availableHours.add(parseInt(h)));
                 }
                 if (dayData.cmg_programado_forecasts) {
                     Object.keys(dayData.cmg_programado_forecasts).forEach(h => availableHours.add(parseInt(h)));
+                }
+
+                // v2.0: If no forecast matrices, show all hours from CMG Online
+                if (availableHours.size === 0 && dayData.cmg_online) {
+                    // Add hours that have data in any node
+                    Object.values(dayData.cmg_online).forEach(nodeData => {
+                        if (nodeData.cmg_usd) {
+                            nodeData.cmg_usd.forEach((val, idx) => {
+                                if (val !== null) availableHours.add(idx);
+                            });
+                        }
+                    });
+                }
+
+                // If still no hours, show message
+                if (availableHours.size === 0) {
+                    hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
+                    return;
                 }
 
                 const hours = Array.from(availableHours).sort((a, b) => a - b);
@@ -270,22 +298,26 @@
         function renderForecastInfo(date, hour, mlForecast, progForecast) {
             const container = document.getElementById('forecast-info');
 
+            const hourStr = hour.toString().padStart(2, '0');
+
             container.innerHTML = `
                 <div>
                     <h3 class="text-sm font-medium text-gray-500 mb-1">Fecha y Hora</h3>
-                    <p class="text-xl font-bold text-blue-600">${date} ${hour.padStart(2, '0')}:00</p>
+                    <p class="text-xl font-bold text-blue-600">${date} ${hourStr}:00</p>
                 </div>
                 <div>
                     <h3 class="text-sm font-medium text-gray-500 mb-1">Predicciones ML</h3>
-                    <p class="text-xl font-bold text-green-600">
-                        ${mlForecast ? `✅ ${mlForecast.predictions.length} pronósticos` : '❌ No disponible'}
+                    <p class="text-xl font-bold ${mlForecast ? 'text-green-600' : 'text-yellow-600'}">
+                        ${mlForecast ? `✅ ${mlForecast.predictions.length} pronósticos` : '⏳ Pendiente'}
                     </p>
+                    ${!mlForecast ? '<p class="text-xs text-yellow-700 mt-1">Se guardará en el próximo ciclo horario</p>' : ''}
                 </div>
                 <div>
                     <h3 class="text-sm font-medium text-gray-500 mb-1">CMG Programado</h3>
-                    <p class="text-xl font-bold text-purple-600">
-                        ${progForecast ? `✅ Disponible` : '❌ No disponible'}
+                    <p class="text-xl font-bold ${progForecast ? 'text-purple-600' : 'text-yellow-600'}">
+                        ${progForecast ? `✅ Disponible` : '⏳ Pendiente'}
                     </p>
+                    ${!progForecast ? '<p class="text-xs text-yellow-700 mt-1">Se guardará en el próximo ciclo horario</p>' : ''}
                 </div>
             `;
         }
