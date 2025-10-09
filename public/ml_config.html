@@ -59,9 +59,46 @@
         }
 
         .tooltip-trigger {
+            position: relative;
             cursor: help;
             text-decoration: underline;
             text-decoration-style: dotted;
+        }
+
+        .tooltip-trigger .tooltip-text {
+            visibility: hidden;
+            width: 220px;
+            background-color: #1f2937;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1000;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -110px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.75rem;
+            line-height: 1.3;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .tooltip-trigger .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1f2937 transparent transparent transparent;
+        }
+
+        .tooltip-trigger:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
         }
 
         .collapsible-content {
@@ -634,20 +671,29 @@
 
                         <div class="grid grid-cols-3 gap-2 text-xs">
                             <div class="text-center p-2 bg-green-50 rounded">
-                                <div class="font-semibold text-green-700 tooltip-trigger" title="Precisión: De todas las predicciones CMG > 0, cuántas fueron correctas">
-                                    Precisión
+                                <div class="font-semibold text-green-700">
+                                    <span class="tooltip-trigger">
+                                        Precisión
+                                        <span class="tooltip-text">De todas las predicciones CMG > 0, cuántas fueron correctas</span>
+                                    </span>
                                 </div>
                                 <div class="text-green-900">${(threshold.precision * 100).toFixed(1)}%</div>
                             </div>
                             <div class="text-center p-2 bg-blue-50 rounded">
-                                <div class="font-semibold text-blue-700 tooltip-trigger" title="Recall: De todos los CMG > 0 reales, cuántos detectó el modelo">
-                                    Recall
+                                <div class="font-semibold text-blue-700">
+                                    <span class="tooltip-trigger">
+                                        Recall
+                                        <span class="tooltip-text">De todos los CMG > 0 reales, cuántos detectó el modelo</span>
+                                    </span>
                                 </div>
                                 <div class="text-blue-900">${(threshold.recall * 100).toFixed(1)}%</div>
                             </div>
                             <div class="text-center p-2 bg-purple-50 rounded">
-                                <div class="font-semibold text-purple-700 tooltip-trigger" title="F1: Balance entre Precisión y Recall">
-                                    F1
+                                <div class="font-semibold text-purple-700">
+                                    <span class="tooltip-trigger">
+                                        F1
+                                        <span class="tooltip-text">Balance entre Precisión y Recall</span>
+                                    </span>
                                 </div>
                                 <div class="text-purple-900">${(threshold.f1 * 100).toFixed(1)}%</div>
                             </div>
@@ -655,7 +701,10 @@
 
                         <div class="text-xs text-gray-600 pt-2 border-t">
                             <strong>AUC:</strong> ${(threshold.auc * 100).toFixed(1)}%
-                            <span class="tooltip-trigger" title="AUC: Área bajo la curva ROC, mide capacidad de discriminación del modelo">ℹ️</span>
+                            <span class="tooltip-trigger">
+                                ℹ️
+                                <span class="tooltip-text">Área bajo la curva ROC, mide capacidad de discriminación del modelo</span>
+                            </span>
                         </div>
                     </div>
                 `;
