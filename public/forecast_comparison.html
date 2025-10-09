@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparación de Pronósticos - CMG Monitor</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        🔮 Comparación de Pronósticos
+                    </h1>
+                    <p class="text-gray-600 mt-2">
+                        Visualiza pronósticos históricos y compara con valores reales
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="index.html"
+                       class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span>Inicio</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Date/Hour Selector -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Seleccionar Pronóstico</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                    <select id="date-selector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Cargando fechas...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Hora</label>
+                    <select id="hour-selector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Seleccionar primero una fecha</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="load-forecast-btn" onclick="loadForecast()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-semibold">
+                        Cargar Pronóstico
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Cómo Usar</h3>
+                <p class="text-sm text-blue-800">
+                    Selecciona una fecha y hora específica para ver qué pronósticos se hicieron en ese momento.
+                    Se mostrarán las predicciones ML, el CMG Programado, y los valores reales CMG Online (si están disponibles).
+                </p>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-container" class="hidden bg-white rounded-xl shadow-lg p-8">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loading-spinner mb-4"></div>
+                <h2 class="text-xl font-semibold text-gray-700">
+                    Cargando pronósticos...
+                </h2>
+            </div>
+        </div>
+
+        <!-- Forecast Results -->
+        <div id="results-container" class="hidden">
+            <!-- Forecast Info -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Pronóstico Seleccionado</h2>
+                <div id="forecast-info" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Will be populated -->
+                </div>
+            </div>
+
+            <!-- Comparison Chart -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Comparación Visual</h2>
+                <div id="comparison-chart" style="height: 500px;"></div>
+            </div>
+
+            <!-- Data Tables -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- ML Predictions Table -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">🤖 Predicciones ML</h3>
+                    <div class="overflow-x-auto">
+                        <table id="ml-table" class="w-full text-sm">
+                            <!-- Will be populated -->
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CMG Programado Table -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📅 CMG Programado</h3>
+                    <div class="overflow-x-auto">
+                        <table id="programado-table" class="w-full text-sm">
+                            <!-- Will be populated -->
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-container" class="hidden bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 class="text-red-900 font-bold mb-2">❌ Error</h3>
+            <p id="error-message" class="text-red-800"></p>
+        </div>
+
+    </div>
+
+    <script>
+        let historicalData = null;
+        const GIST_URL = 'https://gist.githubusercontent.com/PVSH97/8d7864eb26acf6e780d3c0f7fed69365/raw/cmg_online_historical.json';
+
+        // Load historical data on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadHistoricalData();
+        });
+
+        async function loadHistoricalData() {
+            try {
+                const response = await fetch(GIST_URL + '?t=' + new Date().getTime());
+                historicalData = await response.json();
+
+                console.log('Historical data loaded:', historicalData);
+                populateDateSelector();
+            } catch (error) {
+                console.error('Error loading historical data:', error);
+                showError('No se pudo cargar los datos históricos. Por favor, intenta más tarde.');
+            }
+        }
+
+        function populateDateSelector() {
+            const dateSelector = document.getElementById('date-selector');
+            const hourSelector = document.getElementById('hour-selector');
+
+            if (!historicalData || !historicalData.daily_data) {
+                dateSelector.innerHTML = '<option value="">No hay datos disponibles</option>';
+                return;
+            }
+
+            // Get available dates with forecast matrices
+            const datesWithForecasts = Object.keys(historicalData.daily_data)
+                .filter(date => {
+                    const day = historicalData.daily_data[date];
+                    return day.ml_forecasts || day.cmg_programado_forecasts;
+                })
+                .sort()
+                .reverse();
+
+            if (datesWithForecasts.length === 0) {
+                dateSelector.innerHTML = '<option value="">No hay pronósticos disponibles</option>';
+                return;
+            }
+
+            dateSelector.innerHTML = '<option value="">Seleccionar fecha</option>' +
+                datesWithForecasts.map(date =>
+                    `<option value="${date}">${date}</option>`
+                ).join('');
+
+            // Handle date selection
+            dateSelector.addEventListener('change', function() {
+                const selectedDate = this.value;
+                if (!selectedDate) {
+                    hourSelector.innerHTML = '<option value="">Seleccionar primero una fecha</option>';
+                    return;
+                }
+
+                const dayData = historicalData.daily_data[selectedDate];
+                const availableHours = new Set();
+
+                if (dayData.ml_forecasts) {
+                    Object.keys(dayData.ml_forecasts).forEach(h => availableHours.add(parseInt(h)));
+                }
+                if (dayData.cmg_programado_forecasts) {
+                    Object.keys(dayData.cmg_programado_forecasts).forEach(h => availableHours.add(parseInt(h)));
+                }
+
+                const hours = Array.from(availableHours).sort((a, b) => a - b);
+
+                hourSelector.innerHTML = '<option value="">Seleccionar hora</option>' +
+                    hours.map(hour =>
+                        `<option value="${hour}">${hour.toString().padStart(2, '0')}:00</option>`
+                    ).join('');
+            });
+        }
+
+        async function loadForecast() {
+            const date = document.getElementById('date-selector').value;
+            const hour = document.getElementById('hour-selector').value;
+
+            if (!date || hour === '') {
+                showError('Por favor, selecciona una fecha y hora');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('error-container').classList.add('hidden');
+
+            try {
+                const dayData = historicalData.daily_data[date];
+                const mlForecast = dayData.ml_forecasts ? dayData.ml_forecasts[hour] : null;
+                const progForecast = dayData.cmg_programado_forecasts ? dayData.cmg_programado_forecasts[hour] : null;
+                const actualData = dayData.cmg_online || {};
+
+                // Render forecast info
+                renderForecastInfo(date, hour, mlForecast, progForecast);
+
+                // Render comparison chart
+                renderComparisonChart(date, hour, mlForecast, progForecast, actualData);
+
+                // Render tables
+                renderMLTable(mlForecast);
+                renderProgramadoTable(progForecast);
+
+                // Hide loading, show results
+                document.getElementById('loading-container').classList.add('hidden');
+                document.getElementById('results-container').classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Error loading forecast:', error);
+                showError('Error al cargar el pronóstico: ' + error.message);
+                document.getElementById('loading-container').classList.add('hidden');
+            }
+        }
+
+        function renderForecastInfo(date, hour, mlForecast, progForecast) {
+            const container = document.getElementById('forecast-info');
+
+            container.innerHTML = `
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Fecha y Hora</h3>
+                    <p class="text-xl font-bold text-blue-600">${date} ${hour.padStart(2, '0')}:00</p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">Predicciones ML</h3>
+                    <p class="text-xl font-bold text-green-600">
+                        ${mlForecast ? `✅ ${mlForecast.predictions.length} pronósticos` : '❌ No disponible'}
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-sm font-medium text-gray-500 mb-1">CMG Programado</h3>
+                    <p class="text-xl font-bold text-purple-600">
+                        ${progForecast ? `✅ Disponible` : '❌ No disponible'}
+                    </p>
+                </div>
+            `;
+        }
+
+        function renderComparisonChart(date, hour, mlForecast, progForecast, actualData) {
+            const traces = [];
+
+            // ML Predictions
+            if (mlForecast && mlForecast.predictions) {
+                traces.push({
+                    x: mlForecast.predictions.map(p => p.target_datetime),
+                    y: mlForecast.predictions.map(p => p.cmg),
+                    name: '🤖 Predicción ML',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: { color: '#3b82f6', width: 3, dash: 'dot' },
+                    marker: { size: 6, color: '#3b82f6' }
+                });
+            }
+
+            // CMG Programado (first node for simplicity)
+            if (progForecast && progForecast.forecasts) {
+                const firstNode = Object.keys(progForecast.forecasts)[0];
+                if (firstNode) {
+                    const forecasts = progForecast.forecasts[firstNode];
+                    traces.push({
+                        x: forecasts.map(f => f.datetime),
+                        y: forecasts.map(f => f.cmg),
+                        name: '📅 CMG Programado',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#8b5cf6', width: 2, dash: 'dash' },
+                        marker: { size: 5 }
+                    });
+                }
+            }
+
+            // Actual CMG Online (if available)
+            if (actualData && Object.keys(actualData).length > 0) {
+                const firstNode = Object.keys(actualData)[0];
+                if (actualData[firstNode] && actualData[firstNode].cmg_usd) {
+                    const cmgValues = actualData[firstNode].cmg_usd;
+                    const hours = Array.from({length: 24}, (_, i) => i);
+                    const datetimes = hours.map(h => `${date}T${h.toString().padStart(2, '0')}:00:00`);
+
+                    traces.push({
+                        x: datetimes,
+                        y: cmgValues,
+                        name: '✅ CMG Online (Real)',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#10b981', width: 2 },
+                        marker: { size: 6 }
+                    });
+                }
+            }
+
+            const layout = {
+                xaxis: { title: 'Fecha y Hora' },
+                yaxis: { title: 'CMG (USD/MWh)' },
+                showlegend: true,
+                legend: { x: 0.02, y: 0.98 },
+                hovermode: 'x unified',
+                margin: { t: 20, r: 20, b: 60, l: 60 }
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+
+            Plotly.newPlot('comparison-chart', traces, layout, config);
+        }
+
+        function renderMLTable(mlForecast) {
+            const table = document.getElementById('ml-table');
+
+            if (!mlForecast || !mlForecast.predictions) {
+                table.innerHTML = '<p class="text-gray-500">No hay predicciones ML disponibles para esta hora</p>';
+                return;
+            }
+
+            table.innerHTML = `
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Horizonte</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Hora</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">CMG</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">Prob(0)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    ${mlForecast.predictions.map(pred => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2">t+${pred.horizon}</td>
+                            <td class="px-3 py-2">${pred.target_datetime.substring(11, 16)}</td>
+                            <td class="px-3 py-2 text-right ${pred.cmg === 0 ? 'text-gray-600' : 'text-green-600'} font-semibold">
+                                $${pred.cmg.toFixed(2)}
+                            </td>
+                            <td class="px-3 py-2 text-right text-blue-700">${(pred.prob_zero * 100).toFixed(1)}%</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+        }
+
+        function renderProgramadoTable(progForecast) {
+            const table = document.getElementById('programado-table');
+
+            if (!progForecast || !progForecast.forecasts) {
+                table.innerHTML = '<p class="text-gray-500">No hay CMG Programado disponible para esta hora</p>';
+                return;
+            }
+
+            const firstNode = Object.keys(progForecast.forecasts)[0];
+            const forecasts = progForecast.forecasts[firstNode];
+
+            table.innerHTML = `
+                <thead class="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Fecha/Hora</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">CMG</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    ${forecasts.map((f, idx) => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2">${f.datetime.substring(0, 16).replace('T', ' ')}</td>
+                            <td class="px-3 py-2 text-right text-purple-700 font-semibold">
+                                $${f.cmg.toFixed(2)}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('loading-container').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
