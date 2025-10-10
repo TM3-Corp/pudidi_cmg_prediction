@@ -175,6 +175,12 @@ def merge_forecast_matrices(existing_data, ml_forecasts, prog_forecasts):
                     'cmg_programado_forecasts': {}
                 }
 
+            # Ensure v3.0 keys exist (backward compatibility with v2.0 data)
+            if 'ml_forecasts' not in existing_data['daily_data'][date]:
+                existing_data['daily_data'][date]['ml_forecasts'] = {}
+            if 'cmg_programado_forecasts' not in existing_data['daily_data'][date]:
+                existing_data['daily_data'][date]['cmg_programado_forecasts'] = {}
+
             # Add ML forecast for this hour
             existing_data['daily_data'][date]['ml_forecasts'][str(hour)] = forecast_data
 
@@ -189,6 +195,12 @@ def merge_forecast_matrices(existing_data, ml_forecasts, prog_forecasts):
                     'ml_forecasts': {},
                     'cmg_programado_forecasts': {}
                 }
+
+            # Ensure v3.0 keys exist (backward compatibility with v2.0 data)
+            if 'ml_forecasts' not in existing_data['daily_data'][date]:
+                existing_data['daily_data'][date]['ml_forecasts'] = {}
+            if 'cmg_programado_forecasts' not in existing_data['daily_data'][date]:
+                existing_data['daily_data'][date]['cmg_programado_forecasts'] = {}
 
             # Add Programado forecast for this hour
             existing_data['daily_data'][date]['cmg_programado_forecasts'][str(hour)] = forecast_data
