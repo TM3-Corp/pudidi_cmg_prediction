@@ -75,7 +75,7 @@ def load_cmg_online_data():
                 print(f"    Format: data key with list")
                 records = data['data']
                 df = pd.DataFrame(records)
-                df['fecha_hora'] = pd.to_datetime(df['datetime'])
+                df['fecha_hora'] = pd.to_datetime(df['datetime'], format='ISO8601')
                 df['CMG [$/MWh]'] = df['cmg_usd']
 
             # Structure 2: daily_data key with nested structure
@@ -84,13 +84,16 @@ def load_cmg_online_data():
                 for date_str, day_data in data['daily_data'].items():
                     for node, node_data in day_data.get('cmg_online', {}).items():
                         for hour, cmg_usd in zip(day_data.get('hours', []), node_data.get('cmg_usd', [])):
-                            if cmg_usd is not None:
+                            if cmg_usd is not None:  # Skip only nulls, keep zeros
                                 records.append({
                                     'fecha_hora': f"{date_str} {hour:02d}:00:00",
                                     'CMG [$/MWh]': float(cmg_usd)
                                 })
+                if len(records) == 0:
+                    print(f"    ⚠️  No valid records found in daily_data")
+                    continue
                 df = pd.DataFrame(records)
-                df['fecha_hora'] = pd.to_datetime(df['fecha_hora'])
+                df['fecha_hora'] = pd.to_datetime(df['fecha_hora'], format='%Y-%m-%d %H:%M:%S')
 
             else:
                 print(f"    ⚠️  Unknown format, skipping")
