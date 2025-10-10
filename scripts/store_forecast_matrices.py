@@ -104,13 +104,20 @@ def organize_programado_forecasts(prog_data):
 
     # Organize by node, filtering for FUTURE forecasts only
     forecasts_by_node = {}
+
+    # Round fetch_time UP to next hour to ensure we only get future hours
+    # Example: if fetch_time is 12:45, we want forecasts from 13:00 onwards
+    fetch_hour_ceil = fetch_time.replace(minute=0, second=0, microsecond=0)
+    if fetch_time.minute > 0 or fetch_time.second > 0:
+        fetch_hour_ceil = fetch_hour_ceil + timedelta(hours=1)
+
     for record in prog_data['data']:
         # Parse record datetime
         record_time = datetime.fromisoformat(record['datetime']).replace(tzinfo=santiago_tz)
 
-        # ONLY include forecasts for the future (after fetch_time)
+        # ONLY include forecasts for future hours (next hour onwards)
         # This matches ML behavior: forecast made at hour X predicts hour X+1 onwards
-        if record_time > fetch_time:
+        if record_time >= fetch_hour_ceil:
             node = record['node']
             mapped_node = NODE_MAPPING.get(node, node)
 
