@@ -60,7 +60,9 @@ def organize_by_date(records, programmed_records=None):
             organized[date] = {
                 'hours': list(range(24)),
                 'cmg_online': {},
-                'cmg_programado': {}  # Will store what was forecasted for this date
+                'cmg_programado': {},  # Will store what was forecasted for this date
+                'ml_forecasts': {},  # v3.0: ML forecast matrices
+                'cmg_programado_forecasts': {}  # v3.0: CMG Programado forecast matrices
             }
         
         if node not in organized[date]['cmg_online']:
@@ -136,13 +138,16 @@ def merge_historical_data(existing_data, new_data):
     # Merge new data
     for date, data in new_data.items():
         if date >= cutoff_date:
-            # If date exists, UPDATE with new online data, preserve programado
+            # If date exists, UPDATE with new online data, PRESERVE v3.0 forecast fields
             if date in existing_data['daily_data']:
-                # UPDATE with NEW CMG Online data (not keep old!)
-                # This is the fix: new data should OVERWRITE old data, not vice versa
+                # Preserve v3.0 forecast matrices if they exist
+                ml_forecasts = existing_data['daily_data'][date].get('ml_forecasts', {})
+                cmg_prog_forecasts = existing_data['daily_data'][date].get('cmg_programado_forecasts', {})
+
+                # UPDATE with NEW CMG Online data
                 if 'cmg_online' in data and data['cmg_online']:
-                    # New online data available - use it!
                     existing_data['daily_data'][date]['cmg_online'] = data['cmg_online']
+
                 # Update with new CMG Programado if available
                 if 'cmg_programado' in data and data['cmg_programado']:
                     existing_data['daily_data'][date]['cmg_programado'] = data['cmg_programado']
@@ -150,6 +155,16 @@ def merge_historical_data(existing_data, new_data):
                     # Keep existing programado if new doesn't have it
                     if 'cmg_programado' in existing_data['daily_data'][date]:
                         data['cmg_programado'] = existing_data['daily_data'][date]['cmg_programado']
+
+                # Restore v3.0 forecast fields
+                data['ml_forecasts'] = ml_forecasts
+                data['cmg_programado_forecasts'] = cmg_prog_forecasts
+            else:
+                # New date - ensure v3.0 structure
+                if 'ml_forecasts' not in data:
+                    data['ml_forecasts'] = {}
+                if 'cmg_programado_forecasts' not in data:
+                    data['cmg_programado_forecasts'] = {}
 
             existing_data['daily_data'][date] = data
     
@@ -165,7 +180,8 @@ def merge_historical_data(existing_data, new_data):
         'oldest_date': min(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
         'newest_date': max(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
         'nodes': NODES,
-        'structure_version': '2.0'  # New structure with online and programado
+        'structure_version': '3.0',  # v3.0: includes ml_forecasts and cmg_programado_forecasts
+        'rolling_window_days': ROLLING_WINDOW_DAYS
     }
     
     return existing_data
