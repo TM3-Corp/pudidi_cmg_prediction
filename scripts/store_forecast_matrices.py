@@ -87,7 +87,8 @@ def organize_ml_forecasts(ml_data):
 def organize_programado_forecasts(prog_data):
     """
     Organize CMG Programado forecasts by forecast hour
-    Returns dict keyed by (date, hour) with forecast values
+    Returns dict keyed by (date, hour) with FUTURE forecast values only
+    (filters out past data to match ML forecast behavior)
     """
     if not prog_data or 'data' not in prog_data:
         return {}
@@ -97,24 +98,29 @@ def organize_programado_forecasts(prog_data):
     santiago_tz = pytz.timezone('America/Santiago')
     fetch_time = fetch_time.astimezone(santiago_tz)
 
-    # Use the first record's date/hour as forecast time (when it was made for)
-    # Assumption: forecast is made for the current hour
+    # Use the hour when forecast was made
     forecast_date = fetch_time.strftime('%Y-%m-%d')
     forecast_hour = fetch_time.hour
 
-    # Organize by node
+    # Organize by node, filtering for FUTURE forecasts only
     forecasts_by_node = {}
     for record in prog_data['data']:
-        node = record['node']
-        mapped_node = NODE_MAPPING.get(node, node)
+        # Parse record datetime
+        record_time = datetime.fromisoformat(record['datetime']).replace(tzinfo=santiago_tz)
 
-        if mapped_node not in forecasts_by_node:
-            forecasts_by_node[mapped_node] = []
+        # ONLY include forecasts for the future (after fetch_time)
+        # This matches ML behavior: forecast made at hour X predicts hour X+1 onwards
+        if record_time > fetch_time:
+            node = record['node']
+            mapped_node = NODE_MAPPING.get(node, node)
 
-        forecasts_by_node[mapped_node].append({
-            'datetime': record['datetime'],
-            'cmg': round(record['cmg_programmed'], 2)
-        })
+            if mapped_node not in forecasts_by_node:
+                forecasts_by_node[mapped_node] = []
+
+            forecasts_by_node[mapped_node].append({
+                'datetime': record['datetime'],
+                'cmg': round(record['cmg_programmed'], 2)
+            })
 
     return {
         (forecast_date, forecast_hour): {

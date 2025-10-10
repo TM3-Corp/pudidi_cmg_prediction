@@ -121,26 +121,13 @@
                 <div id="comparison-chart" style="height: 500px;"></div>
             </div>
 
-            <!-- Data Tables -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- ML Predictions Table -->
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">🤖 Predicciones ML</h3>
-                    <div class="overflow-x-auto">
-                        <table id="ml-table" class="w-full text-sm">
-                            <!-- Will be populated -->
-                        </table>
-                    </div>
-                </div>
-
-                <!-- CMG Programado Table -->
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">📅 CMG Programado</h3>
-                    <div class="overflow-x-auto">
-                        <table id="programado-table" class="w-full text-sm">
-                            <!-- Will be populated -->
-                        </table>
-                    </div>
+            <!-- Unified Comparison Table -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📊 Comparación Detallada</h3>
+                <div class="overflow-x-auto">
+                    <table id="comparison-table" class="w-full text-sm">
+                        <!-- Will be populated -->
+                    </table>
                 </div>
             </div>
         </div>
@@ -280,9 +267,8 @@
                 // Render comparison chart
                 renderComparisonChart(date, hour, mlForecast, progForecast, actualData);
 
-                // Render tables
-                renderMLTable(mlForecast);
-                renderProgramadoTable(progForecast);
+                // Render unified comparison table
+                renderComparisonTable(date, hour, mlForecast, progForecast, actualData);
 
                 // Hide loading, show results
                 document.getElementById('loading-container').classList.add('hidden');
@@ -393,65 +379,94 @@
             Plotly.newPlot('comparison-chart', traces, layout, config);
         }
 
-        function renderMLTable(mlForecast) {
-            const table = document.getElementById('ml-table');
+        function renderComparisonTable(date, hour, mlForecast, progForecast, actualData) {
+            const table = document.getElementById('comparison-table');
 
-            if (!mlForecast || !mlForecast.predictions) {
-                table.innerHTML = '<p class="text-gray-500">No hay predicciones ML disponibles para esta hora</p>';
+            if (!mlForecast && !progForecast) {
+                table.innerHTML = '<p class="text-gray-500">No hay pronósticos disponibles para esta hora</p>';
                 return;
             }
 
-            table.innerHTML = `
-                <thead class="bg-gray-50 border-b-2 border-gray-200">
-                    <tr>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Horizonte</th>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-700">Hora</th>
-                        <th class="px-3 py-2 text-right font-semibold text-gray-700">CMG</th>
-                        <th class="px-3 py-2 text-right font-semibold text-gray-700">Prob(0)</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    ${mlForecast.predictions.map(pred => `
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2">t+${pred.horizon}</td>
-                            <td class="px-3 py-2">${pred.target_datetime.substring(11, 16)}</td>
-                            <td class="px-3 py-2 text-right ${pred.cmg === 0 ? 'text-gray-600' : 'text-green-600'} font-semibold">
-                                $${pred.cmg.toFixed(2)}
-                            </td>
-                            <td class="px-3 py-2 text-right text-blue-700">${(pred.prob_zero * 100).toFixed(1)}%</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            `;
-        }
+            // Build unified data structure
+            const rows = [];
+            const maxLength = Math.max(
+                mlForecast ? mlForecast.predictions.length : 0,
+                progForecast ? (progForecast.forecasts ? Object.values(progForecast.forecasts)[0].length : 0) : 0
+            );
 
-        function renderProgramadoTable(progForecast) {
-            const table = document.getElementById('programado-table');
+            const progData = progForecast && progForecast.forecasts ? Object.values(progForecast.forecasts)[0] : null;
 
-            if (!progForecast || !progForecast.forecasts) {
-                table.innerHTML = '<p class="text-gray-500">No hay CMG Programado disponible para esta hora</p>';
-                return;
+            for (let i = 0; i < maxLength; i++) {
+                const mlPred = mlForecast && mlForecast.predictions[i];
+                const progPred = progData && progData[i];
+
+                // Get actual CMG Online value if available
+                let actualValue = null;
+                if (mlPred && actualData) {
+                    const targetDateTime = new Date(mlPred.target_datetime);
+                    const targetDate = targetDateTime.toISOString().split('T')[0];
+                    const targetHour = targetDateTime.getHours();
+
+                    // Check if we have actual data for this datetime
+                    const firstNode = Object.keys(actualData)[0];
+                    if (firstNode && actualData[firstNode] && actualData[firstNode].cmg_usd) {
+                        const dayData = historicalData.daily_data[targetDate];
+                        if (dayData && dayData.cmg_online && dayData.cmg_online[firstNode]) {
+                            actualValue = dayData.cmg_online[firstNode].cmg_usd[targetHour];
+                        }
+                    }
+                }
+
+                rows.push({
+                    datetime: mlPred ? mlPred.target_datetime : (progPred ? progPred.datetime : ''),
+                    ml: mlPred,
+                    prog: progPred,
+                    actual: actualValue,
+                    horizon: mlPred ? mlPred.horizon : null
+                });
             }
-
-            const firstNode = Object.keys(progForecast.forecasts)[0];
-            const forecasts = progForecast.forecasts[firstNode];
 
             table.innerHTML = `
                 <thead class="bg-gray-50 border-b-2 border-gray-200">
                     <tr>
                         <th class="px-3 py-2 text-left font-semibold text-gray-700">Fecha/Hora</th>
-                        <th class="px-3 py-2 text-right font-semibold text-gray-700">CMG</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">🤖 ML</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">📅 Programado</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">✅ Real</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">Δ ML</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700">Δ Prog</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    ${forecasts.map((f, idx) => `
+                    ${rows.map(row => {
+                        const mlValue = row.ml ? row.ml.cmg : null;
+                        const progValue = row.prog ? row.prog.cmg : null;
+                        const actualValue = row.actual;
+
+                        const mlError = (mlValue !== null && actualValue !== null) ? (mlValue - actualValue) : null;
+                        const progError = (progValue !== null && actualValue !== null) ? (progValue - actualValue) : null;
+
+                        return `
                         <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2">${f.datetime.substring(0, 16).replace('T', ' ')}</td>
-                            <td class="px-3 py-2 text-right text-purple-700 font-semibold">
-                                $${f.cmg.toFixed(2)}
+                            <td class="px-3 py-2 font-medium">${row.datetime.substring(0, 16).replace('T', ' ')}</td>
+                            <td class="px-3 py-2 text-right ${mlValue === 0 ? 'text-gray-500' : 'text-blue-700'} font-semibold">
+                                ${mlValue !== null ? `$${mlValue.toFixed(2)}` : '-'}
+                            </td>
+                            <td class="px-3 py-2 text-right ${progValue === 0 ? 'text-gray-500' : 'text-purple-700'} font-semibold">
+                                ${progValue !== null ? `$${progValue.toFixed(2)}` : '-'}
+                            </td>
+                            <td class="px-3 py-2 text-right ${actualValue === 0 ? 'text-gray-500' : 'text-green-700'} font-semibold">
+                                ${actualValue !== null ? `$${actualValue.toFixed(2)}` : '-'}
+                            </td>
+                            <td class="px-3 py-2 text-right ${mlError === null ? 'text-gray-400' : (Math.abs(mlError) < 5 ? 'text-green-600' : 'text-red-600')} text-xs">
+                                ${mlError !== null ? `${mlError > 0 ? '+' : ''}${mlError.toFixed(1)}` : '-'}
+                            </td>
+                            <td class="px-3 py-2 text-right ${progError === null ? 'text-gray-400' : (Math.abs(progError) < 5 ? 'text-green-600' : 'text-red-600')} text-xs">
+                                ${progError !== null ? `${progError > 0 ? '+' : ''}${progError.toFixed(1)}` : '-'}
                             </td>
                         </tr>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </tbody>
             `;
         }
