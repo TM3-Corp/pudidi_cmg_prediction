@@ -234,36 +234,62 @@ def create_features(cmg_df):
 
 
 def load_optimal_thresholds():
-    """Load optimal decision thresholds for each horizon"""
-    thresholds_file = MODELS_DIR / "zero_detection" / "optimal_thresholds.csv"
+    """Load optimal decision thresholds - now hour-based instead of horizon-based"""
+    # Try new hour-based calibrated thresholds first
+    hour_thresholds_npy = MODELS_DIR / "zero_detection" / "optimal_thresholds_by_hour_calibrated.npy"
+    hour_thresholds_csv = MODELS_DIR / "zero_detection" / "optimal_thresholds_by_hour_calibrated.csv"
 
-    if not thresholds_file.exists():
-        print("  ⚠️  Optimal thresholds not found, using fixed 0.5")
-        return {h: 0.5 for h in range(1, 25)}
+    if hour_thresholds_npy.exists():
+        thresholds_array = np.load(hour_thresholds_npy)
+        thresholds_dict = {h: float(thresholds_array[h]) for h in range(24)}
+        print(f"  ✓ Loaded hour-based calibrated thresholds (range: {min(thresholds_dict.values()):.3f}-{max(thresholds_dict.values()):.3f})")
+        return thresholds_dict, 'hour-based'
 
-    thresholds_df = pd.read_csv(thresholds_file)
+    elif hour_thresholds_csv.exists():
+        thresholds_df = pd.read_csv(hour_thresholds_csv)
+        thresholds_dict = {int(row['target_hour']): row['threshold'] for _, row in thresholds_df.iterrows()}
+        print(f"  ✓ Loaded hour-based thresholds (range: {min(thresholds_dict.values()):.3f}-{max(thresholds_dict.values()):.3f})")
+        return thresholds_dict, 'hour-based'
 
-    # Parse horizon from 't+X' format
-    thresholds_dict = {}
-    for _, row in thresholds_df.iterrows():
-        horizon_str = row['horizon']
-        if isinstance(horizon_str, str) and horizon_str.startswith('t+'):
-            horizon = int(horizon_str.replace('t+', ''))
-            thresholds_dict[horizon] = row['threshold']
+    # Fallback to old horizon-based thresholds
+    horizon_thresholds_file = MODELS_DIR / "zero_detection" / "optimal_thresholds.csv"
+    if horizon_thresholds_file.exists():
+        thresholds_df = pd.read_csv(horizon_thresholds_file)
+        thresholds_dict = {}
+        for _, row in thresholds_df.iterrows():
+            horizon_str = row['horizon']
+            if isinstance(horizon_str, str) and horizon_str.startswith('t+'):
+                horizon = int(horizon_str.replace('t+', ''))
+                thresholds_dict[horizon] = row['threshold']
+        print(f"  ⚠️  Using old horizon-based thresholds (range: {min(thresholds_dict.values()):.3f}-{max(thresholds_dict.values()):.3f})")
+        return thresholds_dict, 'horizon-based'
 
-    print(f"  ✓ Loaded {len(thresholds_dict)} optimal thresholds (range: {min(thresholds_dict.values()):.3f}-{max(thresholds_dict.values()):.3f})")
-
-    return thresholds_dict
+    # Last resort
+    print("  ⚠️  No thresholds found, using fixed 0.5")
+    return {h: 0.5 for h in range(24)}, 'fixed'
 
 
 def load_models():
     """Load trained models"""
     print("\n[3/5] Loading trained models...")
 
+    # Load thresholds
+    thresholds, threshold_type = load_optimal_thresholds()
+
+    # Load meta-calibrator if available
+    meta_calibrator_path = MODELS_DIR / "zero_detection" / "meta_calibrator.pkl"
+    meta_calibrator = None
+    if meta_calibrator_path.exists():
+        import joblib
+        meta_calibrator = joblib.load(meta_calibrator_path)
+        print(f"  ✓ Loaded meta-calibrator for probability calibration")
+
     models = {
         'zero_detection': {},
         'value_prediction': {},
-        'optimal_thresholds': load_optimal_thresholds()
+        'optimal_thresholds': thresholds,
+        'threshold_type': threshold_type,
+        'meta_calibrator': meta_calibrator
     }
 
     horizons = list(range(1, 25))
@@ -313,7 +339,7 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
     """Generate 24-hour forecast
 
     Args:
-        models: Dict with 'zero_detection' and 'value_prediction' models
+        models: Dict with 'zero_detection', 'value_prediction', 'meta_calibrator', 'optimal_thresholds'
         X_stage2: Features for Stage 2 (value prediction) - 150 features
         X_stage1: Features for Stage 1 (zero detection) - 78 features
         base_datetime: Base datetime for forecast
@@ -327,10 +353,34 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
             print(f"  ⚠️  Skipping t+{h} (models not found)")
             continue
 
+        # Target datetime
+        target_time = base_datetime + timedelta(hours=h)
+
         # Stage 1: Zero detection (uses 78 base features)
         lgb_zero = models['zero_detection'][h]['lgb'].predict(X_stage1)[0]
         xgb_zero = models['zero_detection'][h]['xgb'].predict(xgb.DMatrix(X_stage1))[0]
-        zero_prob = (lgb_zero + xgb_zero) / 2
+        zero_prob_raw = (lgb_zero + xgb_zero) / 2
+
+        # Apply meta-calibrator if available
+        if models['meta_calibrator'] is not None:
+            from scipy.special import logit, expit
+
+            # Prepare meta-features
+            meta_features_dict = {
+                'logit_p': logit(np.clip(zero_prob_raw, 1e-6, 1 - 1e-6)),
+                'hour_sin': np.sin(2 * np.pi * target_time.hour / 24),
+                'hour_cos': np.cos(2 * np.pi * target_time.hour / 24),
+                'month_sin': np.sin(2 * np.pi * target_time.month / 12),
+                'month_cos': np.cos(2 * np.pi * target_time.month / 12),
+                'zeros_24h': X_stage1['zeros_count_24h'].values[0] if 'zeros_count_24h' in X_stage1.columns else 0,
+                'zeros_168h': X_stage1['zeros_count_168h'].values[0] if 'zeros_count_168h' in X_stage1.columns else 0,
+                'horizon': h
+            }
+
+            meta_features_df = pd.DataFrame([meta_features_dict])
+            zero_prob = models['meta_calibrator'].predict_proba(meta_features_df)[:, 1][0]
+        else:
+            zero_prob = zero_prob_raw
 
         # Stage 2: Value prediction (uses 150 features including meta-features)
         lgb_value = models['value_prediction'][h]['lgb_median'].predict(X_stage2)[0]
@@ -342,18 +392,20 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
         value_q10 = models['value_prediction'][h]['lgb_q10'].predict(X_stage2)[0]
         value_q90 = models['value_prediction'][h]['lgb_q90'].predict(X_stage2)[0]
 
-        # Final prediction: use optimal threshold for this horizon
-        optimal_threshold = models['optimal_thresholds'].get(h, 0.5)
-        final_prediction = 0 if zero_prob > optimal_threshold else max(0, value_median)
+        # Final prediction: use hour-based threshold if available, else horizon-based
+        if models['threshold_type'] == 'hour-based':
+            optimal_threshold = models['optimal_thresholds'].get(target_time.hour, 0.5)
+        else:
+            optimal_threshold = models['optimal_thresholds'].get(h, 0.5)
 
-        # Target datetime
-        target_time = base_datetime + timedelta(hours=h)
+        final_prediction = 0 if zero_prob > optimal_threshold else max(0, value_median)
 
         forecasts.append({
             'horizon': h,
             'target_datetime': target_time.strftime('%Y-%m-%d %H:00:00'),
             'predicted_cmg': round(final_prediction, 2),
             'zero_probability': round(zero_prob, 4),
+            'zero_probability_raw': round(zero_prob_raw, 4) if models['meta_calibrator'] is not None else None,
             'decision_threshold': round(optimal_threshold, 4),
             'value_prediction': round(value_median, 2),
             'confidence_interval': {
