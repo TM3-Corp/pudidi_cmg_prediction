@@ -458,7 +458,8 @@
                 showlegend: true,
                 legend: { x: 0.02, y: 0.98 },
                 hovermode: 'x unified',
-                margin: { t: 20, r: 20, b: 60, l: 60 }
+                margin: { t: 20, r: 20, b: 60, l: 60 },
+                autosize: true
             };
 
             const config = {
@@ -467,7 +468,12 @@
                 displaylogo: false
             };
 
-            Plotly.newPlot('comparison-chart', traces, layout, config);
+            Plotly.newPlot('comparison-chart', traces, layout, config).then(() => {
+                // Force resize after render to ensure full width is used
+                setTimeout(() => {
+                    Plotly.Plots.resize('comparison-chart');
+                }, 100);
+            });
         }
 
         function renderComparisonTable(date, hour, mlForecast, progForecast, actualData) {
