@@ -17,7 +17,7 @@ GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN')  # Set in GitHub Actions secrets
 GIST_FILENAME = 'cmg_online_historical.json'
 
 # Data configuration
-ROLLING_WINDOW_DAYS = 30  # Keep 30 days of historical data
+ROLLING_WINDOW_DAYS = None  # Keep all data permanently
 NODES = ['NVA_P.MONTT___220', 'PIDPID________110', 'DALCAHUE______110']
 
 def load_current_cache():
@@ -99,54 +99,28 @@ def fetch_existing_gist():
     return None
 
 def merge_historical_data(existing_data, new_data):
-    """Merge new data with existing, maintaining rolling window"""
+    """Merge new data with existing - keep all data permanently"""
     santiago_tz = pytz.timezone('America/Santiago')
     now = datetime.now(santiago_tz)
-    cutoff_date = (now - timedelta(days=ROLLING_WINDOW_DAYS)).strftime('%Y-%m-%d')
-    
+
     if existing_data is None:
         existing_data = {
             'metadata': {},
             'daily_data': {}
         }
-    
-    # Merge new data
+
+    # Merge new data - no cutoff_date check, keep all data permanently
     for date, data in new_data.items():
-        if date >= cutoff_date:
-            # If date exists, UPDATE with new online data, PRESERVE v3.0 forecast fields
-            if date in existing_data['daily_data']:
-                # Preserve v3.0 forecast matrices if they exist
-                ml_forecasts = existing_data['daily_data'][date].get('ml_forecasts', {})
-                cmg_prog_forecasts = existing_data['daily_data'][date].get('cmg_programado_forecasts', {})
-
-                # UPDATE with NEW CMG Online data
-                if 'cmg_online' in data and data['cmg_online']:
-                    existing_data['daily_data'][date]['cmg_online'] = data['cmg_online']
-
-                # Update with new CMG Programado if available
-                if 'cmg_programado' in data and data['cmg_programado']:
-                    existing_data['daily_data'][date]['cmg_programado'] = data['cmg_programado']
-                else:
-                    # Keep existing programado if new doesn't have it
-                    if 'cmg_programado' in existing_data['daily_data'][date]:
-                        data['cmg_programado'] = existing_data['daily_data'][date]['cmg_programado']
-
-                # Restore v3.0 forecast fields
-                data['ml_forecasts'] = ml_forecasts
-                data['cmg_programado_forecasts'] = cmg_prog_forecasts
-            else:
-                # New date - ensure v3.0 structure
-                if 'ml_forecasts' not in data:
-                    data['ml_forecasts'] = {}
-                if 'cmg_programado_forecasts' not in data:
-                    data['cmg_programado_forecasts'] = {}
-
+        # If date exists, UPDATE with new CMG Online data
+        if date in existing_data['daily_data']:
+            # UPDATE with NEW CMG Online data
+            if 'cmg_online' in data and data['cmg_online']:
+                existing_data['daily_data'][date]['cmg_online'] = data['cmg_online']
+        else:
+            # New date - just store the CMG Online data
             existing_data['daily_data'][date] = data
-    
-    # Remove old data beyond rolling window
-    dates_to_remove = [date for date in existing_data['daily_data'] if date < cutoff_date]
-    for date in dates_to_remove:
-        del existing_data['daily_data'][date]
+
+    # No rolling window deletion - keep all historical data
     
     # Update metadata
     existing_data['metadata'] = {
@@ -155,8 +129,8 @@ def merge_historical_data(existing_data, new_data):
         'oldest_date': min(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
         'newest_date': max(existing_data['daily_data'].keys()) if existing_data['daily_data'] else None,
         'nodes': NODES,
-        'structure_version': '3.0',  # v3.0: includes ml_forecasts and cmg_programado_forecasts
-        'rolling_window_days': ROLLING_WINDOW_DAYS
+        'structure_version': '3.0',  # v3.0: CMG Online only (forecasts in separate Gists)
+        'rolling_window_days': ROLLING_WINDOW_DAYS  # None = permanent storage
     }
     
     return existing_data

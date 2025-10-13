@@ -15,7 +15,7 @@ from pathlib import Path
 GIST_ID = '38b3f9b1cdae5362d3676911ab27f606'  # ML Predictions Gist
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN') or os.environ.get('CMG_GIST_TOKEN')
 GIST_FILENAME = 'ml_predictions_historical.json'
-ROLLING_WINDOW_DAYS = 7
+ROLLING_WINDOW_DAYS = None  # Keep all data permanently
 
 def load_ml_predictions():
     """Load latest ML predictions"""
@@ -81,7 +81,6 @@ def merge_data(existing_data, ml_forecasts):
     """Merge new ML forecasts with existing data"""
     santiago_tz = pytz.timezone('America/Santiago')
     now = datetime.now(santiago_tz)
-    cutoff_date = (now - timedelta(days=ROLLING_WINDOW_DAYS)).strftime('%Y-%m-%d')
 
     if existing_data is None or not isinstance(existing_data, dict):
         existing_data = {
@@ -97,25 +96,22 @@ def merge_data(existing_data, ml_forecasts):
 
     # Add new forecasts
     for (date, hour), forecast_data in ml_forecasts.items():
-        if date >= cutoff_date:
-            if date not in existing_data['daily_data']:
-                existing_data['daily_data'][date] = {'ml_forecasts': {}}
+        # No cutoff_date check - keep all data permanently
+        if date not in existing_data['daily_data']:
+            existing_data['daily_data'][date] = {'ml_forecasts': {}}
 
-            if 'ml_forecasts' not in existing_data['daily_data'][date]:
-                existing_data['daily_data'][date]['ml_forecasts'] = {}
+        if 'ml_forecasts' not in existing_data['daily_data'][date]:
+            existing_data['daily_data'][date]['ml_forecasts'] = {}
 
-            existing_data['daily_data'][date]['ml_forecasts'][str(hour)] = forecast_data
+        existing_data['daily_data'][date]['ml_forecasts'][str(hour)] = forecast_data
 
-    # Remove old data
-    dates_to_remove = [d for d in existing_data['daily_data'] if d < cutoff_date]
-    for date in dates_to_remove:
-        del existing_data['daily_data'][date]
+    # No rolling window deletion - keep all historical data
 
     # Update metadata
     existing_data['metadata'].update({
         'last_update': now.isoformat(),
         'structure_version': '3.0',
-        'rolling_window_days': ROLLING_WINDOW_DAYS,
+        'rolling_window_days': ROLLING_WINDOW_DAYS,  # None = permanent storage
         'total_days': len(existing_data['daily_data'])
     })
 
