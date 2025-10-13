@@ -59,10 +59,8 @@ def organize_by_date(records, programmed_records=None):
         if date not in organized:
             organized[date] = {
                 'hours': list(range(24)),
-                'cmg_online': {},
-                'cmg_programado': {},  # Will store what was forecasted for this date
-                'ml_forecasts': {},  # v3.0: ML forecast matrices
-                'cmg_programado_forecasts': {}  # v3.0: CMG Programado forecast matrices
+                'cmg_online': {}
+                # Removed forecast keys - they're now in separate Gists
             }
         
         if node not in organized[date]['cmg_online']:
@@ -75,32 +73,9 @@ def organize_by_date(records, programmed_records=None):
         organized[date]['cmg_online'][node]['cmg_usd'][hour] = round(record.get('cmg_usd', 0), 2)
         organized[date]['cmg_online'][node]['cmg_real'][hour] = round(record.get('cmg_real', 0), 0)
     
-    # Process CMG Programado (forecast) data if available
-    if programmed_records:
-        # Map node names (PMontt220 -> NVA_P.MONTT___220)
-        node_mapping = {
-            'PMontt220': 'NVA_P.MONTT___220',
-            'Pidpid110': 'PIDPID________110',
-            'Dalcahue110': 'DALCAHUE______110'
-        }
-        
-        for record in programmed_records:
-            date = record.get('date')
-            hour = record.get('hour')
-            orig_node = record.get('node')
-            
-            # Map the node name
-            node = node_mapping.get(orig_node, orig_node)
-            
-            if date and date in organized:
-                if node not in organized[date]['cmg_programado']:
-                    organized[date]['cmg_programado'][node] = {
-                        'values': [None] * 24
-                    }
-                
-                if hour is not None and hour < 24:
-                    organized[date]['cmg_programado'][node]['values'][hour] = round(record.get('cmg_programmed', 0), 2)
-    
+    # CMG Programado processing removed - now handled by store_cmg_programado.py
+    # This script now ONLY handles CMG Online (actual values)
+
     return organized
 
 def fetch_existing_gist():

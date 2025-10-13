@@ -76,24 +76,40 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
 
-      # ========== STEP 3: STORE FORECAST MATRICES ==========
-      - name: Store forecast matrices (ML + CMG Programado) to Gist
+      # ========== STEP 3A: STORE ML PREDICTIONS ==========
+      - name: Store ML predictions to dedicated Gist
         if: success()
         timeout-minutes: 5
         run: |
           echo ""
           echo "========================================"
-          echo "FORECAST MATRICES - STORE TO GIST"
+          echo "ML PREDICTIONS - STORE TO GIST"
           echo "========================================"
           echo "Starting at $(date)"
-          python scripts/store_forecast_matrices.py
-          echo "Forecast matrices stored at $(date)"
+          python scripts/store_ml_predictions.py
+          echo "ML predictions stored at $(date)"
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
 
-      # ========== STEP 4: STORE TO GIST ==========
-      - name: Store CMG Online historical data to Gist
+      # ========== STEP 3B: STORE CMG PROGRAMADO ==========
+      - name: Store CMG Programado to dedicated Gist
+        if: success()
+        timeout-minutes: 5
+        run: |
+          echo ""
+          echo "========================================"
+          echo "CMG PROGRAMADO - STORE TO GIST"
+          echo "========================================"
+          echo "Starting at $(date)"
+          python scripts/store_cmg_programado.py
+          echo "CMG Programado stored at $(date)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+          PYTHONPATH: ${{ github.workspace }}
+
+      # ========== STEP 3C: STORE CMG ONLINE ==========
+      - name: Store CMG Online to dedicated Gist
         if: success()
         timeout-minutes: 5
         run: |
@@ -103,7 +119,7 @@ jobs:
           echo "========================================"
           python scripts/store_historical.py
         env:
-          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}  # Use PAT with gist permissions
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
 
       # ========== STEP 5: VERIFY DATA INTEGRITY ==========
@@ -173,14 +189,16 @@ jobs:
 
           # Add and commit changes
           git add data/
-          git commit -m "🔄 CMG Online update + ML Predictions + Forecast Matrices - $(date +'%Y-%m-%d %H:%M')
+          git commit -m "🔄 CMG Online update + ML Predictions + CMG Programado - $(date +'%Y-%m-%d %H:%M')
 
           - Fetched from SIP API (v4/findByDate)
           - Generated ML 24-hour forecast
-          - Stored forecast matrices (ML 24×24 + CMG Programado 24×72)
+          - Stored to 3 separate Gists (v3.0):
+            • ML Predictions: 38b3f9b1cdae5362d3676911ab27f606
+            • CMG Programado: d68bb21360b1ac549c32a80195f99b09
+            • CMG Online: 8d7864eb26acf6e780d3c0f7fed69365
           - Updated historical cache (cmg_historical_latest.json)
           - Updated ML predictions (ml_predictions/latest.json)
-          - Updated Gist: 8d7864eb26acf6e780d3c0f7fed69365 (v3.0)
           - Data verified and committed
 
           Workflow: cmg_online_hourly.yml" || {
