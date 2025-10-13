@@ -108,11 +108,17 @@ def merge_data(existing_data, prog_forecasts):
     now = datetime.now(santiago_tz)
     cutoff_date = (now - timedelta(days=ROLLING_WINDOW_DAYS)).strftime('%Y-%m-%d')
 
-    if existing_data is None:
+    if existing_data is None or not isinstance(existing_data, dict):
         existing_data = {
             'metadata': {},
             'daily_data': {}
         }
+
+    # Ensure daily_data exists
+    if 'daily_data' not in existing_data:
+        existing_data['daily_data'] = {}
+    if 'metadata' not in existing_data:
+        existing_data['metadata'] = {}
 
     # Add new forecasts
     for (date, hour), forecast_data in prog_forecasts.items():
