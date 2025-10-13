@@ -58,8 +58,9 @@ def organize_programado_forecasts(prog_data):
     forecasts_by_node = {}
 
     for record in prog_data['data']:
-        # Parse record datetime
-        record_time = datetime.fromisoformat(record['datetime']).replace(tzinfo=santiago_tz)
+        # Parse record datetime (naive) and localize to Santiago timezone
+        record_time_naive = datetime.fromisoformat(record['datetime'])
+        record_time = santiago_tz.localize(record_time_naive)
 
         # ONLY include forecasts for future hours (t+1 onwards, never t+0)
         if record_time >= fetch_hour_next:
