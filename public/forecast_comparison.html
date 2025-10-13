@@ -418,23 +418,37 @@
                 }
             }
 
-            // Actual CMG Online (if available)
+            // Actual CMG Online (if available) - Start from t+1
             if (actualData && Object.keys(actualData).length > 0) {
                 const firstNode = Object.keys(actualData)[0];
                 if (actualData[firstNode] && actualData[firstNode].cmg_usd) {
-                    const cmgValues = actualData[firstNode].cmg_usd;
-                    const hours = Array.from({length: 24}, (_, i) => i);
-                    const datetimes = hours.map(h => `${date}T${h.toString().padStart(2, '0')}:00:00`);
+                    const allCmgValues = actualData[firstNode].cmg_usd;
 
-                    traces.push({
-                        x: datetimes,
-                        y: cmgValues,
-                        name: '✅ CMG Online (Real)',
-                        type: 'scatter',
-                        mode: 'lines+markers',
-                        line: { color: '#10b981', width: 2 },
-                        marker: { size: 6 }
-                    });
+                    // Start from t+1 (hour + 1), not from 00:00
+                    const startHour = parseInt(hour) + 1;
+
+                    // Filter to show only from t+1 onwards (within the selected day)
+                    const filteredValues = [];
+                    const filteredDatetimes = [];
+
+                    for (let h = startHour; h < 24; h++) {
+                        if (allCmgValues[h] !== null && allCmgValues[h] !== undefined) {
+                            filteredValues.push(allCmgValues[h]);
+                            filteredDatetimes.push(`${date}T${h.toString().padStart(2, '0')}:00:00`);
+                        }
+                    }
+
+                    if (filteredValues.length > 0) {
+                        traces.push({
+                            x: filteredDatetimes,
+                            y: filteredValues,
+                            name: '✅ CMG Online (Real)',
+                            type: 'scatter',
+                            mode: 'lines+markers',
+                            line: { color: '#10b981', width: 2 },
+                            marker: { size: 6 }
+                        });
+                    }
                 }
             }
 
