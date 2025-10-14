@@ -46,6 +46,33 @@ jobs:
         run: |
           pip install requests pytz numpy pandas lightgbm xgboost scikit-learn
 
+      # ========== STEP 0: FETCH CMG PROGRAMADO ==========
+      - name: Fetch CMG Programado forecast (web scraping)
+        timeout-minutes: 10
+        run: |
+          echo "========================================"
+          echo "CMG PROGRAMADO - FETCH FORECAST"
+          echo "========================================"
+          echo "Starting at $(date)"
+          echo ""
+
+          # Install Playwright for web scraping
+          pip install playwright
+          playwright install chromium
+          playwright install-deps chromium
+
+          # Set environment for headless mode
+          export GITHUB_ACTIONS=true
+
+          # Run the CMG Programado pipeline
+          python scripts/cmg_programado_pipeline.py
+
+          echo ""
+          echo "CMG Programado fetch completed at $(date)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+          PYTHONPATH: ${{ github.workspace }}
+
       # ========== STEP 1: FETCH CMG ONLINE ==========
       - name: Fetch CMG Online data from SIP API
         timeout-minutes: 50
@@ -187,18 +214,18 @@ jobs:
             git reset --hard origin/main
           }
 
-          # Add and commit changes
-          git add data/
-          git commit -m "🔄 CMG Online update + ML Predictions + CMG Programado - $(date +'%Y-%m-%d %H:%M')
+          # Add and commit changes (include downloads folder for CMG Programado CSV)
+          git add data/ downloads/
+          git commit -m "🔄 CMG Online + ML Predictions + CMG Programado - $(date +'%Y-%m-%d %H:%M')
 
-          - Fetched from SIP API (v4/findByDate)
+          - Fetched CMG Programado via web scraping (Playwright)
+          - Fetched CMG Online from SIP API (v4/findByDate)
           - Generated ML 24-hour forecast
           - Stored to 3 separate Gists (v3.0):
             • ML Predictions: 38b3f9b1cdae5362d3676911ab27f606
             • CMG Programado: d68bb21360b1ac549c32a80195f99b09
             • CMG Online: 8d7864eb26acf6e780d3c0f7fed69365
-          - Updated historical cache (cmg_historical_latest.json)
-          - Updated ML predictions (ml_predictions/latest.json)
+          - Updated all cache files
           - Data verified and committed
 
           Workflow: cmg_online_hourly.yml" || {
