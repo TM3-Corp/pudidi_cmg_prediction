@@ -294,28 +294,16 @@
             </div>
         </div>
 
-        <!-- Threshold Distribution Chart -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Distribución de Umbrales</h2>
-            <div class="mb-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <p class="text-sm text-purple-800">
-                    Este gráfico muestra cómo varían los umbrales óptimos según el horizonte de predicción.
-                    Los horizontes con umbrales más altos (rojo) requieren mayor evidencia para predecir CMG > 0.
-                </p>
-            </div>
-            <div id="threshold-chart" style="height: 300px;"></div>
-        </div>
-
         <!-- Metrics Explanation - NEW! -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center cursor-pointer" onclick="toggleMetricsExplanation()">
                 <h2 class="text-2xl font-bold text-gray-800">💡 Interpretación de Métricas</h2>
-                <svg id="metrics-toggle-icon" class="w-6 h-6 text-gray-600 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg id="metrics-toggle-icon" class="w-6 h-6 text-gray-600 transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
             </div>
 
-            <div id="metrics-explanation" class="collapsible-content mt-4">
+            <div id="metrics-explanation" class="collapsible-content active mt-4">
                 <div class="space-y-6">
                     <!-- Precision -->
                     <div class="p-4 bg-green-50 rounded-lg border border-green-200">
@@ -447,7 +435,6 @@
                     renderCurrentForecast();
                     renderReliabilityChart();
                     renderThresholds();
-                    renderThresholdChart();
 
                     // Hide loading, show content
                     document.getElementById('loading-container').classList.add('hidden');
@@ -711,47 +698,6 @@
 
                 grid.appendChild(card);
             });
-        }
-
-        function renderThresholdChart() {
-            const thresholds = thresholdsData.thresholds;
-
-            const trace = {
-                x: thresholds.map(t => t.horizon),
-                y: thresholds.map(t => t.optimal_threshold * 100),
-                type: 'bar',
-                marker: {
-                    color: thresholds.map(t => {
-                        const val = t.optimal_threshold;
-                        if (val < 0.3) return '#10b981'; // green
-                        if (val < 0.5) return '#3b82f6'; // blue
-                        return '#ef4444'; // red
-                    })
-                },
-                text: thresholds.map(t => (t.optimal_threshold * 100).toFixed(1) + '%'),
-                textposition: 'outside'
-            };
-
-            const layout = {
-                xaxis: {
-                    title: 'Horizonte de Pronóstico (horas)',
-                    dtick: 1
-                },
-                yaxis: {
-                    title: 'Umbral Óptimo (%)',
-                    range: [0, 100]
-                },
-                showlegend: false,
-                hovermode: 'x',
-                margin: { t: 40, r: 20, b: 60, l: 60 }
-            };
-
-            const config = {
-                responsive: true,
-                displayModeBar: false
-            };
-
-            Plotly.newPlot('threshold-chart', [trace], layout, config);
         }
 
         function toggleMetricsExplanation() {

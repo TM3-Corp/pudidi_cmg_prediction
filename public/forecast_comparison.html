@@ -541,6 +541,7 @@
                     <tr>
                         <th class="px-3 py-2 text-left font-semibold text-gray-700">Fecha/Hora</th>
                         <th class="px-3 py-2 text-right font-semibold text-gray-700">🤖 ML</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-700 text-xs">% CMG 0</th>
                         <th class="px-3 py-2 text-right font-semibold text-gray-700">📅 Programado</th>
                         <th class="px-3 py-2 text-right font-semibold text-gray-700">✅ Real</th>
                         <th class="px-3 py-2 text-right font-semibold text-gray-700">Δ ML</th>
@@ -550,17 +551,26 @@
                 <tbody class="divide-y divide-gray-200">
                     ${rows.map(row => {
                         const mlValue = row.ml ? row.ml.cmg : null;
+                        const probZero = row.ml ? row.ml.prob_zero : null;
                         const progValue = row.prog ? row.prog.cmg : null;
                         const actualValue = row.actual;
 
                         const mlError = (mlValue !== null && actualValue !== null) ? (mlValue - actualValue) : null;
                         const progError = (progValue !== null && actualValue !== null) ? (progValue - actualValue) : null;
 
+                        // Color code probability: >70% = red (high risk), 30-70% = yellow, <30% = green
+                        const probColor = probZero === null ? 'text-gray-400' :
+                                         (probZero > 0.7 ? 'text-red-600' :
+                                          probZero > 0.3 ? 'text-yellow-600' : 'text-green-600');
+
                         return `
                         <tr class="hover:bg-gray-50">
                             <td class="px-3 py-2 font-medium">${row.datetime.substring(0, 16).replace('T', ' ')}</td>
                             <td class="px-3 py-2 text-right ${mlValue === 0 ? 'text-gray-500' : 'text-blue-700'} font-semibold">
                                 ${mlValue !== null ? `$${mlValue.toFixed(2)}` : '-'}
+                            </td>
+                            <td class="px-3 py-2 text-right ${probColor} text-xs font-medium">
+                                ${probZero !== null ? `${(probZero * 100).toFixed(1)}%` : '-'}
                             </td>
                             <td class="px-3 py-2 text-right ${progValue === 0 ? 'text-gray-500' : 'text-purple-700'} font-semibold">
                                 ${progValue !== null ? `$${progValue.toFixed(2)}` : '-'}
