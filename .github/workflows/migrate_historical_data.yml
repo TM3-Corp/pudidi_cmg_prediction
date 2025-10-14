@@ -36,16 +36,14 @@ jobs:
           echo "📦 Creating safety backups..."
           python scripts/backup_gists.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CMG_GIST_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
 
       - name: Run CMG Online backfill migration
         run: |
           echo "🚀 Starting CMG Online backfill migration (Sep 2-12)..."
           python scripts/migrate_cmg_online_backfill.py
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CMG_GIST_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
 
       - name: Upload backup artifacts
         if: always()
