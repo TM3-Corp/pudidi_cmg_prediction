@@ -320,7 +320,7 @@ class handler(BaseHTTPRequestHandler):
             return None
     
     def fetch_programmed_from_gist(self, start_date, horizon, node):
-        """Fetch historical CMG Programado from local file or Gist"""
+        """Fetch historical CMG Programado from local file or Gist - supports DUAL structure"""
         try:
             # First try local file (updated by GitHub Actions)
             local_path = 'data/cmg_programado_history.json'
@@ -328,72 +328,109 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[PERFORMANCE] Reading CMG Programado from local file")
                 with open(local_path, 'r') as f:
                     data = json.load(f)
-                
+
                 historical_data = data.get('historical_data', {})
+                daily_data = {}
             else:
                 # Fallback to CMG Programado Gist (NOT the CMG Online Gist)
                 cmg_programado_gist_id = 'd68bb21360b1ac549c32a80195f99b09'  # CMG Programado Gist
                 url = f'https://api.github.com/gists/{cmg_programado_gist_id}'
-                
+
                 print(f"[PERFORMANCE] Fetching CMG Programado from Gist {cmg_programado_gist_id}")
                 response = requests.get(url)
                 if response.status_code != 200:
                     print(f"[PERFORMANCE] Failed to fetch CMG Programado Gist: {response.status_code}")
                     return None
-                
+
                 gist_data = response.json()
-                
+
                 # Look for the JSON file with CMG Programado data
+                historical_data = {}
+                daily_data = {}
+
                 for filename, file_info in gist_data.get('files', {}).items():
                     if filename.endswith('.json'):
                         content = file_info.get('content', '{}')
                         data = json.loads(content)
-                        
-                        if 'cmg_programado' in data:
-                            historical_data = data['cmg_programado'].get('historical_data', {})
-                            break
-                        elif 'historical_data' in data:
+
+                        # Extract BOTH old and new structures
+                        if 'historical_data' in data:
                             historical_data = data.get('historical_data', {})
+                        if 'daily_data' in data:
+                            daily_data = data.get('daily_data', {})
+
+                        # If we found data, break
+                        if historical_data or daily_data:
                             break
                 else:
                     print("[PERFORMANCE] No CMG Programado data found in Gist")
                     return None
-            
-            # Extract prices for requested period
+
+            print(f"[PERFORMANCE] Found OLD structure dates: {len(historical_data)}, NEW structure dates: {len(daily_data)}")
+
+            # Extract prices for requested period from BOTH structures
             current_date = datetime.fromisoformat(start_date)
             prices = []
-            
+
             for h in range(horizon):
                 date_str = current_date.strftime('%Y-%m-%d')
                 hour = current_date.hour
-                
+                price = None
+
+                # TRY OLD STRUCTURE FIRST (Aug 26 - Sep 9)
                 if date_str in historical_data:
                     hour_data = historical_data[date_str].get(str(hour))
-                    if hour_data:
-                        prices.append(hour_data.get('value', 0))
-                    else:
-                        prices.append(None)
-                else:
-                    prices.append(None)
-                
+                    if hour_data and 'value' in hour_data:
+                        price = hour_data['value']
+                        # print(f"[PERFORMANCE] OLD: {date_str} {hour}:00 = {price}")
+
+                # TRY NEW STRUCTURE if not found (Oct 13 onwards)
+                if price is None and date_str in daily_data:
+                    day_data = daily_data[date_str]
+                    if 'cmg_programado_forecasts' in day_data:
+                        forecasts = day_data['cmg_programado_forecasts']
+
+                        # Find the earliest forecast for this day (e.g., 6:00 AM forecast)
+                        # This represents the "day-ahead" forecast used for optimization
+                        forecast_hours = sorted([int(h) for h in forecasts.keys()])
+
+                        if forecast_hours:
+                            # Use the first available forecast hour
+                            earliest_forecast_hour = forecast_hours[0]
+                            forecast_data = forecasts[str(earliest_forecast_hour)]
+
+                            if 'forecasts' in forecast_data and node in forecast_data['forecasts']:
+                                forecast_list = forecast_data['forecasts'][node]
+
+                                # Find the forecast for the target hour
+                                target_datetime = f"{date_str}T{hour:02d}:00:00"
+                                for forecast_item in forecast_list:
+                                    if forecast_item['datetime'].startswith(target_datetime):
+                                        price = forecast_item['cmg']
+                                        # print(f"[PERFORMANCE] NEW: {date_str} {hour}:00 = {price} (from forecast at {earliest_forecast_hour}:00)")
+                                        break
+
+                prices.append(price)
                 current_date += timedelta(hours=1)
-            
+
             # Check if we have enough valid data
             valid_count = sum(1 for p in prices if p is not None)
             if valid_count < horizon * 0.8:
                 print(f"[PERFORMANCE] Insufficient CMG Programado data: {valid_count}/{horizon}")
                 return None
-            
+
             # Fill gaps with interpolation
             for i in range(len(prices)):
                 if prices[i] is None:
                     prices[i] = 70.0  # Default fallback
-            
-            print(f"[PERFORMANCE] Fetched {valid_count}/{horizon} CMG Programado values")
+
+            print(f"[PERFORMANCE] Fetched {valid_count}/{horizon} CMG Programado values (OLD + NEW structures)")
             return prices
-            
+
         except Exception as e:
             print(f"[PERFORMANCE] Error fetching CMG Programado from Gist: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def OLD_fetch_programmed_from_csv(self, start_date, horizon, node):
@@ -913,28 +950,41 @@ class handler(BaseHTTPRequestHandler):
         return power
     
     def fetch_programmed_dates_from_gist(self):
-        """Fetch all available dates from CMG Programado Gist"""
+        """Fetch all available dates from CMG Programado Gist - supports DUAL structure"""
         try:
             cmg_programado_gist_id = 'd68bb21360b1ac549c32a80195f99b09'
             url = f'https://api.github.com/gists/{cmg_programado_gist_id}'
-            
+
             response = requests.get(url)
             if response.status_code != 200:
                 return None
-            
+
             gist_data = response.json()
-            
+
+            # Collect dates from BOTH old and new structures
+            all_dates = set()
+
             # Look for the JSON file with CMG Programado data
             for filename, file_info in gist_data.get('files', {}).items():
                 if filename.endswith('.json'):
                     content = file_info.get('content', '{}')
                     data = json.loads(content)
-                    
+
+                    # OLD structure: historical_data (Aug 26 - Sep 9)
                     if 'historical_data' in data:
-                        return sorted(list(data['historical_data'].keys()))
-                    elif 'cmg_programado' in data and 'historical_data' in data['cmg_programado']:
-                        return sorted(list(data['cmg_programado']['historical_data'].keys()))
-            
-            return None
-        except:
+                        all_dates.update(data['historical_data'].keys())
+
+                    # NEW structure: daily_data with cmg_programado_forecasts (Oct 13 onwards)
+                    if 'daily_data' in data:
+                        for date, day_data in data['daily_data'].items():
+                            if 'cmg_programado_forecasts' in day_data:
+                                all_dates.add(date)
+
+                    # If we found data, break
+                    if all_dates:
+                        break
+
+            return sorted(list(all_dates)) if all_dates else None
+        except Exception as e:
+            print(f"[PERFORMANCE] Error fetching programmed dates: {e}")
             return None
