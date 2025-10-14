@@ -1,0 +1,56 @@
+name: Migrate Historical Data (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_backup:
+        description: 'Run backup before migration'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pytz
+
+      - name: Run Gist backups (if requested)
+        if: ${{ github.event.inputs.run_backup == 'true' }}
+        run: |
+          echo "📦 Creating safety backups..."
+          python scripts/backup_gists.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CMG_GIST_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+
+      - name: Run CMG Online backfill migration
+        run: |
+          echo "🚀 Starting CMG Online backfill migration (Sep 2-12)..."
+          python scripts/migrate_cmg_online_backfill.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CMG_GIST_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
+
+      - name: Upload backup artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: migration-backups
+          path: data/backups/
+          retention-days: 30
