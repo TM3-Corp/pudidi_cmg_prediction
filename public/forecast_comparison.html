@@ -401,20 +401,30 @@
                 });
             }
 
-            // CMG Programado (first node for simplicity)
+            // CMG Programado (first node for simplicity) - Filter to show only t+1 onwards
             if (progForecast && progForecast.forecasts) {
                 const firstNode = Object.keys(progForecast.forecasts)[0];
                 if (firstNode) {
                     const forecasts = progForecast.forecasts[firstNode];
-                    traces.push({
-                        x: forecasts.map(f => f.datetime),
-                        y: forecasts.map(f => f.cmg),
-                        name: '📅 CMG Programado',
-                        type: 'scatter',
-                        mode: 'lines+markers',
-                        line: { color: '#8b5cf6', width: 2, dash: 'dash' },
-                        marker: { size: 5 }
-                    });
+
+                    // Calculate t+1: selected hour + 1
+                    const selectedHour = parseInt(hour);
+                    const t1DateTime = `${date}T${(selectedHour + 1).toString().padStart(2, '0')}:00:00`;
+
+                    // Filter to show only from t+1 onwards (skip t+0 if present)
+                    const filteredForecasts = forecasts.filter(f => f.datetime >= t1DateTime);
+
+                    if (filteredForecasts.length > 0) {
+                        traces.push({
+                            x: filteredForecasts.map(f => f.datetime),
+                            y: filteredForecasts.map(f => f.cmg),
+                            name: '📅 CMG Programado',
+                            type: 'scatter',
+                            mode: 'lines+markers',
+                            line: { color: '#8b5cf6', width: 2, dash: 'dash' },
+                            marker: { size: 5 }
+                        });
+                    }
                 }
             }
 
@@ -497,10 +507,13 @@
                 const mlPred = mlForecast && mlForecast.predictions[i];
                 const progPred = progData && progData[i];
 
-                // Get actual CMG Online value if available
+                // Determine the datetime for this row
+                const rowDatetime = mlPred ? mlPred.target_datetime : (progPred ? progPred.datetime : null);
+
+                // Get actual CMG Online value if available (for ANY row, not just those with ML predictions)
                 let actualValue = null;
-                if (mlPred && actualData) {
-                    const targetDateTime = new Date(mlPred.target_datetime);
+                if (rowDatetime && actualData) {
+                    const targetDateTime = new Date(rowDatetime);
                     const targetDate = targetDateTime.toISOString().split('T')[0];
                     const targetHour = targetDateTime.getHours();
 
@@ -515,7 +528,7 @@
                 }
 
                 rows.push({
-                    datetime: mlPred ? mlPred.target_datetime : (progPred ? progPred.datetime : ''),
+                    datetime: rowDatetime || '',
                     ml: mlPred,
                     prog: progPred,
                     actual: actualValue,
