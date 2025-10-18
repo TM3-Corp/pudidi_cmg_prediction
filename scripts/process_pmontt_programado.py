@@ -74,27 +74,43 @@ def extract_pmontt_data(csv_path: Path) -> Dict:
 
 def update_gist(pmontt_data: Dict) -> bool:
     """Update the Gist with PMontt220 forecast data"""
-    
+
     token = os.environ.get('GITHUB_TOKEN')
     if not token:
         print("⚠️ No GitHub token found, cannot update Gist")
         return False
-    
+
     headers = {
         'Authorization': f'token {token}',
         'Accept': 'application/vnd.github.v3+json'
     }
-    
+
     # First, get the existing Gist data
     url = f"https://api.github.com/gists/{GIST_ID}"
-    
+
     try:
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             gist = response.json()
-            
-            # Get existing data from cmg_programado_historical.json
-            existing_content = gist['files'].get('cmg_programado_historical.json', {}).get('content', '{}')
+
+            # Check if content is truncated (GitHub API has 1MB limit)
+            file_info = gist['files'].get('cmg_programado_historical.json', {})
+            is_truncated = file_info.get('truncated', False)
+
+            if is_truncated:
+                # Fetch from raw_url for large files
+                print("⚠️ Gist file is large, fetching from raw URL...")
+                raw_url = file_info.get('raw_url')
+                raw_response = requests.get(raw_url)
+                if raw_response.status_code == 200:
+                    existing_content = raw_response.text
+                else:
+                    print(f"❌ Failed to fetch raw content: {raw_response.status_code}")
+                    return False
+            else:
+                # Get existing data from API response
+                existing_content = file_info.get('content', '{}')
+
             existing_data = json.loads(existing_content)
             
             # Initialize historical_data if it doesn't exist
@@ -106,7 +122,7 @@ def update_gist(pmontt_data: Dict) -> bool:
             for date, hours_data in pmontt_data.items():
                 if date not in existing_data['historical_data']:
                     existing_data['historical_data'][date] = {}
-                
+
                 # Update each hour with the new forecast
                 for hour, value in hours_data.items():
                     hour_int = str(int(hour))  # Convert "00" to "0"
@@ -117,13 +133,28 @@ def update_gist(pmontt_data: Dict) -> bool:
                         'source': 'CMG Programado',
                         'update_time': datetime.now(santiago_tz).isoformat()
                     }
-            
+
+            # Cleanup old data: keep only last 30 days to prevent Gist from growing too large
+            from datetime import timedelta
+            cutoff_date = (datetime.now(santiago_tz) - timedelta(days=30)).strftime('%Y-%m-%d')
+            dates_to_keep = [date for date in existing_data['historical_data'].keys() if date >= cutoff_date]
+
+            if len(dates_to_keep) < len(existing_data['historical_data']):
+                old_count = len(existing_data['historical_data'])
+                existing_data['historical_data'] = {
+                    date: data for date, data in existing_data['historical_data'].items()
+                    if date >= cutoff_date
+                }
+                removed_count = old_count - len(existing_data['historical_data'])
+                print(f"🗑️ Cleaned up {removed_count} old dates (keeping last 30 days)")
+
             # Add metadata at the root level
             existing_data['metadata'] = {
                 'last_updated': datetime.now(santiago_tz).isoformat(),
                 'source': 'CMG Programado - PMontt220',
                 'total_hours': sum(len(hours) for hours in pmontt_data.values()),
-                'dates_available': list(pmontt_data.keys())
+                'dates_available': list(pmontt_data.keys()),
+                'retention_days': 30
             }
             
             # Update the Gist with the correct file name
