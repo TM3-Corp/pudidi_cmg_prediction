@@ -36,7 +36,10 @@ def load_cmg_programado():
 def organize_programado_forecasts(prog_data):
     """
     Organize CMG Programado forecasts by (date, hour)
-    Filters to t+1 onwards (excludes t+0)
+
+    NOTE: CMG Programado is a batch download from Coordinador that provides
+    complete forecasts for the next 2-3 days. We store ALL hours without
+    filtering, as they are all legitimate forecast data.
     """
     if not prog_data or 'data' not in prog_data:
         return {}
@@ -50,30 +53,20 @@ def organize_programado_forecasts(prog_data):
     forecast_date = fetch_time.strftime('%Y-%m-%d')
     forecast_hour = fetch_time.hour
 
-    # Always use NEXT hour as the start point (t+1 onwards)
-    fetch_hour_floor = fetch_time.replace(minute=0, second=0, microsecond=0)
-    fetch_hour_next = fetch_hour_floor + timedelta(hours=1)  # t+1
-
-    # Organize by node, filtering for FUTURE forecasts only
+    # Organize by node - NO FILTERING needed for CMG Programado batch downloads
     forecasts_by_node = {}
 
     for record in prog_data['data']:
-        # Parse record datetime (naive) and localize to Santiago timezone
-        record_time_naive = datetime.fromisoformat(record['datetime'])
-        record_time = santiago_tz.localize(record_time_naive)
+        node = record['node']
+        mapped_node = NODE_MAPPING.get(node, node)
 
-        # ONLY include forecasts for future hours (t+1 onwards, never t+0)
-        if record_time >= fetch_hour_next:
-            node = record['node']
-            mapped_node = NODE_MAPPING.get(node, node)
+        if mapped_node not in forecasts_by_node:
+            forecasts_by_node[mapped_node] = []
 
-            if mapped_node not in forecasts_by_node:
-                forecasts_by_node[mapped_node] = []
-
-            forecasts_by_node[mapped_node].append({
-                'datetime': record['datetime'],
-                'cmg': round(record['cmg_programmed'], 2)
-            })
+        forecasts_by_node[mapped_node].append({
+            'datetime': record['datetime'],
+            'cmg': round(record['cmg_programmed'], 2)
+        })
 
     return {
         (forecast_date, forecast_hour): {
@@ -95,9 +88,26 @@ def fetch_existing_gist():
 
         if response.status_code == 200:
             gist_data = response.json()
-            if GIST_FILENAME in gist_data['files']:
-                content = gist_data['files'][GIST_FILENAME]['content']
-                return json.loads(content)
+
+            # Check if content is truncated (GitHub API has 1MB limit)
+            file_info = gist_data['files'].get(GIST_FILENAME, {})
+            is_truncated = file_info.get('truncated', False)
+
+            if is_truncated:
+                # Fetch from raw_url for large files
+                print("⚠️ Gist file is large, fetching from raw URL...")
+                raw_url = file_info.get('raw_url')
+                raw_response = requests.get(raw_url)
+                if raw_response.status_code == 200:
+                    content = raw_response.text
+                else:
+                    print(f"❌ Failed to fetch raw content: {raw_response.status_code}")
+                    return None
+            else:
+                # Get existing data from API response
+                content = file_info.get('content', '{}')
+
+            return json.loads(content)
     except Exception as e:
         print(f"Error fetching Gist: {e}")
 

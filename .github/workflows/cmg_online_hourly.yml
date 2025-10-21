@@ -46,6 +46,15 @@ jobs:
         run: |
           pip install requests pytz numpy pandas lightgbm xgboost scikit-learn
 
+      # Cache Playwright browsers to avoid re-downloading every run
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       # ========== STEP 0: FETCH CMG PROGRAMADO ==========
       - name: Fetch CMG Programado forecast (web scraping)
         timeout-minutes: 10
@@ -58,8 +67,7 @@ jobs:
 
           # Install Playwright for web scraping
           pip install playwright
-          playwright install chromium
-          playwright install-deps chromium
+          playwright install --with-deps chromium
 
           # Set environment for headless mode
           export GITHUB_ACTIONS=true
