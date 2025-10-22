@@ -438,7 +438,8 @@ async function runOptimization() {
 
             // Update charts
             console.log('[RUN] Updating charts...');
-            updateCharts(solution, prices, params);
+            const timestamps = result.timestamps || [];  // Get actual timestamps from backend
+            updateCharts(solution, prices, params, timestamps);
 
             console.log('[RUN] Optimization complete and displayed!');
         } else {
@@ -460,9 +461,9 @@ async function runOptimization() {
             // Show results
             document.getElementById('metricsGrid').style.display = 'grid';
             document.getElementById('resultsSection').style.display = 'grid';
-            
-            // Update charts
-            updateCharts(solution, prices, params);
+
+            // Update charts (fallback mode - no timestamps available)
+            updateCharts(solution, prices, params, []);
         }
         
     } catch (error) {
@@ -473,17 +474,26 @@ async function runOptimization() {
     }
 }
 
-function updateCharts(solution, prices, params) {
-    // Generate datetime labels starting from the current hour (at 00 minutes)
-    const now = new Date();
-    // Round to the start of current hour
-    now.setMinutes(0, 0, 0); 
-    
+function updateCharts(solution, prices, params, timestamps = []) {
+    // Use actual timestamps from backend data instead of generating from browser time
     const dateTimeLabels = [];
     const hours = Array.from({length: solution.P.length}, (_, i) => {
-        const date = new Date(now.getTime() + i * 3600000); // Add i hours
-        const dateStr = date.toLocaleDateString('es-CL', { month: 'short', day: 'numeric' });
-        const timeStr = date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+        let date, dateStr, timeStr;
+
+        if (timestamps[i]) {
+            // Use actual timestamp from backend
+            date = new Date(timestamps[i]);
+            dateStr = date.toLocaleDateString('es-CL', { month: 'short', day: 'numeric' });
+            timeStr = date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+        } else {
+            // Fallback to browser time if timestamps not available (shouldn't happen with new backend)
+            const now = new Date();
+            now.setMinutes(0, 0, 0);
+            date = new Date(now.getTime() + i * 3600000);
+            dateStr = date.toLocaleDateString('es-CL', { month: 'short', day: 'numeric' });
+            timeStr = date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+
         dateTimeLabels.push({ date, dateStr, timeStr });
         return `${dateStr} ${timeStr}`;
     });

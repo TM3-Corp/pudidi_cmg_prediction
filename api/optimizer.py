@@ -158,6 +158,7 @@ class handler(BaseHTTPRequestHandler):
             print(f"[OPTIMIZER] Fetching data from selected source: {data_source}...")
 
             prices = []
+            timestamps = []  # Store actual timestamps from data
             data_range_start = None
             data_range_end = None
             data_source_used = None
@@ -218,12 +219,13 @@ class handler(BaseHTTPRequestHandler):
                                     self.wfile.write(json.dumps(error_response).encode())
                                     return
 
-                                # Extract ML predicted CMG values
+                                # Extract ML predicted CMG values with timestamps
                                 for i, prediction in enumerate(sorted_predictions[:horizon]):
                                     price = prediction.get('cmg_predicted', 70)
+                                    dt = prediction.get('datetime', 'unknown')
                                     prices.append(price)
+                                    timestamps.append(dt)
                                     if i < 5:  # Log first 5 prices
-                                        dt = prediction.get('datetime', 'unknown')
                                         print(f"  Hour {i} ({dt}): ${price:.2f}/MWh (ML prediction)")
                                 if len(sorted_predictions) > 5:
                                     print(f"  ... using {min(len(sorted_predictions), horizon)} hours of ML predictions")
@@ -297,12 +299,13 @@ class handler(BaseHTTPRequestHandler):
                             self.wfile.write(json.dumps(error_response).encode())
                             return
 
-                        # Extract only the requested hours
+                        # Extract only the requested hours with timestamps
                         for i, record in enumerate(sorted_records[:horizon]):
                             price = record.get('cmg_programmed', 70)
+                            dt = record.get('datetime', 'unknown')
                             prices.append(price)
+                            timestamps.append(dt)
                             if i < 5:  # Log first 5 prices
-                                dt = record.get('datetime', 'unknown')
                                 print(f"  Hour {i} ({dt}): ${price:.2f}/MWh (CMG Programado)")
                         if len(sorted_records) > 5:
                             print(f"  ... using {min(len(sorted_records), horizon)} hours of programmed data")
@@ -401,6 +404,7 @@ class handler(BaseHTTPRequestHandler):
                 'success': True,
                 'solution': solution,
                 'prices': prices,
+                'timestamps': timestamps,  # Include actual timestamps from data
                 'parameters': {
                     'node': node,
                     'horizon': horizon,
