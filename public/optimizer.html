@@ -289,12 +289,12 @@
 
             <div class="controls-grid">
                 <div class="control-group">
-                    <label>Fuente de Datos para Optimización</label>
+                    <label>Fuente de Datos</label>
                     <select id="dataSourceSelect" onchange="updateDataSourceInfo()">
                         <option value="ml_predictions">🤖 Predicciones ML (Recomendado)</option>
-                        <option value="cmg_programado">📊 CMG Programado (Fallback)</option>
+                        <option value="cmg_programado">📊 CMG Programado</option>
                     </select>
-                    <small style="color: #64748b; display: block; margin-top: 4px;">Seleccione la fuente de datos para la optimización</small>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Seleccione la fuente de datos</small>
                 </div>
 
                 <div class="control-group">
@@ -358,7 +358,12 @@
 
         <div class="metrics-grid" id="metricsGrid" style="display: none;">
             <div class="metric-card">
-                <div class="metric-label">Total Revenue</div>
+                <div class="metric-label">
+                    Projected Revenue
+                    <div style="font-size: 0.7em; font-weight: normal; color: #94a3b8; margin-top: 2px;">
+                        (Based on selected forecast)
+                    </div>
+                </div>
                 <div class="metric-value">$<span id="totalRevenue">0</span></div>
             </div>
             <div class="metric-card">

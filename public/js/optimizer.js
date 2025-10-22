@@ -371,24 +371,54 @@ async function runOptimization() {
 
             // Update data source info
             const dataSourceDiv = document.getElementById('dataSourceInfo');
+            const dataSourceBox = document.getElementById('dataSourceInfoBox');
+            const dataSourceIcon = document.getElementById('dataSourceIcon');
+
             if (dataSourceDiv && dataInfo.using_ml_predictions !== undefined) {
-                if (dataInfo.using_ml_predictions) {
+                const selectedSource = dataInfo.data_source_selected || 'ml_predictions';
+                const usedML = dataInfo.using_ml_predictions;
+
+                // Check if user got what they selected
+                const gotWhatRequested = (selectedSource === 'ml_predictions' && usedML) ||
+                                        (selectedSource === 'cmg_programado' && !usedML);
+
+                if (usedML) {
+                    // Used ML predictions
+                    dataSourceBox.style.backgroundColor = '#eff6ff';
+                    dataSourceBox.style.borderLeft = '4px solid #3b82f6';
+                    dataSourceIcon.textContent = '🤖';
                     dataSourceDiv.innerHTML = `
-                        <div style="font-weight: 600; color: #059669; margin-bottom: 5px;">
-                            ✓ Optimización basada en predicciones ML
+                        <div style="font-weight: 600; color: #2563eb; margin-bottom: 5px;">
+                            ✓ Optimización basada en Predicciones ML
                         </div>
                         <div style="font-size: 0.9em;">
-                            Usando ${dataInfo.available_hours || 0} horas de predicciones ML desde Railway Backend.
-                            Los resultados están alineados con las predicciones mostradas en el Dashboard principal.
+                            Usando ${dataInfo.available_hours || 0} horas de predicciones ML.
+                        </div>
+                    `;
+                } else if (gotWhatRequested) {
+                    // User selected CMG Programado and got it - show as valid choice (green)
+                    dataSourceBox.style.backgroundColor = '#f0fdf4';
+                    dataSourceBox.style.borderLeft = '4px solid #10b981';
+                    dataSourceIcon.textContent = '📊';
+                    dataSourceDiv.innerHTML = `
+                        <div style="font-weight: 600; color: #059669; margin-bottom: 5px;">
+                            ✓ Optimización basada en CMG Programado
+                        </div>
+                        <div style="font-size: 0.9em;">
+                            Usando ${dataInfo.available_hours || 0} horas de CMG Programado.
                         </div>
                     `;
                 } else {
+                    // User selected ML but got CMG Programado - show warning (orange)
+                    dataSourceBox.style.backgroundColor = '#fffbeb';
+                    dataSourceBox.style.borderLeft = '4px solid #d97706';
+                    dataSourceIcon.textContent = '⚠️';
                     dataSourceDiv.innerHTML = `
                         <div style="font-weight: 600; color: #d97706; margin-bottom: 5px;">
                             ⚠️ Usando CMG Programado (fallback)
                         </div>
                         <div style="font-size: 0.9em;">
-                            Las predicciones ML no están disponibles. Usando ${dataInfo.available_hours || 0} horas de datos CMG Programado.
+                            Predicciones ML no disponibles. Usando ${dataInfo.available_hours || 0} horas de CMG Programado.
                         </div>
                     `;
                 }
@@ -696,11 +726,10 @@ function updateDataSourceInfo() {
         icon.textContent = '🤖';
         info.innerHTML = `
             <div style="font-weight: 600; color: #2563eb; margin-bottom: 5px;">
-                ✓ Predicciones ML desde Railway Backend
+                ✓ Predicciones ML
             </div>
             <div style="font-size: 0.9em;">
-                El optimizador usa las mismas predicciones ML que se muestran en el Dashboard principal.
-                Esto asegura consistencia entre la visualización y la optimización.
+                Optimización basada en predicciones de machine learning.
             </div>
         `;
     } else {
@@ -710,11 +739,10 @@ function updateDataSourceInfo() {
         icon.textContent = '📊';
         info.innerHTML = `
             <div style="font-weight: 600; color: #059669; margin-bottom: 5px;">
-                ✓ CMG Programado del Coordinador
+                ✓ CMG Programado
             </div>
             <div style="font-size: 0.9em;">
-                El optimizador usa los precios CMG programados oficiales publicados por el Coordinador.
-                Estos datos son determinísticos y reflejan el despacho programado del sistema.
+                Optimización basada en precios CMG programados oficiales del Coordinador.
             </div>
         `;
     }
