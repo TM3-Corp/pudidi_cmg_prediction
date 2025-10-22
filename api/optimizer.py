@@ -152,95 +152,168 @@ class handler(BaseHTTPRequestHandler):
             print(f"  - Kappa (water/power): {kappa}")
             print(f"  - Inflow: {inflow} m³/s")
             
-            # Get CMG prices from cache
-            print(f"[OPTIMIZER] Fetching CMG data from cache...")
-            
-            # First try to get programmed data directly
-            from api.utils.cache_manager_readonly import CacheManagerReadOnly
-            cache_mgr = CacheManagerReadOnly()
-            programmed_data = cache_mgr.read_cache('programmed')
-            
+            # Get CMG prices from ML predictions
+            print(f"[OPTIMIZER] Fetching ML prediction data...")
+
             prices = []
-            
-            # Extract programmed prices from cache
             data_range_start = None
             data_range_end = None
-            
-            if programmed_data and 'data' in programmed_data:
-                price_records = programmed_data['data']
-                print(f"[OPTIMIZER] Found {len(price_records)} programmed prices in cache")
-                
-                # Sort by datetime to ensure correct order
-                sorted_records = sorted(price_records, key=lambda x: x.get('datetime', ''))
-                
-                if sorted_records:
-                    data_range_start = sorted_records[0].get('datetime', 'unknown')
-                    data_range_end = sorted_records[-1].get('datetime', 'unknown')
-                    available_hours = len(sorted_records)
-                    
-                    print(f"[OPTIMIZER] Data range: {data_range_start} to {data_range_end}")
-                    print(f"[OPTIMIZER] Available hours: {available_hours}, Requested: {horizon}")
-                    
-                    # Check if we have enough data
-                    if horizon > available_hours:
-                        error_msg = f"Insufficient data: {available_hours} hours available but {horizon} requested"
-                        print(f"[OPTIMIZER] ERROR: {error_msg}")
-                        
+
+            # Try to fetch ML predictions from Railway backend
+            ml_predictions_available = False
+            try:
+                # Get Railway ML backend URL from environment
+                railway_url = os.environ.get('RAILWAY_ML_URL', 'http://localhost:8000')
+                ml_endpoint = f"{railway_url}/api/ml_forecast"
+
+                print(f"[OPTIMIZER] Fetching from Railway ML backend: {ml_endpoint}")
+
+                # Fetch ML predictions with timeout
+                import urllib.request
+                with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
+                    ml_data = json.loads(response.read().decode())
+
+                    if ml_data.get('success') and ml_data.get('predictions'):
+                        predictions = ml_data['predictions']
+                        print(f"[OPTIMIZER] Found {len(predictions)} ML predictions")
+
+                        # Sort by datetime to ensure correct order
+                        sorted_predictions = sorted(predictions, key=lambda x: x.get('datetime', ''))
+
+                        if sorted_predictions:
+                            data_range_start = sorted_predictions[0].get('datetime', 'unknown')
+                            data_range_end = sorted_predictions[-1].get('datetime', 'unknown')
+                            available_hours = len(sorted_predictions)
+
+                            print(f"[OPTIMIZER] ML prediction range: {data_range_start} to {data_range_end}")
+                            print(f"[OPTIMIZER] Available hours: {available_hours}, Requested: {horizon}")
+
+                            # Check if we have enough data
+                            if horizon > available_hours:
+                                error_msg = f"Insufficient ML predictions: {available_hours} hours available but {horizon} requested"
+                                print(f"[OPTIMIZER] ERROR: {error_msg}")
+
+                                self.send_response(400)
+                                self.send_header('Content-Type', 'application/json')
+                                self.send_header('Access-Control-Allow-Origin', '*')
+                                self.end_headers()
+
+                                error_response = {
+                                    'success': False,
+                                    'error': error_msg,
+                                    'data_info': {
+                                        'data_range_start': data_range_start,
+                                        'data_range_end': data_range_end,
+                                        'available_hours': available_hours,
+                                        'requested_hours': horizon
+                                    }
+                                }
+                                self.wfile.write(json.dumps(error_response).encode())
+                                return
+
+                            # Extract ML predicted CMG values
+                            for i, prediction in enumerate(sorted_predictions[:horizon]):
+                                price = prediction.get('cmg_predicted', 70)
+                                prices.append(price)
+                                if i < 5:  # Log first 5 prices
+                                    dt = prediction.get('datetime', 'unknown')
+                                    print(f"  Hour {i} ({dt}): ${price:.2f}/MWh (ML prediction)")
+                            if len(sorted_predictions) > 5:
+                                print(f"  ... using {min(len(sorted_predictions), horizon)} hours of ML predictions")
+
+                            ml_predictions_available = True
+                        else:
+                            print(f"[OPTIMIZER] WARNING: ML predictions list is empty")
+                    else:
+                        print(f"[OPTIMIZER] WARNING: ML forecast API returned no predictions")
+
+            except Exception as e:
+                print(f"[OPTIMIZER] WARNING: Could not fetch ML predictions: {e}")
+                print(f"[OPTIMIZER] Will fall back to CMG Programado data")
+
+            # Fallback to CMG Programado if ML predictions not available
+            if not ml_predictions_available:
+                print(f"[OPTIMIZER] Falling back to CMG Programado data from cache...")
+
+                from api.utils.cache_manager_readonly import CacheManagerReadOnly
+                cache_mgr = CacheManagerReadOnly()
+                programmed_data = cache_mgr.read_cache('programmed')
+
+                if programmed_data and 'data' in programmed_data:
+                    price_records = programmed_data['data']
+                    print(f"[OPTIMIZER] Found {len(price_records)} programmed prices in cache")
+
+                    # Sort by datetime to ensure correct order
+                    sorted_records = sorted(price_records, key=lambda x: x.get('datetime', ''))
+
+                    if sorted_records:
+                        data_range_start = sorted_records[0].get('datetime', 'unknown')
+                        data_range_end = sorted_records[-1].get('datetime', 'unknown')
+                        available_hours = len(sorted_records)
+
+                        print(f"[OPTIMIZER] Data range: {data_range_start} to {data_range_end}")
+                        print(f"[OPTIMIZER] Available hours: {available_hours}, Requested: {horizon}")
+
+                        # Check if we have enough data
+                        if horizon > available_hours:
+                            error_msg = f"Insufficient data: {available_hours} hours available but {horizon} requested"
+                            print(f"[OPTIMIZER] ERROR: {error_msg}")
+
+                            self.send_response(400)
+                            self.send_header('Content-Type', 'application/json')
+                            self.send_header('Access-Control-Allow-Origin', '*')
+                            self.end_headers()
+
+                            error_response = {
+                                'success': False,
+                                'error': error_msg,
+                                'data_info': {
+                                    'data_range_start': data_range_start,
+                                    'data_range_end': data_range_end,
+                                    'available_hours': available_hours,
+                                    'requested_hours': horizon
+                                }
+                            }
+                            self.wfile.write(json.dumps(error_response).encode())
+                            return
+
+                        # Extract only the requested hours
+                        for i, record in enumerate(sorted_records[:horizon]):
+                            price = record.get('cmg_programmed', 70)
+                            prices.append(price)
+                            if i < 5:  # Log first 5 prices
+                                dt = record.get('datetime', 'unknown')
+                                print(f"  Hour {i} ({dt}): ${price:.2f}/MWh (CMG Programado)")
+                        if len(sorted_records) > 5:
+                            print(f"  ... using {min(len(sorted_records), horizon)} hours of programmed data")
+                    else:
+                        print(f"[OPTIMIZER] ERROR: No programmed data available")
+
                         self.send_response(400)
                         self.send_header('Content-Type', 'application/json')
                         self.send_header('Access-Control-Allow-Origin', '*')
                         self.end_headers()
-                        
+
                         error_response = {
                             'success': False,
-                            'error': error_msg,
-                            'data_info': {
-                                'data_range_start': data_range_start,
-                                'data_range_end': data_range_end,
-                                'available_hours': available_hours,
-                                'requested_hours': horizon
-                            }
+                            'error': 'No programmed data available in cache'
                         }
                         self.wfile.write(json.dumps(error_response).encode())
                         return
-                    
-                    # Extract only the requested hours
-                    for i, record in enumerate(sorted_records[:horizon]):
-                        price = record.get('cmg_programmed', 70)
-                        prices.append(price)
-                        if i < 5:  # Log first 5 prices
-                            dt = record.get('datetime', 'unknown')
-                            print(f"  Hour {i} ({dt}): ${price:.2f}/MWh")
-                    if len(sorted_records) > 5:
-                        print(f"  ... using {min(len(sorted_records), horizon)} hours of real data")
                 else:
-                    print(f"[OPTIMIZER] ERROR: No programmed data available")
-                    
+                    print(f"[OPTIMIZER] ERROR: No programmed data in cache")
+
                     self.send_response(400)
                     self.send_header('Content-Type', 'application/json')
                     self.send_header('Access-Control-Allow-Origin', '*')
                     self.end_headers()
-                    
+
                     error_response = {
                         'success': False,
-                        'error': 'No programmed data available in cache'
+                        'error': 'No ML predictions or programmed data available'
                     }
                     self.wfile.write(json.dumps(error_response).encode())
                     return
-            else:
-                print(f"[OPTIMIZER] ERROR: No programmed data in cache")
-                
-                self.send_response(400)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Access-Control-Allow-Origin', '*')
-                self.end_headers()
-                
-                error_response = {
-                    'success': False,
-                    'error': 'No programmed data available'
-                }
-                self.wfile.write(json.dumps(error_response).encode())
-                return
             
             # Try proper LP optimization first
             print(f"[OPTIMIZER] Starting optimization...")
@@ -320,10 +393,11 @@ class handler(BaseHTTPRequestHandler):
                 'data_info': {
                     'data_range_start': data_range_start,
                     'data_range_end': data_range_end,
-                    'available_hours': len(sorted_records) if 'sorted_records' in locals() else 0,
+                    'available_hours': len(sorted_predictions) if ml_predictions_available and 'sorted_predictions' in locals() else (len(sorted_records) if 'sorted_records' in locals() else 0),
                     'requested_hours': horizon,
-                    'data_source': 'PMontt220 (CMG Programado)',
-                    'all_real_data': True  # Always true now, no synthetic data
+                    'data_source': 'ML Predictions (Railway Backend)' if ml_predictions_available else 'PMontt220 (CMG Programado - Fallback)',
+                    'all_real_data': True,  # Always true now, no synthetic data
+                    'using_ml_predictions': ml_predictions_available
                 }
             }
             

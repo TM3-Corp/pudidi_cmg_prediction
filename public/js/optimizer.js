@@ -359,27 +359,54 @@ async function runOptimization() {
         if (result.success && result.solution) {
             const solution = result.solution;
             const prices = result.prices;
-            
+            const dataInfo = result.data_info || {};
+
             console.log('[RUN] Optimization method:', solution.optimization_method);
             console.log('[RUN] Solver success:', solution.solver_success);
             console.log('[RUN] Backend optimization complete:', solution);
-        
+            console.log('[RUN] Data source:', dataInfo.data_source);
+
+            // Update data source info
+            const dataSourceDiv = document.getElementById('dataSourceInfo');
+            if (dataSourceDiv && dataInfo.using_ml_predictions !== undefined) {
+                if (dataInfo.using_ml_predictions) {
+                    dataSourceDiv.innerHTML = `
+                        <div style="font-weight: 600; color: #059669; margin-bottom: 5px;">
+                            ✓ Optimización basada en predicciones ML
+                        </div>
+                        <div style="font-size: 0.9em;">
+                            Usando ${dataInfo.available_hours || 0} horas de predicciones ML desde Railway Backend.
+                            Los resultados están alineados con las predicciones mostradas en el Dashboard principal.
+                        </div>
+                    `;
+                } else {
+                    dataSourceDiv.innerHTML = `
+                        <div style="font-weight: 600; color: #d97706; margin-bottom: 5px;">
+                            ⚠️ Usando CMG Programado (fallback)
+                        </div>
+                        <div style="font-size: 0.9em;">
+                            Las predicciones ML no están disponibles. Usando ${dataInfo.available_hours || 0} horas de datos CMG Programado.
+                        </div>
+                    `;
+                }
+            }
+
             // Update metrics
             document.getElementById('totalRevenue').textContent = solution.revenue.toFixed(0);
             document.getElementById('avgGeneration').textContent = solution.avg_generation.toFixed(2);
             document.getElementById('peakGeneration').textContent = solution.peak_generation.toFixed(2);
             document.getElementById('capacityFactor').textContent = solution.capacity_factor.toFixed(1);
-            
+
             console.log(`[RUN] Metrics - Revenue: $${solution.revenue.toFixed(0)}, Method: ${solution.optimization_method}`);
-            
+
             // Show results
             document.getElementById('metricsGrid').style.display = 'grid';
             document.getElementById('resultsSection').style.display = 'grid';
-            
+
             // Update charts
             console.log('[RUN] Updating charts...');
             updateCharts(solution, prices, params);
-            
+
             console.log('[RUN] Optimization complete and displayed!');
         } else {
             // Fallback to client-side if backend fails
@@ -655,17 +682,18 @@ function resetParameters() {
 // Function to update data availability info
 async function updateDataAvailability() {
     try {
-        const response = await fetch('/api/cache?type=programmed');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.data && Array.isArray(data.data)) {
-                const sortedData = data.data.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
-                
-                if (sortedData.length > 0) {
-                    const startDate = new Date(sortedData[0].datetime);
-                    const endDate = new Date(sortedData[sortedData.length - 1].datetime);
-                    const availableHours = sortedData.length;
-                    
+        // Try to fetch ML predictions first
+        const mlResponse = await fetch('/api/ml_forecast');
+        if (mlResponse.ok) {
+            const mlData = await mlResponse.json();
+            if (mlData.success && mlData.predictions && Array.isArray(mlData.predictions)) {
+                const predictions = mlData.predictions;
+
+                if (predictions.length > 0) {
+                    const startDate = new Date(predictions[0].datetime);
+                    const endDate = new Date(predictions[predictions.length - 1].datetime);
+                    const availableHours = predictions.length;
+
                     // Format dates for display
                     const formatDate = (date) => {
                         return date.toLocaleDateString('es-CL', {
@@ -675,40 +703,89 @@ async function updateDataAvailability() {
                             minute: '2-digit'
                         });
                     };
-                    
+
                     // Update display
                     const availDiv = document.getElementById('dataAvailability');
                     availDiv.innerHTML = `
-                        <strong style="color: #059669;">✓ ${availableHours} horas disponibles</strong><br>
+                        <strong style="color: #059669;">✓ ${availableHours} horas de predicciones ML disponibles</strong><br>
                         Desde: ${formatDate(startDate)}<br>
                         Hasta: ${formatDate(endDate)}
                     `;
-                    
+
                     // Update horizon max value
                     const horizonInput = document.getElementById('horizon');
                     horizonInput.max = availableHours;
-                    
+
                     // If current value exceeds max, adjust it
                     if (parseInt(horizonInput.value) > availableHours) {
                         horizonInput.value = availableHours;
                     }
-                    
+
                     // Add validation message
-                    horizonInput.title = `Máximo ${availableHours} horas de datos disponibles`;
-                    
+                    horizonInput.title = `Máximo ${availableHours} horas de predicciones ML disponibles`;
+
                     return availableHours;
                 }
             }
         }
-        
+
+        // Fallback to CMG Programado if ML predictions not available
+        console.log('[DATA CHECK] ML predictions not available, checking CMG Programado...');
+        const response = await fetch('/api/cache?type=programmed');
+        if (response.ok) {
+            const data = await response.json();
+            if (data.data && Array.isArray(data.data)) {
+                const sortedData = data.data.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+
+                if (sortedData.length > 0) {
+                    const startDate = new Date(sortedData[0].datetime);
+                    const endDate = new Date(sortedData[sortedData.length - 1].datetime);
+                    const availableHours = sortedData.length;
+
+                    // Format dates for display
+                    const formatDate = (date) => {
+                        return date.toLocaleDateString('es-CL', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    };
+
+                    // Update display (with warning about fallback)
+                    const availDiv = document.getElementById('dataAvailability');
+                    availDiv.innerHTML = `
+                        <strong style="color: #d97706;">⚠️ ${availableHours} horas de CMG Programado disponibles</strong><br>
+                        <small>Predicciones ML no disponibles - usando fallback</small><br>
+                        Desde: ${formatDate(startDate)}<br>
+                        Hasta: ${formatDate(endDate)}
+                    `;
+
+                    // Update horizon max value
+                    const horizonInput = document.getElementById('horizon');
+                    horizonInput.max = availableHours;
+
+                    // If current value exceeds max, adjust it
+                    if (parseInt(horizonInput.value) > availableHours) {
+                        horizonInput.value = availableHours;
+                    }
+
+                    // Add validation message
+                    horizonInput.title = `Máximo ${availableHours} horas de datos disponibles`;
+
+                    return availableHours;
+                }
+            }
+        }
+
         // If we couldn't get data info
-        document.getElementById('dataAvailability').innerHTML = 
+        document.getElementById('dataAvailability').innerHTML =
             '<span style="color: #dc2626;">⚠️ No se pudo verificar la disponibilidad de datos</span>';
         return 0;
-        
+
     } catch (error) {
         console.error('Error fetching data availability:', error);
-        document.getElementById('dataAvailability').innerHTML = 
+        document.getElementById('dataAvailability').innerHTML =
             '<span style="color: #dc2626;">⚠️ Error al verificar disponibilidad</span>';
         return 0;
     }
