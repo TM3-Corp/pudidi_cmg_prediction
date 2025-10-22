@@ -179,15 +179,15 @@ class handler(BaseHTTPRequestHandler):
                     # Fetch ML predictions with timeout
                     import urllib.request
                     from datetime import datetime, timedelta
-                    from zoneinfo import ZoneInfo
 
-                    # Get current time in Santiago timezone and calculate t+1
-                    santiago_tz = ZoneInfo('America/Santiago')
-                    now = datetime.now(santiago_tz)
-                    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                    # Get current time and calculate t+1 (using UTC-3 for Santiago)
+                    # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
+                    now_utc = datetime.utcnow()
+                    now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
+                    next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                     cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
 
-                    print(f"[OPTIMIZER] Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"[OPTIMIZER] Current time (Santiago): {now_santiago.strftime('%Y-%m-%d %H:%M:%S')}")
                     print(f"[OPTIMIZER] Filtering for predictions >= t+1: {cutoff_time_str}")
 
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
@@ -278,15 +278,15 @@ class handler(BaseHTTPRequestHandler):
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
                 from datetime import datetime, timedelta
-                from zoneinfo import ZoneInfo
 
-                # Get current time in Santiago timezone and calculate t+1
-                santiago_tz = ZoneInfo('America/Santiago')
-                now = datetime.now(santiago_tz)
-                next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                # Get current time and calculate t+1 (using UTC-3 for Santiago)
+                # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
+                now_utc = datetime.utcnow()
+                now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
+                next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                 cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
 
-                print(f"[OPTIMIZER] Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"[OPTIMIZER] Current time (Santiago): {now_santiago.strftime('%Y-%m-%d %H:%M:%S')}")
                 print(f"[OPTIMIZER] Filtering for CMG Programado >= t+1: {cutoff_time_str}")
 
                 cache_mgr = CacheManagerReadOnly()
