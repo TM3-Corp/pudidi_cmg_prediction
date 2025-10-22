@@ -180,24 +180,17 @@ class handler(BaseHTTPRequestHandler):
                     import urllib.request
                     import time
 
-                    # Calculate t+1 using Unix timestamps only (no datetime module)
+                    # For ML predictions: Use ALL available predictions
+                    # ML predictions may start earlier than t+1 due to CMG Online API lag
+                    # User confirmed this is expected behavior
                     current_unix = int(time.time())
                     santiago_offset = -3 * 3600  # Santiago is UTC-3
                     current_santiago_unix = current_unix + santiago_offset
-
-                    # Round up to next full hour
-                    seconds_into_hour = current_santiago_unix % 3600
-                    next_hour_santiago_unix = current_santiago_unix + (3600 - seconds_into_hour)
-
-                    # Convert Unix timestamp to time struct and format as string
-                    next_hour_struct = time.gmtime(next_hour_santiago_unix)
-                    cutoff_time_str = time.strftime('%Y-%m-%d %H:%M:%S', next_hour_struct)
-
                     current_struct = time.gmtime(current_santiago_unix)
                     current_time_str = time.strftime('%Y-%m-%d %H:%M:%S', current_struct)
 
                     print(f"[OPTIMIZER] Current Santiago time: {current_time_str}")
-                    print(f"[OPTIMIZER] Filtering ML predictions >= t+1: {cutoff_time_str}")
+                    print(f"[OPTIMIZER] Using ALL available ML predictions (no t+1 filtering)")
 
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
                         ml_data = json.loads(response.read().decode())
@@ -206,15 +199,8 @@ class handler(BaseHTTPRequestHandler):
                             predictions = ml_data['predictions']
                             print(f"[OPTIMIZER] Found {len(predictions)} ML predictions from backend")
 
-                            # Filter for future predictions only (>= t+1)
-                            future_predictions = [
-                                p for p in predictions
-                                if p.get('datetime', '') >= cutoff_time_str
-                            ]
-                            print(f"[OPTIMIZER] Filtered to {len(future_predictions)} future predictions (>= t+1)")
-
-                            # Sort by datetime to ensure correct order
-                            sorted_predictions = sorted(future_predictions, key=lambda x: x.get('datetime', ''))
+                            # Sort by datetime to ensure correct order (NO FILTERING)
+                            sorted_predictions = sorted(predictions, key=lambda x: x.get('datetime', ''))
 
                             if sorted_predictions:
                                 data_range_start = sorted_predictions[0].get('datetime', 'unknown')
