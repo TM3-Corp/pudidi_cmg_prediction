@@ -178,11 +178,18 @@ class handler(BaseHTTPRequestHandler):
 
                     # Fetch ML predictions with timeout
                     import urllib.request
+                    import time
+                    from datetime import datetime, timedelta
 
-                    # TEMPORARY: Disable time filtering to debug 500 error
-                    # Use a very old date to include all available data
-                    cutoff_time_str = "2000-01-01 00:00:00"
-                    print(f"[OPTIMIZER] TEMP: Time filtering disabled for debugging")
+                    # Calculate t+1 cutoff time for Santiago (UTC-3)
+                    # Use simple time arithmetic without timezone objects
+                    current_utc = datetime.utcnow()
+                    santiago_time = current_utc - timedelta(hours=3)  # Convert to Santiago (UTC-3)
+                    next_hour = (santiago_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                    cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
+
+                    print(f"[OPTIMIZER] Current Santiago time: {santiago_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"[OPTIMIZER] Filtering ML predictions >= t+1: {cutoff_time_str}")
 
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
                         ml_data = json.loads(response.read().decode())
@@ -271,11 +278,17 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
+                from datetime import datetime, timedelta
 
-                # TEMPORARY: Disable time filtering to debug 500 error
-                # Use a very old date to include all available data
-                cutoff_time_str = "2000-01-01T00:00:00"  # Note: CMG uses 'T' format
-                print(f"[OPTIMIZER] TEMP: Time filtering disabled for debugging")
+                # Calculate t+1 cutoff time for Santiago (UTC-3)
+                # Use simple time arithmetic without timezone objects
+                current_utc = datetime.utcnow()
+                santiago_time = current_utc - timedelta(hours=3)  # Convert to Santiago (UTC-3)
+                next_hour = (santiago_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
+
+                print(f"[OPTIMIZER] Current Santiago time: {santiago_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"[OPTIMIZER] Filtering CMG Programado >= t+1: {cutoff_time_str}")
 
                 cache_mgr = CacheManagerReadOnly()
                 programmed_data = cache_mgr.read_cache('programmed')
