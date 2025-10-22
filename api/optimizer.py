@@ -179,10 +179,10 @@ class handler(BaseHTTPRequestHandler):
                     # Fetch ML predictions with timeout
                     import urllib.request
                     from datetime import datetime, timedelta
-                    import pytz
+                    from zoneinfo import ZoneInfo
 
                     # Get current time in Santiago timezone and calculate t+1
-                    santiago_tz = pytz.timezone('America/Santiago')
+                    santiago_tz = ZoneInfo('America/Santiago')
                     now = datetime.now(santiago_tz)
                     next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                     cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
@@ -278,10 +278,10 @@ class handler(BaseHTTPRequestHandler):
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
                 from datetime import datetime, timedelta
-                import pytz
+                from zoneinfo import ZoneInfo
 
                 # Get current time in Santiago timezone and calculate t+1
-                santiago_tz = pytz.timezone('America/Santiago')
+                santiago_tz = ZoneInfo('America/Santiago')
                 now = datetime.now(santiago_tz)
                 next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                 cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
