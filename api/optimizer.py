@@ -178,24 +178,11 @@ class handler(BaseHTTPRequestHandler):
 
                     # Fetch ML predictions with timeout
                     import urllib.request
-                    from datetime import datetime, timedelta, timezone
 
-                    # Wrap timezone logic in try-except for debugging
-                    try:
-                        # Get current time and calculate t+1 (using UTC-3 for Santiago)
-                        # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
-                        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-                        now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
-                        next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-                        cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
-
-                        print(f"[OPTIMIZER] Current time (Santiago): {now_santiago.strftime('%Y-%m-%d %H:%M:%S')}")
-                        print(f"[OPTIMIZER] Filtering for predictions >= t+1: {cutoff_time_str}")
-                    except Exception as tz_error:
-                        print(f"[OPTIMIZER] ERROR in timezone conversion: {type(tz_error).__name__}: {str(tz_error)}")
-                        # Fallback: use a very old date to include all available data
-                        cutoff_time_str = "2000-01-01 00:00:00"
-                        print(f"[OPTIMIZER] Using fallback cutoff (no time filtering): {cutoff_time_str}")
+                    # TEMPORARY: Disable time filtering to debug 500 error
+                    # Use a very old date to include all available data
+                    cutoff_time_str = "2000-01-01 00:00:00"
+                    print(f"[OPTIMIZER] TEMP: Time filtering disabled for debugging")
 
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
                         ml_data = json.loads(response.read().decode())
@@ -284,24 +271,11 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
-                from datetime import datetime, timedelta, timezone
 
-                # Wrap timezone logic in try-except for debugging
-                try:
-                    # Get current time and calculate t+1 (using UTC-3 for Santiago)
-                    # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
-                    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-                    now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
-                    next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-                    cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
-
-                    print(f"[OPTIMIZER] Current time (Santiago): {now_santiago.strftime('%Y-%m-%d %H:%M:%S')}")
-                    print(f"[OPTIMIZER] Filtering for CMG Programado >= t+1: {cutoff_time_str}")
-                except Exception as tz_error:
-                    print(f"[OPTIMIZER] ERROR in timezone conversion: {type(tz_error).__name__}: {str(tz_error)}")
-                    # Fallback: use a very old date to include all available data
-                    cutoff_time_str = "2000-01-01T00:00:00"
-                    print(f"[OPTIMIZER] Using fallback cutoff (no time filtering): {cutoff_time_str}")
+                # TEMPORARY: Disable time filtering to debug 500 error
+                # Use a very old date to include all available data
+                cutoff_time_str = "2000-01-01T00:00:00"  # Note: CMG uses 'T' format
+                print(f"[OPTIMIZER] TEMP: Time filtering disabled for debugging")
 
                 cache_mgr = CacheManagerReadOnly()
                 programmed_data = cache_mgr.read_cache('programmed')
