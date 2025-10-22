@@ -257,14 +257,14 @@
                 <p>Configure los parámetros de su planta hidroeléctrica y resuelva el calendario de operación óptimo basado en precios CMG.</p>
             </div>
             
-            <div class="info-box" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-top: 20px;">
+            <div class="info-box" id="dataSourceInfoBox" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.2em;">🤖</span>
+                    <span id="dataSourceIcon" style="font-size: 1.2em;">🤖</span>
                     <div>
-                        <strong>Fuente de Datos para Optimización</strong>
+                        <strong>Fuente de Datos Seleccionada</strong>
                         <div id="dataSourceInfo" style="margin-top: 5px; color: #64748b;">
                             <div style="font-weight: 600; color: #2563eb; margin-bottom: 5px;">
-                                ✓ Usando predicciones ML desde Railway Backend
+                                ✓ Predicciones ML desde Railway Backend
                             </div>
                             <div style="font-size: 0.9em;">
                                 El optimizador usa las mismas predicciones ML que se muestran en el Dashboard principal.
@@ -289,11 +289,20 @@
 
             <div class="controls-grid">
                 <div class="control-group">
+                    <label>Fuente de Datos para Optimización</label>
+                    <select id="dataSourceSelect" onchange="updateDataSourceInfo()">
+                        <option value="ml_predictions">🤖 Predicciones ML (Recomendado)</option>
+                        <option value="cmg_programado">📊 CMG Programado (Fallback)</option>
+                    </select>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Seleccione la fuente de datos para la optimización</small>
+                </div>
+
+                <div class="control-group">
                     <label>Node Selection</label>
                     <select id="nodeSelect" disabled>
-                        <option value="PMontt220">Puerto Montt 220kV (CMG Programado)</option>
+                        <option value="PMontt220">Puerto Montt 220kV</option>
                     </select>
-                    <small style="color: #64748b; display: block; margin-top: 4px;">Único nodo con datos programados</small>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Único nodo disponible</small>
                 </div>
 
                 <div class="control-group">

@@ -281,12 +281,12 @@ async function fetchCMGPrices(node, horizon) {
 
 async function runOptimization() {
     console.log('[RUN] Starting optimization...');
-    
+
     // Show loading
     document.getElementById('loadingSection').style.display = 'block';
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('metricsGrid').style.display = 'none';
-    
+
     // Get parameters
     const params = {
         node: document.getElementById('nodeSelect').value,
@@ -297,10 +297,12 @@ async function runOptimization() {
         sMin: parseFloat(document.getElementById('sMin').value),
         sMax: parseFloat(document.getElementById('sMax').value),
         kappa: parseFloat(document.getElementById('kappa').value),
-        inflow: parseFloat(document.getElementById('inflow').value)
+        inflow: parseFloat(document.getElementById('inflow').value),
+        data_source: document.getElementById('dataSourceSelect').value  // Add data source selection
     };
-    
+
     console.log('[RUN] Parameters:', params);
+    console.log('[RUN] Selected data source:', params.data_source);
     
     // Validate parameters
     if (params.pMin >= params.pMax) {
@@ -343,7 +345,8 @@ async function runOptimization() {
                 s_min: params.sMin,
                 s_max: params.sMax,
                 kappa: params.kappa,
-                inflow: params.inflow
+                inflow: params.inflow,
+                data_source: params.data_source  // Send selected data source
             })
         });
         
@@ -679,109 +682,147 @@ function resetParameters() {
     document.getElementById('inflow').value = 1.1;
 }
 
+// Function to update data source info based on selection
+function updateDataSourceInfo() {
+    const dataSource = document.getElementById('dataSourceSelect').value;
+    const infoBox = document.getElementById('dataSourceInfoBox');
+    const icon = document.getElementById('dataSourceIcon');
+    const info = document.getElementById('dataSourceInfo');
+
+    if (dataSource === 'ml_predictions') {
+        // ML Predictions selected
+        infoBox.style.backgroundColor = '#eff6ff';
+        infoBox.style.borderLeft = '4px solid #3b82f6';
+        icon.textContent = '🤖';
+        info.innerHTML = `
+            <div style="font-weight: 600; color: #2563eb; margin-bottom: 5px;">
+                ✓ Predicciones ML desde Railway Backend
+            </div>
+            <div style="font-size: 0.9em;">
+                El optimizador usa las mismas predicciones ML que se muestran en el Dashboard principal.
+                Esto asegura consistencia entre la visualización y la optimización.
+            </div>
+        `;
+    } else {
+        // CMG Programado selected
+        infoBox.style.backgroundColor = '#f0fdf4';
+        infoBox.style.borderLeft = '4px solid #10b981';
+        icon.textContent = '📊';
+        info.innerHTML = `
+            <div style="font-weight: 600; color: #059669; margin-bottom: 5px;">
+                ✓ CMG Programado del Coordinador
+            </div>
+            <div style="font-size: 0.9em;">
+                El optimizador usa los precios CMG programados oficiales publicados por el Coordinador.
+                Estos datos son determinísticos y reflejan el despacho programado del sistema.
+            </div>
+        `;
+    }
+
+    // Update data availability based on selection
+    updateDataAvailability();
+}
+
 // Function to update data availability info
 async function updateDataAvailability() {
+    const selectedSource = document.getElementById('dataSourceSelect').value;
+
     try {
-        // Try to fetch ML predictions first
-        const mlResponse = await fetch('/api/ml_forecast');
-        if (mlResponse.ok) {
-            const mlData = await mlResponse.json();
-            if (mlData.success && mlData.predictions && Array.isArray(mlData.predictions)) {
-                const predictions = mlData.predictions;
+        const formatDate = (date) => {
+            return date.toLocaleDateString('es-CL', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        };
 
-                if (predictions.length > 0) {
-                    const startDate = new Date(predictions[0].datetime);
-                    const endDate = new Date(predictions[predictions.length - 1].datetime);
-                    const availableHours = predictions.length;
+        if (selectedSource === 'ml_predictions') {
+            // Check ML predictions availability
+            const mlResponse = await fetch('/api/ml_forecast');
+            if (mlResponse.ok) {
+                const mlData = await mlResponse.json();
+                if (mlData.success && mlData.predictions && Array.isArray(mlData.predictions)) {
+                    const predictions = mlData.predictions;
 
-                    // Format dates for display
-                    const formatDate = (date) => {
-                        return date.toLocaleDateString('es-CL', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    };
+                    if (predictions.length > 0) {
+                        const startDate = new Date(predictions[0].datetime);
+                        const endDate = new Date(predictions[predictions.length - 1].datetime);
+                        const availableHours = predictions.length;
 
-                    // Update display
-                    const availDiv = document.getElementById('dataAvailability');
-                    availDiv.innerHTML = `
-                        <strong style="color: #059669;">✓ ${availableHours} horas de predicciones ML disponibles</strong><br>
-                        Desde: ${formatDate(startDate)}<br>
-                        Hasta: ${formatDate(endDate)}
-                    `;
+                        // Update display
+                        const availDiv = document.getElementById('dataAvailability');
+                        availDiv.innerHTML = `
+                            <strong style="color: #059669;">✓ ${availableHours} horas de predicciones ML disponibles</strong><br>
+                            Desde: ${formatDate(startDate)}<br>
+                            Hasta: ${formatDate(endDate)}
+                        `;
 
-                    // Update horizon max value
-                    const horizonInput = document.getElementById('horizon');
-                    horizonInput.max = availableHours;
+                        // Update horizon max value
+                        const horizonInput = document.getElementById('horizon');
+                        horizonInput.max = availableHours;
 
-                    // If current value exceeds max, adjust it
-                    if (parseInt(horizonInput.value) > availableHours) {
-                        horizonInput.value = availableHours;
+                        // If current value exceeds max, adjust it
+                        if (parseInt(horizonInput.value) > availableHours) {
+                            horizonInput.value = availableHours;
+                        }
+
+                        // Add validation message
+                        horizonInput.title = `Máximo ${availableHours} horas de predicciones ML disponibles`;
+
+                        return availableHours;
                     }
-
-                    // Add validation message
-                    horizonInput.title = `Máximo ${availableHours} horas de predicciones ML disponibles`;
-
-                    return availableHours;
                 }
             }
-        }
 
-        // Fallback to CMG Programado if ML predictions not available
-        console.log('[DATA CHECK] ML predictions not available, checking CMG Programado...');
-        const response = await fetch('/api/cache?type=programmed');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.data && Array.isArray(data.data)) {
-                const sortedData = data.data.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+            // ML predictions not available
+            document.getElementById('dataAvailability').innerHTML =
+                '<span style="color: #dc2626;">⚠️ Predicciones ML no disponibles</span>';
+            return 0;
 
-                if (sortedData.length > 0) {
-                    const startDate = new Date(sortedData[0].datetime);
-                    const endDate = new Date(sortedData[sortedData.length - 1].datetime);
-                    const availableHours = sortedData.length;
+        } else {
+            // Check CMG Programado availability
+            const response = await fetch('/api/cache?type=programmed');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data && Array.isArray(data.data)) {
+                    const sortedData = data.data.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
 
-                    // Format dates for display
-                    const formatDate = (date) => {
-                        return date.toLocaleDateString('es-CL', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    };
+                    if (sortedData.length > 0) {
+                        const startDate = new Date(sortedData[0].datetime);
+                        const endDate = new Date(sortedData[sortedData.length - 1].datetime);
+                        const availableHours = sortedData.length;
 
-                    // Update display (with warning about fallback)
-                    const availDiv = document.getElementById('dataAvailability');
-                    availDiv.innerHTML = `
-                        <strong style="color: #d97706;">⚠️ ${availableHours} horas de CMG Programado disponibles</strong><br>
-                        <small>Predicciones ML no disponibles - usando fallback</small><br>
-                        Desde: ${formatDate(startDate)}<br>
-                        Hasta: ${formatDate(endDate)}
-                    `;
+                        // Update display
+                        const availDiv = document.getElementById('dataAvailability');
+                        availDiv.innerHTML = `
+                            <strong style="color: #059669;">✓ ${availableHours} horas de CMG Programado disponibles</strong><br>
+                            Desde: ${formatDate(startDate)}<br>
+                            Hasta: ${formatDate(endDate)}
+                        `;
 
-                    // Update horizon max value
-                    const horizonInput = document.getElementById('horizon');
-                    horizonInput.max = availableHours;
+                        // Update horizon max value
+                        const horizonInput = document.getElementById('horizon');
+                        horizonInput.max = availableHours;
 
-                    // If current value exceeds max, adjust it
-                    if (parseInt(horizonInput.value) > availableHours) {
-                        horizonInput.value = availableHours;
+                        // If current value exceeds max, adjust it
+                        if (parseInt(horizonInput.value) > availableHours) {
+                            horizonInput.value = availableHours;
+                        }
+
+                        // Add validation message
+                        horizonInput.title = `Máximo ${availableHours} horas de CMG Programado disponibles`;
+
+                        return availableHours;
                     }
-
-                    // Add validation message
-                    horizonInput.title = `Máximo ${availableHours} horas de datos disponibles`;
-
-                    return availableHours;
                 }
             }
-        }
 
-        // If we couldn't get data info
-        document.getElementById('dataAvailability').innerHTML =
-            '<span style="color: #dc2626;">⚠️ No se pudo verificar la disponibilidad de datos</span>';
-        return 0;
+            // CMG Programado not available
+            document.getElementById('dataAvailability').innerHTML =
+                '<span style="color: #dc2626;">⚠️ CMG Programado no disponible</span>';
+            return 0;
+        }
 
     } catch (error) {
         console.error('Error fetching data availability:', error);
