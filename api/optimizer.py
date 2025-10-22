@@ -179,16 +179,24 @@ class handler(BaseHTTPRequestHandler):
                     # Fetch ML predictions with timeout
                     import urllib.request
                     import time
-                    from datetime import datetime, timedelta
 
-                    # Calculate t+1 cutoff time for Santiago (UTC-3)
-                    # Use simple time arithmetic without timezone objects
-                    current_utc = datetime.utcnow()
-                    santiago_time = current_utc - timedelta(hours=3)  # Convert to Santiago (UTC-3)
-                    next_hour = (santiago_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-                    cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
+                    # Calculate t+1 using Unix timestamps only (no datetime module)
+                    current_unix = int(time.time())
+                    santiago_offset = -3 * 3600  # Santiago is UTC-3
+                    current_santiago_unix = current_unix + santiago_offset
 
-                    print(f"[OPTIMIZER] Current Santiago time: {santiago_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    # Round up to next full hour
+                    seconds_into_hour = current_santiago_unix % 3600
+                    next_hour_santiago_unix = current_santiago_unix + (3600 - seconds_into_hour)
+
+                    # Convert Unix timestamp to time struct and format as string
+                    next_hour_struct = time.gmtime(next_hour_santiago_unix)
+                    cutoff_time_str = time.strftime('%Y-%m-%d %H:%M:%S', next_hour_struct)
+
+                    current_struct = time.gmtime(current_santiago_unix)
+                    current_time_str = time.strftime('%Y-%m-%d %H:%M:%S', current_struct)
+
+                    print(f"[OPTIMIZER] Current Santiago time: {current_time_str}")
                     print(f"[OPTIMIZER] Filtering ML predictions >= t+1: {cutoff_time_str}")
 
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
@@ -278,16 +286,25 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
-                from datetime import datetime, timedelta
+                import time
 
-                # Calculate t+1 cutoff time for Santiago (UTC-3)
-                # Use simple time arithmetic without timezone objects
-                current_utc = datetime.utcnow()
-                santiago_time = current_utc - timedelta(hours=3)  # Convert to Santiago (UTC-3)
-                next_hour = (santiago_time + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-                cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
+                # Calculate t+1 using Unix timestamps only (no datetime module)
+                current_unix = int(time.time())
+                santiago_offset = -3 * 3600  # Santiago is UTC-3
+                current_santiago_unix = current_unix + santiago_offset
 
-                print(f"[OPTIMIZER] Current Santiago time: {santiago_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                # Round up to next full hour
+                seconds_into_hour = current_santiago_unix % 3600
+                next_hour_santiago_unix = current_santiago_unix + (3600 - seconds_into_hour)
+
+                # Convert Unix timestamp to time struct and format as string (with 'T' for CMG)
+                next_hour_struct = time.gmtime(next_hour_santiago_unix)
+                cutoff_time_str = time.strftime('%Y-%m-%dT%H:%M:%S', next_hour_struct)
+
+                current_struct = time.gmtime(current_santiago_unix)
+                current_time_str = time.strftime('%Y-%m-%d %H:%M:%S', current_struct)
+
+                print(f"[OPTIMIZER] Current Santiago time: {current_time_str}")
                 print(f"[OPTIMIZER] Filtering CMG Programado >= t+1: {cutoff_time_str}")
 
                 cache_mgr = CacheManagerReadOnly()
