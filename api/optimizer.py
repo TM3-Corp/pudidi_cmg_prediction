@@ -178,15 +178,34 @@ class handler(BaseHTTPRequestHandler):
 
                     # Fetch ML predictions with timeout
                     import urllib.request
+                    from datetime import datetime, timedelta
+                    import pytz
+
+                    # Get current time in Santiago timezone and calculate t+1
+                    santiago_tz = pytz.timezone('America/Santiago')
+                    now = datetime.now(santiago_tz)
+                    next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                    cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
+
+                    print(f"[OPTIMIZER] Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"[OPTIMIZER] Filtering for predictions >= t+1: {cutoff_time_str}")
+
                     with urllib.request.urlopen(ml_endpoint, timeout=10) as response:
                         ml_data = json.loads(response.read().decode())
 
                         if ml_data.get('success') and ml_data.get('predictions'):
                             predictions = ml_data['predictions']
-                            print(f"[OPTIMIZER] Found {len(predictions)} ML predictions")
+                            print(f"[OPTIMIZER] Found {len(predictions)} ML predictions from backend")
+
+                            # Filter for future predictions only (>= t+1)
+                            future_predictions = [
+                                p for p in predictions
+                                if p.get('datetime', '') >= cutoff_time_str
+                            ]
+                            print(f"[OPTIMIZER] Filtered to {len(future_predictions)} future predictions (>= t+1)")
 
                             # Sort by datetime to ensure correct order
-                            sorted_predictions = sorted(predictions, key=lambda x: x.get('datetime', ''))
+                            sorted_predictions = sorted(future_predictions, key=lambda x: x.get('datetime', ''))
 
                             if sorted_predictions:
                                 data_range_start = sorted_predictions[0].get('datetime', 'unknown')
@@ -258,6 +277,18 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
+                from datetime import datetime, timedelta
+                import pytz
+
+                # Get current time in Santiago timezone and calculate t+1
+                santiago_tz = pytz.timezone('America/Santiago')
+                now = datetime.now(santiago_tz)
+                next_hour = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
+
+                print(f"[OPTIMIZER] Current time: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"[OPTIMIZER] Filtering for CMG Programado >= t+1: {cutoff_time_str}")
+
                 cache_mgr = CacheManagerReadOnly()
                 programmed_data = cache_mgr.read_cache('programmed')
 
@@ -265,8 +296,15 @@ class handler(BaseHTTPRequestHandler):
                     price_records = programmed_data['data']
                     print(f"[OPTIMIZER] Found {len(price_records)} programmed prices in cache")
 
+                    # Filter for future values only (>= t+1)
+                    future_records = [
+                        r for r in price_records
+                        if r.get('datetime', '') >= cutoff_time_str
+                    ]
+                    print(f"[OPTIMIZER] Filtered to {len(future_records)} future records (>= t+1)")
+
                     # Sort by datetime to ensure correct order
-                    sorted_records = sorted(price_records, key=lambda x: x.get('datetime', ''))
+                    sorted_records = sorted(future_records, key=lambda x: x.get('datetime', ''))
 
                     if sorted_records:
                         data_range_start = sorted_records[0].get('datetime', 'unknown')
