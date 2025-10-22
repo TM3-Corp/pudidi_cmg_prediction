@@ -178,11 +178,11 @@ class handler(BaseHTTPRequestHandler):
 
                     # Fetch ML predictions with timeout
                     import urllib.request
-                    from datetime import datetime, timedelta
+                    from datetime import datetime, timedelta, timezone
 
                     # Get current time and calculate t+1 (using UTC-3 for Santiago)
                     # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
-                    now_utc = datetime.utcnow()
+                    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
                     now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
                     next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                     cutoff_time_str = next_hour.strftime('%Y-%m-%d %H:%M:%S')
@@ -277,11 +277,11 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
                 from api.utils.cache_manager_readonly import CacheManagerReadOnly
-                from datetime import datetime, timedelta
+                from datetime import datetime, timedelta, timezone
 
                 # Get current time and calculate t+1 (using UTC-3 for Santiago)
                 # Santiago is UTC-3 (or UTC-4 during DST, but we use UTC-3 as baseline)
-                now_utc = datetime.utcnow()
+                now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
                 now_santiago = now_utc - timedelta(hours=3)  # Convert to Santiago time
                 next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
                 cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')  # Note: CMG uses 'T' format
