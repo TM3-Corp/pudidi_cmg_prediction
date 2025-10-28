@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
-from utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
+from lib.utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):

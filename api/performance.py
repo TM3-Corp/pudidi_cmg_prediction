@@ -23,7 +23,7 @@ except ImportError as e:
     print(f"[PERFORMANCE] Failed to import optimizer from api.utils: {e}")
     # Try alternative import path for Vercel
     try:
-        from utils.optimizer_lp import optimize_hydro_lp
+        from lib.utils.optimizer_lp import optimize_hydro_lp
         OPTIMIZER_AVAILABLE = True
         print("[PERFORMANCE] Optimizer loaded via alternative path")
     except ImportError as e2:

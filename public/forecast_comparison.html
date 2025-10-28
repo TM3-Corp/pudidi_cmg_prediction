@@ -143,10 +143,10 @@
     <script>
         let historicalData = null;
 
-        // v3.0: Three separate Gists to prevent data overwrites
-        const ML_GIST_URL = 'https://gist.githubusercontent.com/PVSH97/38b3f9b1cdae5362d3676911ab27f606/raw/ml_predictions_historical.json';
-        const PROG_GIST_URL = 'https://gist.githubusercontent.com/PVSH97/d68bb21360b1ac549c32a80195f99b09/raw/cmg_programado_historical.json';
-        const ONLINE_GIST_URL = 'https://gist.githubusercontent.com/PVSH97/8d7864eb26acf6e780d3c0f7fed69365/raw/cmg_online_historical.json';
+        // Use local cache files instead of Gist (fixes 429 rate limit errors)
+        const ML_CACHE_URL = '/data/cache/ml_predictions_historical.json';
+        const PROG_CACHE_URL = '/data/cache/cmg_programado_historical.json';
+        const ONLINE_CACHE_URL = '/data/cache/cmg_online_historical.json';
 
         // Load historical data on page load
         document.addEventListener('DOMContentLoaded', async function() {
@@ -157,11 +157,11 @@
             try {
                 const cacheBuster = '?t=' + new Date().getTime();
 
-                // Fetch all 3 Gists concurrently
+                // Fetch all 3 cache files concurrently
                 const [mlResponse, progResponse, onlineResponse] = await Promise.all([
-                    fetch(ML_GIST_URL + cacheBuster),
-                    fetch(PROG_GIST_URL + cacheBuster),
-                    fetch(ONLINE_GIST_URL + cacheBuster)
+                    fetch(ML_CACHE_URL + cacheBuster),
+                    fetch(PROG_CACHE_URL + cacheBuster),
+                    fetch(ONLINE_CACHE_URL + cacheBuster)
                 ]);
 
                 const mlData = await mlResponse.json();
