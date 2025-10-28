@@ -179,12 +179,12 @@ class SupabaseClient:
     def insert_ml_predictions_batch(self, records: List[Dict[str, Any]]) -> bool:
         """
         Insert batch of ML prediction records.
-        
+
         Args:
-            records: List of dicts with keys: 
-                     forecast_created_at, predicted_datetime, predicted_date, 
-                     predicted_hour, cmg_predicted, node, model_version
-        
+            records: List of dicts with keys:
+                     forecast_datetime, target_datetime, horizon,
+                     cmg_predicted, prob_zero, threshold, model_version
+
         Returns:
             True if successful
         """
@@ -209,34 +209,34 @@ class SupabaseClient:
     def get_latest_ml_predictions(self, limit: int = 24) -> List[Dict[str, Any]]:
         """
         Get the most recent ML forecast (latest 24 predictions).
-        
+
         Returns:
             List of ML prediction records from most recent forecast
         """
         try:
-            # First, get the latest forecast_created_at
+            # First, get the latest forecast_datetime
             url = f"{self.base_url}/ml_predictions"
             params = {
-                "select": "forecast_created_at",
-                "order": "forecast_created_at.desc",
+                "select": "forecast_datetime",
+                "order": "forecast_datetime.desc",
                 "limit": 1
             }
-            
+
             response = requests.get(url, params=params, headers=self.headers)
-            
+
             if response.status_code != 200 or not response.json():
                 print("❌ No ML predictions found")
                 return []
-            
-            latest_forecast = response.json()[0]["forecast_created_at"]
-            
+
+            latest_forecast = response.json()[0]["forecast_datetime"]
+
             # Now get all predictions from that forecast
             params = {
-                "forecast_created_at": f"eq.{latest_forecast}",
-                "order": "predicted_datetime.asc",
+                "forecast_datetime": f"eq.{latest_forecast}",
+                "order": "target_datetime.asc",
                 "limit": limit
             }
-            
+
             response = requests.get(url, params=params, headers=self.headers)
             
             if response.status_code == 200:
