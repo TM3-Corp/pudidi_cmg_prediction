@@ -222,8 +222,14 @@ jobs:
             git reset --hard origin/main
           }
 
+          # Sync cache files to public/ for Vercel static serving
+          echo "📂 Syncing cache files to public/data/cache/..."
+          mkdir -p public/data/cache
+          cp -r data/cache/*.json public/data/cache/
+          echo "✅ Cache files synced"
+
           # Add and commit changes (include downloads folder for CMG Programado CSV)
-          git add data/ downloads/
+          git add data/ downloads/ public/data/cache/
           git commit -m "🔄 CMG Online + ML Predictions + CMG Programado - $(date +'%Y-%m-%d %H:%M')
 
           - Fetched CMG Programado via web scraping (Playwright)
