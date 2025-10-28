@@ -271,7 +271,7 @@ class handler(BaseHTTPRequestHandler):
                 print(f"[OPTIMIZER] User selected CMG Programado as data source")
                 print(f"[OPTIMIZER] Fetching CMG Programado data from cache...")
 
-                from api.utils.cache_manager_readonly import CacheManagerReadOnly
+                from lib.utils.cache_manager_readonly import CacheManagerReadOnly
                 import time
 
                 # Calculate t+1 using Unix timestamps only (no datetime module)
@@ -390,7 +390,7 @@ class handler(BaseHTTPRequestHandler):
             # Try scipy LP first only if available
             if SCIPY_AVAILABLE:
                 try:
-                    from api.utils.optimizer_lp import optimize_hydro_lp
+                    from lib.utils.optimizer_lp import optimize_hydro_lp
                     print(f"[OPTIMIZER] Trying scipy Linear Programming...")
                     solution = optimize_hydro_lp(
                         prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
@@ -409,7 +409,7 @@ class handler(BaseHTTPRequestHandler):
             # Try simple DP solver if scipy failed
             if solution is None:
                 try:
-                    from api.utils.optimizer_simple import optimize_hydro_simple
+                    from lib.utils.optimizer_simple import optimize_hydro_simple
                     print(f"[OPTIMIZER] Trying simple DP optimization...")
                     solution = optimize_hydro_simple(
                         prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
@@ -421,7 +421,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Fall back to greedy if everything else fails
             if solution is None:
-                from api.utils.optimizer_lp import optimize_hydro_greedy
+                from lib.utils.optimizer_lp import optimize_hydro_greedy
                 print(f"[OPTIMIZER] Falling back to greedy algorithm...")
                 solution = optimize_hydro_greedy(
                     prices, p_min, p_max, s0, s_min, s_max, kappa, inflow, horizon
@@ -597,7 +597,7 @@ class handler(BaseHTTPRequestHandler):
             }
             
             # Get CMG prices from cache
-            from api.utils.cache_manager_readonly import CacheManagerReadOnly
+            from lib.utils.cache_manager_readonly import CacheManagerReadOnly
             cache_mgr = CacheManagerReadOnly()
             programmed_data = cache_mgr.read_cache('programmed')
             
@@ -623,7 +623,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Try scipy LP first
             try:
-                from api.utils.optimizer_lp import optimize_hydro_lp
+                from lib.utils.optimizer_lp import optimize_hydro_lp
                 solution = optimize_hydro_lp(
                     prices, 
                     params['p_min'], params['p_max'],
@@ -636,7 +636,7 @@ class handler(BaseHTTPRequestHandler):
             # Try simple DP if scipy failed
             if solution is None:
                 try:
-                    from api.utils.optimizer_simple import optimize_hydro_simple
+                    from lib.utils.optimizer_simple import optimize_hydro_simple
                     solution = optimize_hydro_simple(
                         prices, 
                         params['p_min'], params['p_max'],
@@ -648,7 +648,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Fall back to greedy
             if solution is None:
-                from api.utils.optimizer_lp import optimize_hydro_greedy
+                from lib.utils.optimizer_lp import optimize_hydro_greedy
                 solution = optimize_hydro_greedy(
                     prices, 
                     params['p_min'], params['p_max'],

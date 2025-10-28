@@ -16,7 +16,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from api.utils.optimizer_lp import optimize_hydro_lp
+    from lib.utils.optimizer_lp import optimize_hydro_lp
     OPTIMIZER_AVAILABLE = True
     print("[PERFORMANCE] Optimizer loaded successfully")
 except ImportError as e:
