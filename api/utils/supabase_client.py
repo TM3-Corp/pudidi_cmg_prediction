@@ -46,18 +46,18 @@ class SupabaseClient:
         """
         Insert batch of CMG Online records.
         Uses UPSERT to handle duplicates gracefully.
-        
+
         Args:
             records: List of dicts with keys: datetime, date, hour, node, cmg_usd
-        
+
         Returns:
             True if successful, False otherwise
         """
         try:
             url = f"{self.base_url}/cmg_online"
             headers = self.headers.copy()
-            headers["Prefer"] = "resolution=merge-duplicates"  # Upsert on conflict
-            
+            headers["Prefer"] = "resolution=merge-duplicates"
+
             response = requests.post(url, json=records, headers=headers)
             
             if response.status_code in [200, 201, 204]:

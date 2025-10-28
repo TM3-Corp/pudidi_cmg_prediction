@@ -50,10 +50,19 @@ def migrate_cmg_online():
         print("⚠️  No records to migrate")
         return True
     
-    # Transform to Supabase schema
+    # Transform to Supabase schema and deduplicate
     supabase_records = []
+    seen_keys = set()  # Track (datetime, node) pairs to avoid duplicates
+
     for record in records:
         try:
+            key = (record['datetime'], record['node'])
+
+            # Skip if we've already seen this datetime+node combination
+            if key in seen_keys:
+                continue
+
+            seen_keys.add(key)
             supabase_records.append({
                 'datetime': record['datetime'],
                 'date': record['date'],
@@ -65,8 +74,8 @@ def migrate_cmg_online():
         except Exception as e:
             print(f"⚠️  Skipping invalid record: {e}")
             continue
-    
-    print(f"✅ Transformed {len(supabase_records)} records")
+
+    print(f"✅ Transformed {len(supabase_records)} unique records (deduped from {len(records)})")
     
     # Batch insert to Supabase
     client = SupabaseClient()
@@ -113,23 +122,33 @@ def migrate_cmg_programado():
         print("⚠️  No records to migrate")
         return True
     
-    # Transform to Supabase schema
+    # Transform to Supabase schema and deduplicate
     supabase_records = []
+    seen_keys = set()  # Track (datetime, node) pairs
+
     for record in records:
         try:
+            datetime_str = record['datetime']
+            node = 'PMontt220'
+            key = (datetime_str, node)
+
+            if key in seen_keys:
+                continue
+
+            seen_keys.add(key)
             supabase_records.append({
-                'datetime': record['datetime'],
-                'date': record.get('date', record['datetime'].split('T')[0]),
-                'hour': record.get('hour', int(record['datetime'].split('T')[1].split(':')[0])),
-                'node': 'PMontt220',
+                'datetime': datetime_str,
+                'date': record.get('date', datetime_str.split('T')[0]),
+                'hour': record.get('hour', int(datetime_str.split('T')[1].split(':')[0])),
+                'node': node,
                 'cmg_programmed': float(record.get('cmg_programmed', record.get('value', 0))),
                 'fetched_at': datetime.now(pytz.UTC).isoformat()
             })
         except Exception as e:
             print(f"⚠️  Skipping invalid record: {e}")
             continue
-    
-    print(f"✅ Transformed {len(supabase_records)} records")
+
+    print(f"✅ Transformed {len(supabase_records)} unique records (deduped from {len(records)})")
     
     # Batch insert to Supabase
     client = SupabaseClient()
@@ -180,13 +199,22 @@ def migrate_ml_predictions():
     # Get forecast creation time
     forecast_time = metadata.get('forecast_created_at', datetime.now(pytz.UTC).isoformat())
     
-    # Transform to Supabase schema
+    # Transform to Supabase schema and deduplicate
     supabase_records = []
+    seen_keys = set()  # Track (forecast_datetime, target_datetime) pairs
+
     for i, pred in enumerate(predictions):
         try:
+            target_dt = pred['datetime']
+            key = (forecast_time, target_dt)
+
+            if key in seen_keys:
+                continue
+
+            seen_keys.add(key)
             supabase_records.append({
                 'forecast_datetime': forecast_time,
-                'target_datetime': pred['datetime'],
+                'target_datetime': target_dt,
                 'horizon': i + 1,  # 1-24
                 'cmg_predicted': float(pred['cmg_predicted']),
                 'prob_zero': 0.0,  # Not stored in current format
@@ -196,8 +224,8 @@ def migrate_ml_predictions():
         except Exception as e:
             print(f"⚠️  Skipping invalid prediction: {e}")
             continue
-    
-    print(f"✅ Transformed {len(supabase_records)} predictions")
+
+    print(f"✅ Transformed {len(supabase_records)} unique predictions (deduped from {len(predictions)})")
     
     # Insert to Supabase
     client = SupabaseClient()
