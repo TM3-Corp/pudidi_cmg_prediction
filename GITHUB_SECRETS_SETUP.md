@@ -2,6 +2,9 @@
 
 This guide explains how to add Supabase credentials to GitHub Actions secrets.
 
+**Status**: ✅ Workflow files updated to use Supabase environment variables
+**Last Updated**: 2025-11-13
+
 ## Required Secrets
 
 You need to add the following secrets to your GitHub repository:
@@ -47,17 +50,33 @@ You need to add the following secrets to your GitHub repository:
 
 After adding the secrets:
 
-1. Go to **Actions** tab in your repository
-2. Find the workflow `cmg_online_hourly.yml`
-3. Click **"Run workflow"** → **"Run workflow"** to trigger it manually
-4. Watch the logs to verify:
-   - ETL scripts run successfully
-   - Supabase writes complete without errors
-   - Look for messages like:
-     ```
-     ☁️  Writing new records to Supabase...
-     ✅ Wrote X records to Supabase
-     ```
+1. Go to **Actions** tab in your repository:
+   ```
+   https://github.com/TM3-Corp/pudidi_cmg_prediction/actions
+   ```
+
+2. Find the workflow **"CMG Online Hourly Update"**
+
+3. Click **"Run workflow"** → select branch `claude/migrate-to-supabase-011CUzraym9qhZV7Wnzjbn16` → **"Run workflow"**
+
+4. Watch the logs for each step to verify Supabase writes:
+
+   **Step 1: "Fetch CMG Online data from SIP API"**
+   - Should show: `☁️  Writing new records to Supabase...`
+   - Should show: `✅ Wrote X records to Supabase`
+
+   **Step 3A: "Store ML predictions to Supabase + Gist"**
+   - Should show: `☁️  Writing predictions to Supabase...`
+   - Should show: `✅ Wrote X predictions to Supabase`
+
+   **Step 3B: "Store CMG Programado to Supabase + Gist"**
+   - Should show: `☁️  Writing forecasts to Supabase...`
+   - Should show: `✅ Wrote X forecasts to Supabase`
+
+5. Verify in Supabase Dashboard:
+   - Go to: https://supabase.com/dashboard/project/btyfbrclgmphcjgrvcgd
+   - Check tables: `cmg_online`, `ml_predictions`, `cmg_programado`
+   - Verify new records appear with recent timestamps
 
 ## Troubleshooting
 
