@@ -1,20 +1,28 @@
 """
-ML Forecast API - Proxy to Railway ML Backend
+ML Forecast API - Returns ML predictions from Supabase
 
-Lightweight Vercel endpoint that proxies requests to Railway
-where the heavy ML models and processing run.
+Returns the latest 24-hour forecast from ML predictions table
 """
 
 from http.server import BaseHTTPRequestHandler
 import json
+import sys
 import os
+from pathlib import Path
 
-# Railway backend URL (set as environment variable in Vercel)
-RAILWAY_URL = os.environ.get('RAILWAY_ML_URL', 'http://localhost:8000')
+# Add parent directories to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from lib.utils.supabase_client import SupabaseClient
+    USE_SUPABASE = True
+except Exception as e:
+    print(f"⚠️ Supabase unavailable: {e}")
+    USE_SUPABASE = False
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        """Proxy request to Railway ML backend"""
+        """Return latest ML predictions from Supabase"""
 
         # CORS headers
         self.send_response(200)
@@ -24,21 +32,70 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
         try:
-            # Proxy to Railway backend
-            import urllib.request
+            if USE_SUPABASE:
+                # Fetch latest predictions from Supabase
+                supabase = SupabaseClient()
+                predictions = supabase.get_latest_ml_predictions(limit=24)
 
-            url = f"{RAILWAY_URL}/api/ml_forecast"
+                if predictions:
+                    # Format predictions for API response
+                    formatted_predictions = [
+                        {
+                            'horizon': p['horizon'],
+                            'target_datetime': p['target_datetime'],
+                            'cmg': p['cmg_predicted'],
+                            'prob_zero': p.get('prob_zero', 0),
+                            'threshold': p.get('threshold', 0.5)
+                        }
+                        for p in predictions
+                    ]
 
-            with urllib.request.urlopen(url, timeout=10) as response:
-                data = response.read()
-                self.wfile.write(data)
+                    response = {
+                        'success': True,
+                        'predictions': formatted_predictions,
+                        'predictions_count': len(formatted_predictions),
+                        'forecast_time': predictions[0]['forecast_datetime'],
+                        'model_version': predictions[0].get('model_version', 'v2.0'),
+                        'status': {
+                            'available': True,
+                            'last_update': predictions[0]['forecast_datetime']
+                        },
+                        'source': 'supabase'
+                    }
+                else:
+                    response = {
+                        'success': True,
+                        'predictions': [],
+                        'predictions_count': 0,
+                        'status': {
+                            'available': False,
+                            'last_update': None
+                        },
+                        'message': 'No ML predictions available yet'
+                    }
+
+                self.wfile.write(json.dumps(response, default=str).encode())
+
+            else:
+                # Supabase not available
+                error_response = {
+                    'success': False,
+                    'error': 'Supabase client not available',
+                    'message': 'ML predictions temporarily unavailable',
+                    'predictions': [],
+                    'status': {
+                        'available': False,
+                        'last_update': None
+                    }
+                }
+                self.wfile.write(json.dumps(error_response).encode())
 
         except Exception as e:
-            # Fallback error response
+            # Error response
             error_response = {
                 'success': False,
                 'error': str(e),
-                'message': 'Failed to connect to ML prediction service',
+                'message': 'Failed to retrieve ML predictions',
                 'predictions': [],
                 'status': {
                     'available': False,

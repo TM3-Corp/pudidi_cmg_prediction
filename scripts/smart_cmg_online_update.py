@@ -8,11 +8,22 @@ Uses the CORRECT v4 API endpoint that works
 import json
 import requests
 import time
+import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
 from collections import defaultdict
 import numpy as np
+
+# Add lib path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from lib.utils.supabase_client import SupabaseClient
+    SUPABASE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Supabase client not available: {e}")
+    SUPABASE_AVAILABLE = False
 
 # Configuration
 SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
@@ -378,10 +389,39 @@ def main():
     # Save updated cache
     print("💾 Saving updated cache...")
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     with open(CACHE_FILE, 'w') as f:
         json.dump(cache_data, f, indent=2)
-    
+
+    # Write new records to Supabase (dual-write strategy)
+    if new_records and SUPABASE_AVAILABLE:
+        try:
+            print("☁️  Writing new records to Supabase...")
+            supabase = SupabaseClient()
+
+            # Transform records to Supabase format
+            supabase_records = []
+            for record in new_records:
+                supabase_records.append({
+                    'datetime': record['datetime'],
+                    'date': record['date'],
+                    'hour': record['hour'],
+                    'node': record['node'],
+                    'cmg_usd': float(record['cmg_usd']),
+                    'source': 'sip_api'
+                })
+
+            # Insert in batches of 100
+            batch_size = 100
+            for i in range(0, len(supabase_records), batch_size):
+                batch = supabase_records[i:i+batch_size]
+                supabase.insert_cmg_online_batch(batch)
+
+            print(f"✅ Wrote {len(supabase_records)} records to Supabase")
+        except Exception as e:
+            print(f"⚠️ Failed to write to Supabase: {e}")
+            print("   (Cache file still updated successfully)")
+
     # Update metadata
     duration = time.time() - start_time
     metadata = {

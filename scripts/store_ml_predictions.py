@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 """
-Store ML predictions to dedicated Gist
-Keeps 7-day rolling window of hourly forecasts
+Store ML predictions to Supabase and Gist (dual-write)
+Keeps 7-day rolling window of hourly forecasts in Gist, all data in Supabase
 """
 
 import json
 import requests
+import sys
 from datetime import datetime, timedelta
 import pytz
 import os
 from pathlib import Path
+
+# Add lib path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from lib.utils.supabase_client import SupabaseClient
+    SUPABASE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Supabase client not available: {e}")
+    SUPABASE_AVAILABLE = False
 
 # Configuration
 GIST_ID = '38b3f9b1cdae5362d3676911ab27f606'  # ML Predictions Gist
@@ -183,6 +194,54 @@ def main():
     # Update Gist
     print("\n📤 Updating Gist...")
     success = update_gist(merged_data)
+
+    # Write to Supabase (dual-write strategy)
+    if ml_forecasts and SUPABASE_AVAILABLE:
+        try:
+            print("☁️  Writing predictions to Supabase...")
+            supabase = SupabaseClient()
+            santiago_tz = pytz.timezone('America/Santiago')
+
+            # Transform predictions to Supabase format
+            supabase_records = []
+            for (date, hour), forecast_data in ml_forecasts.items():
+                forecast_time_str = forecast_data['forecast_time']
+                # Parse forecast datetime
+                if 'T' in forecast_time_str:
+                    forecast_dt = datetime.fromisoformat(forecast_time_str.replace('Z', '+00:00'))
+                else:
+                    forecast_dt = datetime.strptime(forecast_time_str, '%Y-%m-%d %H:%M:%S')
+                    forecast_dt = santiago_tz.localize(forecast_dt)
+
+                for pred in forecast_data['predictions']:
+                    target_dt_str = pred['target_datetime']
+                    # Parse target datetime
+                    if 'T' in target_dt_str:
+                        target_dt = datetime.fromisoformat(target_dt_str.replace('Z', '+00:00'))
+                    else:
+                        target_dt = datetime.strptime(target_dt_str, '%Y-%m-%d %H:%M:%S')
+                        target_dt = santiago_tz.localize(target_dt)
+
+                    supabase_records.append({
+                        'forecast_datetime': forecast_dt.isoformat(),
+                        'target_datetime': target_dt.isoformat(),
+                        'horizon': pred['horizon'],
+                        'cmg_predicted': float(pred['cmg']),
+                        'prob_zero': float(pred.get('prob_zero', 0)),
+                        'threshold': float(pred.get('threshold', 0.5)),
+                        'model_version': forecast_data.get('model_version', 'unknown')
+                    })
+
+            # Insert in batches
+            batch_size = 100
+            for i in range(0, len(supabase_records), batch_size):
+                batch = supabase_records[i:i+batch_size]
+                supabase.insert_ml_predictions_batch(batch)
+
+            print(f"✅ Wrote {len(supabase_records)} predictions to Supabase")
+        except Exception as e:
+            print(f"⚠️ Failed to write to Supabase: {e}")
+            print("   (Gist and local cache still updated)")
 
     # Save local copy
     local_path = Path('data/cache/ml_predictions_historical.json')
