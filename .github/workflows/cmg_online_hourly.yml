@@ -95,6 +95,8 @@ jobs:
           echo "CMG Online fetch completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       # ========== STEP 2: GENERATE ML PREDICTIONS ==========
       - name: Generate ML 24-hour forecast
@@ -112,13 +114,13 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}
 
       # ========== STEP 3A: STORE ML PREDICTIONS ==========
-      - name: Store ML predictions to dedicated Gist
+      - name: Store ML predictions to Supabase + Gist
         if: success()
         timeout-minutes: 5
         run: |
           echo ""
           echo "========================================"
-          echo "ML PREDICTIONS - STORE TO GIST"
+          echo "ML PREDICTIONS - STORE TO SUPABASE + GIST"
           echo "========================================"
           echo "Starting at $(date)"
           python scripts/store_ml_predictions.py
@@ -126,15 +128,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       # ========== STEP 3B: STORE CMG PROGRAMADO ==========
-      - name: Store CMG Programado to dedicated Gist
+      - name: Store CMG Programado to Supabase + Gist
         if: success()
         timeout-minutes: 5
         run: |
           echo ""
           echo "========================================"
-          echo "CMG PROGRAMADO - STORE TO GIST"
+          echo "CMG PROGRAMADO - STORE TO SUPABASE + GIST"
           echo "========================================"
           echo "Starting at $(date)"
           python scripts/store_cmg_programado.py
@@ -142,6 +146,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       # ========== STEP 3C: STORE CMG ONLINE ==========
       - name: Store CMG Online to dedicated Gist
@@ -235,10 +241,12 @@ jobs:
           - Fetched CMG Programado via web scraping (Playwright)
           - Fetched CMG Online from SIP API (v4/findByDate)
           - Generated ML 24-hour forecast
-          - Stored to 3 separate Gists (v3.0):
-            • ML Predictions: 38b3f9b1cdae5362d3676911ab27f606
-            • CMG Programado: d68bb21360b1ac549c32a80195f99b09
-            • CMG Online: 8d7864eb26acf6e780d3c0f7fed69365
+          - Stored to Supabase (dual-write) + Gists (v3.0):
+            ☁️  Supabase: btyfbrclgmphcjgrvcgd.supabase.co
+            📄 Gists (backup):
+              • ML Predictions: 38b3f9b1cdae5362d3676911ab27f606
+              • CMG Programado: d68bb21360b1ac549c32a80195f99b09
+              • CMG Online: 8d7864eb26acf6e780d3c0f7fed69365
           - Updated all cache files
           - Data verified and committed
 
