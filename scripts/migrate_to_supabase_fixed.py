@@ -177,12 +177,12 @@ def migrate_cmg_programado():
 
 
 def migrate_ml_predictions():
-    """Migrate ML predictions from latest.json"""
+    """Migrate ML predictions from historical cache"""
     print("\n" + "="*60)
-    print("MIGRATING ML PREDICTIONS (LATEST FORECAST)")
+    print("MIGRATING ML PREDICTIONS (HISTORICAL FORECASTS)")
     print("="*60)
 
-    cache_file = Path('data/ml_predictions/latest.json')
+    cache_file = Path('data/cache/ml_predictions_historical.json')
 
     if not cache_file.exists():
         print(f"❌ Cache file not found: {cache_file}")
@@ -192,57 +192,69 @@ def migrate_ml_predictions():
     with open(cache_file, 'r') as f:
         cache_data = json.load(f)
 
-    forecasts = cache_data.get('forecasts', [])
-    metadata = cache_data
+    metadata = cache_data.get('metadata', {})
+    daily_data = cache_data.get('daily_data', {})
 
-    print(f"📊 Found {len(forecasts)} predictions in latest forecast")
+    print(f"📊 Found {metadata.get('total_days')} days of ML forecasts")
+    print(f"   Date range: {metadata.get('oldest_date')} to {metadata.get('newest_date')}")
 
-    if not forecasts:
+    if not daily_data:
         print("⚠️  No predictions to migrate")
         return True
 
-    # Get forecast creation time
-    forecast_time = cache_data.get('generated_at', datetime.now(pytz.UTC).isoformat())
-    model_version = cache_data.get('model_version', 'gpu_enhanced_v1')
+    # Count total forecasts
+    total_snapshots = 0
+    for date, day in daily_data.items():
+        total_snapshots += len(day.get('ml_forecasts', {}))
+
+    print(f"   Total forecast snapshots: {total_snapshots}")
 
     # Transform to Supabase schema
     supabase_records = []
     seen_keys = set()
+    santiago_tz = pytz.timezone('America/Santiago')
 
-    for forecast in forecasts:
-        try:
-            target_dt = forecast['target_datetime']
-            key = (forecast_time, target_dt)
+    for date_str, day_data in daily_data.items():
+        ml_forecasts = day_data.get('ml_forecasts', {})
 
-            if key in seen_keys:
-                continue
+        for hour_str, forecast_snapshot in ml_forecasts.items():
+            forecast_time = forecast_snapshot.get('forecast_time')
+            model_version = forecast_snapshot.get('model_version', 'gpu_enhanced_v1')
+            predictions = forecast_snapshot.get('predictions', [])
 
-            seen_keys.add(key)
+            for prediction in predictions:
+                try:
+                    target_dt = prediction['target_datetime']
+                    key = (forecast_time, target_dt)
 
-            # Parse target datetime for date/hour extraction
-            # Handle format: "2025-11-10 16:00:00" or "2025-11-10 19:27:43 UTC"
-            target_dt_clean = target_dt.replace(' UTC', '').strip()
-            forecast_time_clean = forecast_time.replace(' UTC', '').strip()
+                    if key in seen_keys:
+                        continue
 
-            target_parsed = datetime.strptime(target_dt_clean, '%Y-%m-%d %H:%M:%S')
-            forecast_parsed = datetime.strptime(forecast_time_clean, '%Y-%m-%d %H:%M:%S')
+                    seen_keys.add(key)
 
-            # Make timezone-aware timestamps for Supabase (convert to UTC)
-            forecast_dt_aware = pytz.timezone('America/Santiago').localize(forecast_parsed).astimezone(pytz.UTC)
-            target_dt_aware = pytz.timezone('America/Santiago').localize(target_parsed).astimezone(pytz.UTC)
+                    # Parse timestamps - handle "YYYY-MM-DD HH:MM:SS" format
+                    target_dt_clean = target_dt.replace(' UTC', '').strip()
+                    forecast_time_clean = forecast_time.replace(' UTC', '').strip()
 
-            supabase_records.append({
-                'forecast_datetime': forecast_dt_aware.isoformat(),
-                'target_datetime': target_dt_aware.isoformat(),
-                'horizon': forecast['horizon'],
-                'cmg_predicted': float(forecast['predicted_cmg']),
-                'prob_zero': float(forecast.get('zero_probability', 0.0)),
-                'threshold': float(forecast.get('decision_threshold', 0.5)),
-                'model_version': model_version
-            })
-        except Exception as e:
-            print(f"⚠️  Skipping invalid prediction: {e}")
-            continue
+                    target_parsed = datetime.strptime(target_dt_clean, '%Y-%m-%d %H:%M:%S')
+                    forecast_parsed = datetime.strptime(forecast_time_clean, '%Y-%m-%d %H:%M:%S')
+
+                    # Make timezone-aware (Santiago → UTC)
+                    forecast_dt_aware = santiago_tz.localize(forecast_parsed).astimezone(pytz.UTC)
+                    target_dt_aware = santiago_tz.localize(target_parsed).astimezone(pytz.UTC)
+
+                    supabase_records.append({
+                        'forecast_datetime': forecast_dt_aware.isoformat(),
+                        'target_datetime': target_dt_aware.isoformat(),
+                        'horizon': prediction['horizon'],
+                        'cmg_predicted': float(prediction['cmg']),
+                        'prob_zero': float(prediction.get('prob_zero', 0.0)),
+                        'threshold': float(prediction.get('threshold', 0.5)),
+                        'model_version': model_version
+                    })
+                except Exception as e:
+                    print(f"⚠️  Skipping invalid prediction: {e}")
+                    continue
 
     print(f"✅ Transformed {len(supabase_records)} unique predictions")
 
