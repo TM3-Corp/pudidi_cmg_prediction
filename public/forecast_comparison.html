@@ -190,30 +190,30 @@
             const daily_data = {};
 
             // ML predictions are grouped by forecast_datetime
+            // We organize by the FORECAST date/hour (when the prediction was made)
             for (const [forecastTime, predictions] of Object.entries(mlByForecast)) {
-                predictions.forEach(pred => {
-                    const targetDate = new Date(pred.target_datetime);
-                    const dateKey = targetDate.toISOString().split('T')[0];
-                    const hour = targetDate.getHours();
+                const forecastDate = new Date(forecastTime);
+                const dateKey = forecastDate.toISOString().split('T')[0];
+                const hour = forecastDate.getHours();
 
-                    if (!daily_data[dateKey]) {
-                        daily_data[dateKey] = {
-                            forecasts: {}
-                        };
-                    }
-
-                    if (!daily_data[dateKey].forecasts[forecastTime]) {
-                        daily_data[dateKey].forecasts[forecastTime] = {
-                            predictions: Array(24).fill(null)
-                        };
-                    }
-
-                    daily_data[dateKey].forecasts[forecastTime].predictions[hour] = {
-                        predicted_cmg: pred.predicted_cmg,
-                        horizon: pred.horizon,
-                        prob_zero: pred.prob_zero
+                if (!daily_data[dateKey]) {
+                    daily_data[dateKey] = {
+                        ml_forecasts: {}
                     };
-                });
+                }
+
+                // Store predictions under the hour when the forecast was made
+                daily_data[dateKey].ml_forecasts[hour] = {
+                    forecast_time: forecastTime,
+                    model_version: predictions[0]?.model_version || 'v2.0',
+                    predictions: predictions.map(pred => ({
+                        horizon: pred.horizon,
+                        target_datetime: pred.target_datetime,
+                        cmg: pred.predicted_cmg,
+                        prob_zero: pred.prob_zero || 0,
+                        threshold: pred.threshold || 0.5
+                    }))
+                };
             }
 
             return { daily_data };
@@ -222,35 +222,53 @@
         function transformCMGProgramadoFromAPI(programadoArray) {
             const daily_data = {};
 
+            // Group by date and hour to create forecast snapshots
+            const byDateHour = {};
             programadoArray.forEach(record => {
                 const dt = new Date(record.datetime);
                 const dateKey = dt.toISOString().split('T')[0];
                 const hour = dt.getHours();
+                const key = `${dateKey}_${hour}`;
 
-                if (!daily_data[dateKey]) {
-                    daily_data[dateKey] = {
-                        hours: [],
-                        cmg_programado: {}
-                    };
+                if (!byDateHour[key]) {
+                    byDateHour[key] = { date: dateKey, hour: hour, records: [] };
                 }
-
-                if (!daily_data[dateKey].cmg_programado[record.node]) {
-                    daily_data[dateKey].cmg_programado[record.node] = {
-                        cmg_programmed: Array(24).fill(null)
-                    };
-                }
-
-                daily_data[dateKey].cmg_programado[record.node].cmg_programmed[hour] = record.cmg_programmed;
-
-                if (!daily_data[dateKey].hours.includes(hour)) {
-                    daily_data[dateKey].hours.push(hour);
-                }
+                byDateHour[key].records.push(record);
             });
 
-            // Sort hours for each day
-            for (const dateKey in daily_data) {
-                daily_data[dateKey].hours.sort((a, b) => a - b);
-            }
+            // Transform into forecast snapshots structure
+            Object.values(byDateHour).forEach(snapshot => {
+                const { date, hour, records } = snapshot;
+
+                if (!daily_data[date]) {
+                    daily_data[date] = {
+                        cmg_programado_forecasts: {}  // FIXED: Changed from 'cmg_programado' to 'cmg_programado_forecasts'
+                    };
+                }
+
+                // Create forecast snapshot for this hour
+                const forecasts = {};
+                records.forEach(record => {
+                    const node = record.node;
+                    if (!forecasts[node]) {
+                        forecasts[node] = [];
+                    }
+                    forecasts[node].push({
+                        datetime: record.datetime,
+                        cmg: record.cmg_programmed
+                    });
+                });
+
+                // Sort forecasts by datetime
+                Object.values(forecasts).forEach(nodeForecasts => {
+                    nodeForecasts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+                });
+
+                daily_data[date].cmg_programado_forecasts[hour] = {
+                    fetched_at: `${date}T${hour.toString().padStart(2, '0')}:00:00`,
+                    forecasts: forecasts
+                };
+            });
 
             return { daily_data };
         }
