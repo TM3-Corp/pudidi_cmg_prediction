@@ -58,9 +58,10 @@ class SupabaseClient:
             return True
 
         try:
-            url = f"{self.base_url}/cmg_online"
+            # Use on_conflict query parameter to specify UPSERT behavior
+            # This tells PostgREST to update existing records instead of failing
+            url = f"{self.base_url}/cmg_online?on_conflict=datetime,node"
             headers = self.headers.copy()
-            # Use Prefer header for upsert behavior on conflict
             headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
 
             response = requests.post(url, json=records, headers=headers)
@@ -142,10 +143,11 @@ class SupabaseClient:
             True if successful
         """
         try:
-            url = f"{self.base_url}/cmg_programado"
+            # Use on_conflict for proper UPSERT
+            url = f"{self.base_url}/cmg_programado?on_conflict=datetime,node"
             headers = self.headers.copy()
             headers["Prefer"] = "resolution=merge-duplicates"
-            
+
             response = requests.post(url, json=records, headers=headers)
 
             if response.status_code in [200, 201, 204]:
