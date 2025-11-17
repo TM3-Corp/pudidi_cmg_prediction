@@ -101,19 +101,19 @@ class SupabaseClient:
         """
         try:
             url = f"{self.base_url}/cmg_online"
-            params = {"order": "datetime.desc", "limit": limit}
+
+            # Build params as list of tuples to allow multiple values for same key
+            # This is required for PostgREST to AND multiple filters on the same column
+            params = [("order", "datetime.desc"), ("limit", limit)]
 
             # Handle date range filters properly (PostgREST syntax)
-            if start_date and end_date:
-                # Use 'and' to combine both date filters
-                params["and"] = f"(date.gte.{start_date},date.lte.{end_date})"
-            elif start_date:
-                params["date"] = f"gte.{start_date}"
-            elif end_date:
-                params["date"] = f"lte.{end_date}"
+            if start_date:
+                params.append(("date", f"gte.{start_date}"))
+            if end_date:
+                params.append(("date", f"lte.{end_date}"))
 
             if node:
-                params["node"] = f"eq.{node}"
+                params.append(("node", f"eq.{node}"))
 
             response = requests.get(url, params=params, headers=self.headers)
             
@@ -172,17 +172,16 @@ class SupabaseClient:
         """Get CMG Programado records"""
         try:
             url = f"{self.base_url}/cmg_programado"
-            params = {"order": "datetime.desc", "limit": limit}
+
+            # Build params as list of tuples to allow multiple values for same key
+            params = [("order", "datetime.desc"), ("limit", limit)]
 
             # Handle date range filters properly (PostgREST syntax)
-            if start_date and end_date:
-                # Use 'and' to combine both date filters
-                params["and"] = f"(date.gte.{start_date},date.lte.{end_date})"
-            elif start_date:
-                params["date"] = f"gte.{start_date}"
-            elif end_date:
-                params["date"] = f"lte.{end_date}"
-            
+            if start_date:
+                params.append(("date", f"gte.{start_date}"))
+            if end_date:
+                params.append(("date", f"lte.{end_date}"))
+
             response = requests.get(url, params=params, headers=self.headers)
             
             if response.status_code == 200:
@@ -289,17 +288,18 @@ class SupabaseClient:
         """
         try:
             url = f"{self.base_url}/ml_predictions"
-            params = {"order": "forecast_datetime.desc,target_datetime.asc", "limit": limit}
 
+            # Build params as list of tuples to allow multiple values for same key
+            params = [
+                ("order", "forecast_datetime.desc,target_datetime.asc"),
+                ("limit", limit)
+            ]
+
+            # Handle date range filters properly (PostgREST syntax)
             if start_date:
-                params["target_datetime"] = f"gte.{start_date}"
+                params.append(("target_datetime", f"gte.{start_date}"))
             if end_date:
-                # If we have both filters, use "and" logic
-                if start_date:
-                    params["target_datetime"] = f"gte.{start_date}"
-                    params["and"] = f"(target_datetime.lte.{end_date})"
-                else:
-                    params["target_datetime"] = f"lte.{end_date}"
+                params.append(("target_datetime", f"lte.{end_date}"))
 
             response = requests.get(url, params=params, headers=self.headers)
 
