@@ -3,6 +3,17 @@
 let generationChart = null;
 let storageChart = null;
 
+// Chilean number formatting helper
+// Converts numbers to Chilean format: 1.234,56 (period for thousands, comma for decimal)
+function formatChilean(number, decimals = 2) {
+    const fixed = number.toFixed(decimals);
+    const parts = fixed.split('.');
+    // Add thousands separator (period)
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    // Join with comma as decimal separator
+    return parts.join(',');
+}
+
 // Linear Programming Solver - Simplex Method
 class SimplexSolver {
     constructor() {
@@ -652,32 +663,38 @@ function updateCharts(solution, prices, params, timestamps = []) {
 function populateResultsTable(solution, prices, dateTimeLabels) {
     const tbody = document.getElementById('resultsTableBody');
     tbody.innerHTML = ''; // Clear existing rows
-    
+
     for (let i = 0; i < solution.P.length; i++) {
         const row = tbody.insertRow();
-        
+
         // Hour number
         row.insertCell(0).textContent = i + 1;
-        
-        // Date/Time
+
+        // Date (separate column)
         const dateCell = row.insertCell(1);
-        dateCell.textContent = `${dateTimeLabels[i].dateStr} ${dateTimeLabels[i].timeStr}`;
-        
-        // Generation in kW (MW * 1000)
-        const genCell = row.insertCell(2);
-        genCell.textContent = Math.round(solution.P[i] * 1000);
+        dateCell.textContent = dateTimeLabels[i].dateStr;
+
+        // Time (separate column)
+        const timeCell = row.insertCell(2);
+        timeCell.textContent = dateTimeLabels[i].timeStr;
+
+        // Generation in kW (MW * 1000) with Chilean formatting
+        const genCell = row.insertCell(3);
+        const generationKW = Math.round(solution.P[i] * 1000);
+        genCell.textContent = formatChilean(generationKW, 0);
         genCell.style.textAlign = 'right';
-        
-        // Storage
-        const storageCell = row.insertCell(3);
-        storageCell.textContent = Math.round(solution.S[i + 1] || solution.S[i]);
+
+        // Storage with Chilean formatting
+        const storageCell = row.insertCell(4);
+        const storageValue = Math.round(solution.S[i + 1] || solution.S[i]);
+        storageCell.textContent = formatChilean(storageValue, 0);
         storageCell.style.textAlign = 'right';
-        
-        // Price
-        const priceCell = row.insertCell(4);
-        priceCell.textContent = prices[i].toFixed(2);
+
+        // Price with Chilean formatting
+        const priceCell = row.insertCell(5);
+        priceCell.textContent = formatChilean(prices[i], 2);
         priceCell.style.textAlign = 'right';
-        
+
         // Add subtle row styling
         if (i % 2 === 1) {
             row.style.backgroundColor = '#f8fafc';
