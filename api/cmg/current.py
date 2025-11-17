@@ -108,12 +108,16 @@ class handler(BaseHTTPRequestHandler):
                             'datetime': f"{record['date']} {record['hour']:02d}:00:00"
                         })
 
+                # Get last update time from most recent historical data
+                last_updated = historical_data[0]['datetime'] if historical_data else now.isoformat()
+
                 # Build display data structure
                 display_data = {
                     'historical': {
                         'available': len(historical_data) > 0,
                         'data': historical_data,
-                        'coverage': min((len(historical_data) / 24) * 100, 100) if historical_data else 0
+                        'coverage': min((len(historical_data) / 24) * 100, 100) if historical_data else 0,
+                        'last_updated': last_updated  # FIXED: Add last_updated field for frontend status display
                     },
                     'programmed': {
                         'available': len(programmed_data) > 0,
