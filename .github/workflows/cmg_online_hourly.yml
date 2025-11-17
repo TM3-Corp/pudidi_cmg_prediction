@@ -150,18 +150,21 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       # ========== STEP 3C: STORE CMG ONLINE ==========
-      - name: Store CMG Online to dedicated Gist
+      - name: Store CMG Online to Supabase + Gist
         if: success()
         timeout-minutes: 5
         run: |
           echo ""
           echo "========================================"
-          echo "CMG ONLINE - STORE TO GIST"
+          echo "CMG ONLINE - STORE TO SUPABASE + GIST"
           echo "========================================"
-          python scripts/store_historical.py
+          python scripts/store_cmg_online_dual.py
+          echo "CMG Online stored at $(date)"
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           PYTHONPATH: ${{ github.workspace }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       # ========== STEP 5: VERIFY DATA INTEGRITY ==========
       - name: Verify data integrity

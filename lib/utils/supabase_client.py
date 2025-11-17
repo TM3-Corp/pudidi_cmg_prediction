@@ -238,7 +238,7 @@ class SupabaseClient:
             }
 
             response = requests.get(url, params=params, headers=self.headers)
-            
+
             if response.status_code == 200:
                 return response.json()
             else:
@@ -247,7 +247,49 @@ class SupabaseClient:
         except Exception as e:
             print(f"❌ Error getting ML predictions: {e}")
             return []
-    
+
+    def get_ml_predictions(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: int = 10000
+    ) -> List[Dict[str, Any]]:
+        """
+        Get ML predictions with date range filtering.
+
+        Args:
+            start_date: Filter by target_datetime >= this (YYYY-MM-DD)
+            end_date: Filter by target_datetime <= this (YYYY-MM-DD)
+            limit: Max records to return
+
+        Returns:
+            List of ML prediction records
+        """
+        try:
+            url = f"{self.base_url}/ml_predictions"
+            params = {"order": "forecast_datetime.desc,target_datetime.asc", "limit": limit}
+
+            if start_date:
+                params["target_datetime"] = f"gte.{start_date}"
+            if end_date:
+                # If we have both filters, use "and" logic
+                if start_date:
+                    params["target_datetime"] = f"gte.{start_date}"
+                    params["and"] = f"(target_datetime.lte.{end_date})"
+                else:
+                    params["target_datetime"] = f"lte.{end_date}"
+
+            response = requests.get(url, params=params, headers=self.headers)
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"❌ Failed to get ML predictions: {response.status_code}")
+                return []
+        except Exception as e:
+            print(f"❌ Error getting ML predictions: {e}")
+            return []
+
     # ========================================
     # METADATA
     # ========================================
