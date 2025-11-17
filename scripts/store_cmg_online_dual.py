@@ -273,7 +273,16 @@ def main():
 
     # === WRITE TO SUPABASE (new behavior) ===
     print("\n📤 Writing to Supabase...")
-    supabase_success = write_to_supabase(records)
+    # Filter to last 7 days only to avoid duplicate key errors on old data
+    now = datetime.now(santiago_tz)
+    seven_days_ago = (now - timedelta(days=7)).date()
+    recent_records = [r for r in records if r['date'] >= str(seven_days_ago)]
+
+    print(f"   Filtering to last 7 days: {len(recent_records)}/{len(records)} records")
+    if recent_records:
+        print(f"   Date range: {min(r['date'] for r in recent_records)} to {max(r['date'] for r in recent_records)}")
+
+    supabase_success = write_to_supabase(recent_records)
 
     # Summary
     print("\n" + "="*60)

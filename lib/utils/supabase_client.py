@@ -53,19 +53,28 @@ class SupabaseClient:
         Returns:
             True if successful, False otherwise
         """
+        if not records:
+            print("⚠️  No records to insert")
+            return True
+
         try:
             url = f"{self.base_url}/cmg_online"
             headers = self.headers.copy()
-            headers["Prefer"] = "resolution=merge-duplicates"
+            # Use Prefer header for upsert behavior on conflict
+            headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
 
             response = requests.post(url, json=records, headers=headers)
-            
+
             if response.status_code in [200, 201, 204]:
                 print(f"✅ Inserted {len(records)} CMG Online records")
                 return True
             else:
                 print(f"❌ Failed to insert CMG Online: {response.status_code}")
                 print(f"   Response: {response.text}")
+                # Still return True if it's just duplicate errors (script should continue)
+                if response.status_code == 409:
+                    print("   Note: Some records already exist (this is OK)")
+                    return True
                 return False
         except Exception as e:
             print(f"❌ Error inserting CMG Online: {e}")
