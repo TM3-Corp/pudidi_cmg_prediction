@@ -39,13 +39,15 @@ class handler(BaseHTTPRequestHandler):
 
                 if predictions:
                     # Format predictions for API response
+                    # ml_config.html expects: datetime, predicted_cmg, zero_probability, decision_threshold
                     formatted_predictions = [
                         {
                             'horizon': p['horizon'],
+                            'datetime': p['target_datetime'],  # ml_config expects 'datetime'
                             'target_datetime': p['target_datetime'],
-                            'cmg': p['cmg_predicted'],
-                            'prob_zero': p.get('prob_zero', 0),
-                            'threshold': p.get('threshold', 0.5)
+                            'predicted_cmg': p['cmg_predicted'],  # ml_config expects 'predicted_cmg'
+                            'zero_probability': p.get('prob_zero', 0),  # ml_config expects 'zero_probability'
+                            'decision_threshold': p.get('threshold', 0.5)  # ml_config expects 'decision_threshold'
                         }
                         for p in predictions
                     ]

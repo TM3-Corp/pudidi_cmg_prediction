@@ -39,45 +39,61 @@ class handler(BaseHTTPRequestHandler):
                 # Initialize Supabase client (read-only with anon key)
                 supabase = SupabaseClient()
 
-                # Get last 7 days of data
+                # Get current time in Santiago
                 santiago_tz = pytz.timezone('America/Santiago')
-                end_date = datetime.now(santiago_tz).date()
-                start_date = end_date - timedelta(days=7)
+                now = datetime.now(santiago_tz)
+                current_date = now.date()
+                current_hour = now.hour
 
-                # Fetch data from Supabase
+                # CMG Online: Latest 48 hours only
+                historical_start_date = current_date - timedelta(days=2)
                 cmg_online_records = supabase.get_cmg_online(
-                    start_date=str(start_date),
-                    end_date=str(end_date),
-                    limit=5000
+                    start_date=str(historical_start_date),
+                    end_date=str(current_date),
+                    limit=500
                 )
 
+                # CMG Programado: From current hour onwards (future data only)
+                # Fetch from today up to 3 days ahead
+                programmed_end_date = current_date + timedelta(days=3)
                 cmg_programado_records = supabase.get_cmg_programado(
-                    start_date=str(start_date),
-                    end_date=str(end_date),
-                    limit=5000
+                    start_date=str(current_date),
+                    end_date=str(programmed_end_date),
+                    limit=200
                 )
 
                 # Convert to flat array format for frontend compatibility
                 # Frontend expects array of {date, hour, node, cmg_usd, datetime}
                 historical_data = []
                 for record in cmg_online_records:
-                    historical_data.append({
-                        'date': str(record['date']),
-                        'hour': record['hour'],
-                        'node': record['node'],
-                        'cmg_usd': float(record['cmg_usd']),
-                        'datetime': f"{record['date']} {record['hour']:02d}:00:00"
-                    })
+                    record_datetime = datetime.strptime(f"{record['date']} {record['hour']:02d}:00:00", '%Y-%m-%d %H:%M:%S')
+                    record_datetime = santiago_tz.localize(record_datetime)
+
+                    # Only include data from last 48 hours
+                    hours_ago = (now - record_datetime).total_seconds() / 3600
+                    if hours_ago <= 48:
+                        historical_data.append({
+                            'date': str(record['date']),
+                            'hour': record['hour'],
+                            'node': record['node'],
+                            'cmg_usd': float(record['cmg_usd']),
+                            'datetime': f"{record['date']} {record['hour']:02d}:00:00"
+                        })
 
                 programmed_data = []
                 for record in cmg_programado_records:
-                    programmed_data.append({
-                        'date': str(record['date']),
-                        'hour': record['hour'],
-                        'node': record['node'],
-                        'cmg_programmed': float(record['cmg_programmed']),
-                        'datetime': f"{record['date']} {record['hour']:02d}:00:00"
-                    })
+                    record_datetime = datetime.strptime(f"{record['date']} {record['hour']:02d}:00:00", '%Y-%m-%d %H:%M:%S')
+                    record_datetime = santiago_tz.localize(record_datetime)
+
+                    # Only include FUTURE data (from next hour onwards)
+                    if record_datetime > now:
+                        programmed_data.append({
+                            'date': str(record['date']),
+                            'hour': record['hour'],
+                            'node': record['node'],
+                            'cmg_programmed': float(record['cmg_programmed']),
+                            'datetime': f"{record['date']} {record['hour']:02d}:00:00"
+                        })
 
                 # Build display data structure
                 display_data = {

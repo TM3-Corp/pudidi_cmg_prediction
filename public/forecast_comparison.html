@@ -153,28 +153,27 @@
 
         async function loadHistoricalData() {
             try {
-                console.log('Loading data from Supabase...');
+                console.log('Loading historical comparison data from backend...');
 
-                // TODO: This page needs Supabase RLS policies configured
-                // Temporarily showing maintenance message
-                showError('⚠️ Esta página está en mantenimiento mientras se configura el acceso a Supabase.<br><br>Por favor, usa el <a href="index.html" style="color: #3b82f6; text-decoration: underline;">Dashboard Principal</a> mientras tanto.');
-                return;
+                // Use backend API instead of direct Supabase access
+                const response = await fetch('/api/historical_comparison');
 
-                // Fetch all 3 data sources from Supabase concurrently
-                const [mlRecords, progRecords, onlineRecords] = await Promise.all([
-                    supabaseAPI.getMLPredictions({ limit: 10000 }),
-                    supabaseAPI.getCMGProgramado({ limit: 10000 }),
-                    supabaseAPI.getCMGOnline({ limit: 10000 })
-                ]);
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
 
-                console.log(`Loaded ${mlRecords.length} ML predictions from Supabase`);
-                console.log(`Loaded ${progRecords.length} CMG Programado from Supabase`);
-                console.log(`Loaded ${onlineRecords.length} CMG Online from Supabase`);
+                const apiData = await response.json();
 
-                // Transform Supabase data to match expected structure
-                const mlData = transformMLPredictions(mlRecords);
-                const progData = transformCMGProgramado(progRecords);
-                const onlineData = transformCMGOnline(onlineRecords);
+                if (!apiData.success) {
+                    throw new Error(apiData.message || 'Failed to load data');
+                }
+
+                console.log('API Response:', apiData);
+
+                // Transform API data to expected structure
+                const mlData = transformMLPredictionsFromAPI(apiData.data.ml_predictions);
+                const progData = transformCMGProgramadoFromAPI(apiData.data.cmg_programado);
+                const onlineData = transformCMGOnlineFromAPI(apiData.data.cmg_online);
 
                 // Merge the 3 data sources into unified structure
                 historicalData = mergeGistData(mlData, progData, onlineData);
@@ -185,6 +184,111 @@
                 console.error('Error loading historical data:', error);
                 showError('No se pudo cargar los datos históricos. Por favor, intenta más tarde.');
             }
+        }
+
+        function transformMLPredictionsFromAPI(mlByForecast) {
+            const daily_data = {};
+
+            // ML predictions are grouped by forecast_datetime
+            for (const [forecastTime, predictions] of Object.entries(mlByForecast)) {
+                predictions.forEach(pred => {
+                    const targetDate = new Date(pred.target_datetime);
+                    const dateKey = targetDate.toISOString().split('T')[0];
+                    const hour = targetDate.getHours();
+
+                    if (!daily_data[dateKey]) {
+                        daily_data[dateKey] = {
+                            forecasts: {}
+                        };
+                    }
+
+                    if (!daily_data[dateKey].forecasts[forecastTime]) {
+                        daily_data[dateKey].forecasts[forecastTime] = {
+                            predictions: Array(24).fill(null)
+                        };
+                    }
+
+                    daily_data[dateKey].forecasts[forecastTime].predictions[hour] = {
+                        predicted_cmg: pred.predicted_cmg,
+                        horizon: pred.horizon,
+                        prob_zero: pred.prob_zero
+                    };
+                });
+            }
+
+            return { daily_data };
+        }
+
+        function transformCMGProgramadoFromAPI(programadoArray) {
+            const daily_data = {};
+
+            programadoArray.forEach(record => {
+                const dt = new Date(record.datetime);
+                const dateKey = dt.toISOString().split('T')[0];
+                const hour = dt.getHours();
+
+                if (!daily_data[dateKey]) {
+                    daily_data[dateKey] = {
+                        hours: [],
+                        cmg_programado: {}
+                    };
+                }
+
+                if (!daily_data[dateKey].cmg_programado[record.node]) {
+                    daily_data[dateKey].cmg_programado[record.node] = {
+                        cmg_programmed: Array(24).fill(null)
+                    };
+                }
+
+                daily_data[dateKey].cmg_programado[record.node].cmg_programmed[hour] = record.cmg_programmed;
+
+                if (!daily_data[dateKey].hours.includes(hour)) {
+                    daily_data[dateKey].hours.push(hour);
+                }
+            });
+
+            // Sort hours for each day
+            for (const dateKey in daily_data) {
+                daily_data[dateKey].hours.sort((a, b) => a - b);
+            }
+
+            return { daily_data };
+        }
+
+        function transformCMGOnlineFromAPI(onlineArray) {
+            const daily_data = {};
+
+            onlineArray.forEach(record => {
+                const dt = new Date(record.datetime);
+                const dateKey = dt.toISOString().split('T')[0];
+                const hour = dt.getHours();
+
+                if (!daily_data[dateKey]) {
+                    daily_data[dateKey] = {
+                        hours: [],
+                        cmg_online: {}
+                    };
+                }
+
+                if (!daily_data[dateKey].cmg_online[record.node]) {
+                    daily_data[dateKey].cmg_online[record.node] = {
+                        cmg_usd: Array(24).fill(null)
+                    };
+                }
+
+                daily_data[dateKey].cmg_online[record.node].cmg_usd[hour] = record.cmg_actual;
+
+                if (!daily_data[dateKey].hours.includes(hour)) {
+                    daily_data[dateKey].hours.push(hour);
+                }
+            });
+
+            // Sort hours for each day
+            for (const dateKey in daily_data) {
+                daily_data[dateKey].hours.sort((a, b) => a - b);
+            }
+
+            return { daily_data };
         }
 
         function transformMLPredictions(records) {
