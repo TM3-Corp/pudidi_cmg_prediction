@@ -102,14 +102,19 @@ class SupabaseClient:
         try:
             url = f"{self.base_url}/cmg_online"
             params = {"order": "datetime.desc", "limit": limit}
-            
-            if start_date:
+
+            # Handle date range filters properly (PostgREST syntax)
+            if start_date and end_date:
+                # Use 'and' to combine both date filters
+                params["and"] = f"(date.gte.{start_date},date.lte.{end_date})"
+            elif start_date:
                 params["date"] = f"gte.{start_date}"
-            if end_date:
+            elif end_date:
                 params["date"] = f"lte.{end_date}"
+
             if node:
                 params["node"] = f"eq.{node}"
-            
+
             response = requests.get(url, params=params, headers=self.headers)
             
             if response.status_code == 200:
@@ -142,18 +147,22 @@ class SupabaseClient:
             headers["Prefer"] = "resolution=merge-duplicates"
             
             response = requests.post(url, json=records, headers=headers)
-            
+
             if response.status_code in [200, 201, 204]:
                 print(f"✅ Inserted {len(records)} CMG Programado records")
                 return True
             else:
                 print(f"❌ Failed to insert CMG Programado: {response.status_code}")
                 print(f"   Response: {response.text}")
+                # Still return True if it's just duplicate errors (script should continue)
+                if response.status_code == 409:
+                    print("   Note: Some records already exist (this is OK)")
+                    return True
                 return False
         except Exception as e:
             print(f"❌ Error inserting CMG Programado: {e}")
             return False
-    
+
     def get_cmg_programado(
         self,
         start_date: Optional[str] = None,
@@ -164,10 +173,14 @@ class SupabaseClient:
         try:
             url = f"{self.base_url}/cmg_programado"
             params = {"order": "datetime.desc", "limit": limit}
-            
-            if start_date:
+
+            # Handle date range filters properly (PostgREST syntax)
+            if start_date and end_date:
+                # Use 'and' to combine both date filters
+                params["and"] = f"(date.gte.{start_date},date.lte.{end_date})"
+            elif start_date:
                 params["date"] = f"gte.{start_date}"
-            if end_date:
+            elif end_date:
                 params["date"] = f"lte.{end_date}"
             
             response = requests.get(url, params=params, headers=self.headers)
