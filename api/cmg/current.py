@@ -23,6 +23,14 @@ except Exception as e:
     from lib.utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
     USE_SUPABASE = False
 
+# Node name mapping: Supabase storage format → Frontend display format
+# Reverse of NODE_MAPPING in scripts/store_cmg_programado.py
+NODE_DB_TO_FRONTEND = {
+    'NVA_P.MONTT___220': 'PMontt220',
+    'PIDPID________110': 'Pidpid110',
+    'DALCAHUE______110': 'Dalcahue110'
+}
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Return current CMG data from Supabase or cache fallback"""
@@ -87,10 +95,14 @@ class handler(BaseHTTPRequestHandler):
 
                     # Only include FUTURE data (from next hour onwards)
                     if record_datetime > now:
+                        # Transform node name from DB format to frontend format
+                        db_node = record['node']
+                        frontend_node = NODE_DB_TO_FRONTEND.get(db_node, db_node)
+
                         programmed_data.append({
                             'date': str(record['date']),
                             'hour': record['hour'],
-                            'node': record['node'],
+                            'node': frontend_node,  # Use transformed node name
                             'cmg_programmed': float(record['cmg_programmed']),
                             'datetime': f"{record['date']} {record['hour']:02d}:00:00"
                         })
