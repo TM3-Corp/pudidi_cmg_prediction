@@ -91,7 +91,8 @@ class handler(BaseHTTPRequestHandler):
 
                 programmed_data = []
                 for record in cmg_programado_records:
-                    record_datetime = datetime.strptime(f"{record['date']} {record['hour']:02d}:00:00", '%Y-%m-%d %H:%M:%S')
+                    # FIXED: Use correct schema column names (target_date, target_hour, cmg_usd)
+                    record_datetime = datetime.strptime(f"{record['target_date']} {record['target_hour']:02d}:00:00", '%Y-%m-%d %H:%M:%S')
                     record_datetime = santiago_tz.localize(record_datetime)
 
                     # Only include FUTURE data (from next hour onwards)
@@ -101,11 +102,11 @@ class handler(BaseHTTPRequestHandler):
                         frontend_node = NODE_DB_TO_FRONTEND.get(db_node, db_node)
 
                         programmed_data.append({
-                            'date': str(record['date']),
-                            'hour': record['hour'],
+                            'date': str(record['target_date']),
+                            'hour': record['target_hour'],
                             'node': frontend_node,  # Use transformed node name
-                            'cmg_programmed': float(record['cmg_programmed']),
-                            'datetime': f"{record['date']} {record['hour']:02d}:00:00"
+                            'cmg_programmed': float(record['cmg_usd']),  # Schema uses cmg_usd
+                            'datetime': f"{record['target_date']} {record['target_hour']:02d}:00:00"
                         })
 
                 # Get last update time from most recent historical data

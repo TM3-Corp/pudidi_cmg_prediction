@@ -135,16 +135,24 @@ class SupabaseClient:
         """
         Insert batch of CMG Programado records.
         Uses UPSERT to handle duplicates.
-        
+
         Args:
-            records: List of dicts with keys: datetime, date, hour, node, cmg_programmed
-        
+            records: List of dicts with keys:
+                - forecast_datetime: When forecast was made
+                - forecast_date: Date when forecast was made
+                - forecast_hour: Hour when forecast was made
+                - target_datetime: What hour is being predicted
+                - target_date: Date being predicted
+                - target_hour: Hour being predicted
+                - node: Node name
+                - cmg_usd: CMG value in USD
+
         Returns:
             True if successful
         """
         try:
-            # Use on_conflict for proper UPSERT
-            url = f"{self.base_url}/cmg_programado?on_conflict=datetime,node"
+            # Use on_conflict for proper UPSERT (matches schema unique constraint)
+            url = f"{self.base_url}/cmg_programado?on_conflict=forecast_datetime,target_datetime,node"
             headers = self.headers.copy()
             headers["Prefer"] = "resolution=merge-duplicates"
 
@@ -169,23 +177,33 @@ class SupabaseClient:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        limit: int = 1000
+        limit: int = 10000
     ) -> List[Dict[str, Any]]:
-        """Get CMG Programado records"""
+        """
+        Get CMG Programado forecast records.
+
+        Args:
+            start_date: Filter by target_date >= this (YYYY-MM-DD)
+            end_date: Filter by target_date <= this (YYYY-MM-DD)
+            limit: Max records to return
+
+        Returns:
+            List of forecast records with forecast_datetime and target_datetime
+        """
         try:
             url = f"{self.base_url}/cmg_programado"
 
-            # Build params as list of tuples to allow multiple values for same key
-            params = [("order", "datetime.desc"), ("limit", limit)]
+            # Build params - filter by target_date (what's being forecast)
+            params = [("order", "forecast_datetime.desc,target_datetime.asc"), ("limit", limit)]
 
             # Handle date range filters properly (PostgREST syntax)
             if start_date:
-                params.append(("date", f"gte.{start_date}"))
+                params.append(("target_date", f"gte.{start_date}"))
             if end_date:
-                params.append(("date", f"lte.{end_date}"))
+                params.append(("target_date", f"lte.{end_date}"))
 
             response = requests.get(url, params=params, headers=self.headers)
-            
+
             if response.status_code == 200:
                 return response.json()
             else:

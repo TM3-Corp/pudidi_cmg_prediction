@@ -85,15 +85,24 @@ class handler(BaseHTTPRequestHandler):
                         'node': pred.get('node', 'PMontt220')
                     })
 
-                # Format CMG Programado
-                programado_data = [
-                    {
-                        'datetime': f"{p['date']} {p['hour']:02d}:00:00",
-                        'cmg_programmed': p['cmg_programmed'],
+                # Format CMG Programado - group by forecast_datetime
+                programado_by_forecast = {}
+                for p in cmg_programado:
+                    forecast_dt = p['forecast_datetime']
+                    if forecast_dt not in programado_by_forecast:
+                        programado_by_forecast[forecast_dt] = []
+
+                    programado_by_forecast[forecast_dt].append({
+                        'forecast_datetime': forecast_dt,
+                        'target_datetime': p['target_datetime'],
+                        'cmg_programmed': p['cmg_usd'],  # Schema uses cmg_usd
                         'node': p['node']
-                    }
-                    for p in cmg_programado
-                ]
+                    })
+
+                # For backward compatibility, also provide flat array
+                programado_data = []
+                for forecast_dt, forecasts in programado_by_forecast.items():
+                    programado_data.extend(forecasts)
 
                 # Format CMG Online (actual values)
                 online_data = [
@@ -109,7 +118,8 @@ class handler(BaseHTTPRequestHandler):
                     'success': True,
                     'data': {
                         'ml_predictions': ml_by_forecast,
-                        'cmg_programado': programado_data,
+                        'cmg_programado': programado_data,  # Flat array for compatibility
+                        'cmg_programado_by_forecast': programado_by_forecast,  # Grouped by forecast_datetime
                         'cmg_online': online_data
                     },
                     'metadata': {
@@ -117,6 +127,7 @@ class handler(BaseHTTPRequestHandler):
                         'end_date': str(end_date),
                         'ml_forecast_count': len(ml_by_forecast),
                         'ml_predictions_count': len(ml_predictions),
+                        'programado_forecast_count': len(programado_by_forecast),
                         'programado_count': len(programado_data),
                         'online_count': len(online_data)
                     },

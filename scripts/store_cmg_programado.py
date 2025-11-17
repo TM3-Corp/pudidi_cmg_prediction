@@ -240,11 +240,11 @@ def main():
             supabase = SupabaseClient()
             santiago_tz = pytz.timezone('America/Santiago')
 
-            # Transform forecasts to Supabase format
+            # Transform forecasts to Supabase format (matching schema.sql)
             supabase_records = []
             for (date, hour), forecast_data in prog_forecasts.items():
-                fetched_at_str = forecast_data['forecast_time']
-                fetched_at = datetime.fromisoformat(fetched_at_str)
+                forecast_time_str = forecast_data['forecast_time']
+                forecast_dt = datetime.fromisoformat(forecast_time_str)
 
                 # Get all nodes' forecasts
                 for node, forecasts in forecast_data['forecasts'].items():
@@ -258,12 +258,15 @@ def main():
                             target_dt = santiago_tz.localize(target_dt)
 
                         supabase_records.append({
-                            'datetime': target_dt.isoformat(),
-                            'date': target_dt.strftime('%Y-%m-%d'),
-                            'hour': target_dt.hour,
+                            # FIXED: Use correct column names matching schema.sql
+                            'forecast_datetime': forecast_dt.isoformat(),  # When forecast was made
+                            'forecast_date': forecast_dt.strftime('%Y-%m-%d'),
+                            'forecast_hour': forecast_dt.hour,
+                            'target_datetime': target_dt.isoformat(),      # What hour is being predicted
+                            'target_date': target_dt.strftime('%Y-%m-%d'),
+                            'target_hour': target_dt.hour,
                             'node': node,
-                            'cmg_programmed': float(forecast['cmg']),
-                            'fetched_at': fetched_at.isoformat()
+                            'cmg_usd': float(forecast['cmg'])  # Column is cmg_usd, not cmg_programmed
                         })
 
             # Insert in batches
