@@ -11,6 +11,9 @@
     <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
+    <!-- Supabase Client -->
+    <script src="/js/supabase-client.js"></script>
+
     <style>
         .loading-spinner {
             border: 3px solid #f3f3f3;
@@ -143,11 +146,6 @@
     <script>
         let historicalData = null;
 
-        // Use local cache files instead of Gist (fixes 429 rate limit errors)
-        const ML_CACHE_URL = '/data/cache/ml_predictions_historical.json';
-        const PROG_CACHE_URL = '/data/cache/cmg_programado_historical.json';
-        const ONLINE_CACHE_URL = '/data/cache/cmg_online_historical.json';
-
         // Load historical data on page load
         document.addEventListener('DOMContentLoaded', async function() {
             await loadHistoricalData();
@@ -155,22 +153,23 @@
 
         async function loadHistoricalData() {
             try {
-                const cacheBuster = '?t=' + new Date().getTime();
+                console.log('Loading data from Supabase...');
 
-                // Fetch all 3 cache files concurrently
-                const [mlResponse, progResponse, onlineResponse] = await Promise.all([
-                    fetch(ML_CACHE_URL + cacheBuster),
-                    fetch(PROG_CACHE_URL + cacheBuster),
-                    fetch(ONLINE_CACHE_URL + cacheBuster)
+                // Fetch all 3 data sources from Supabase concurrently
+                const [mlRecords, progRecords, onlineRecords] = await Promise.all([
+                    supabaseAPI.getMLPredictions({ limit: 10000 }),
+                    supabaseAPI.getCMGProgramado({ limit: 10000 }),
+                    supabaseAPI.getCMGOnline({ limit: 10000 })
                 ]);
 
-                const mlData = await mlResponse.json();
-                const progData = await progResponse.json();
-                const onlineData = await onlineResponse.json();
+                console.log(`Loaded ${mlRecords.length} ML predictions from Supabase`);
+                console.log(`Loaded ${progRecords.length} CMG Programado from Supabase`);
+                console.log(`Loaded ${onlineRecords.length} CMG Online from Supabase`);
 
-                console.log('Loaded ML predictions:', mlData);
-                console.log('Loaded CMG Programado:', progData);
-                console.log('Loaded CMG Online:', onlineData);
+                // Transform Supabase data to match expected structure
+                const mlData = transformMLPredictions(mlRecords);
+                const progData = transformCMGProgramado(progRecords);
+                const onlineData = transformCMGOnline(onlineRecords);
 
                 // Merge the 3 data sources into unified structure
                 historicalData = mergeGistData(mlData, progData, onlineData);
@@ -181,6 +180,146 @@
                 console.error('Error loading historical data:', error);
                 showError('No se pudo cargar los datos históricos. Por favor, intenta más tarde.');
             }
+        }
+
+        function transformMLPredictions(records) {
+            const daily_data = {};
+
+            records.forEach(record => {
+                const forecastTime = new Date(record.forecast_datetime);
+                const date = forecastTime.toISOString().split('T')[0];
+                const hour = forecastTime.getUTCHours();
+
+                if (!daily_data[date]) {
+                    daily_data[date] = { ml_forecasts: {} };
+                }
+                if (!daily_data[date].ml_forecasts[hour]) {
+                    daily_data[date].ml_forecasts[hour] = {
+                        forecast_time: record.forecast_datetime,
+                        model_version: record.model_version || 'v2.0',
+                        predictions: []
+                    };
+                }
+
+                daily_data[date].ml_forecasts[hour].predictions.push({
+                    horizon: record.horizon,
+                    target_datetime: record.target_datetime,
+                    cmg: record.cmg_predicted,
+                    prob_zero: record.prob_zero || 0,
+                    threshold: record.threshold || 0.5
+                });
+            });
+
+            // Sort predictions by horizon
+            Object.values(daily_data).forEach(day => {
+                Object.values(day.ml_forecasts).forEach(forecast => {
+                    forecast.predictions.sort((a, b) => a.horizon - b.horizon);
+                });
+            });
+
+            return {
+                metadata: {
+                    last_update: new Date().toISOString(),
+                    total_forecasts: records.length,
+                    source: 'supabase'
+                },
+                daily_data
+            };
+        }
+
+        function transformCMGProgramado(records) {
+            const daily_data = {};
+
+            // Group by fetched_at (the forecast snapshot time)
+            const snapshots = {};
+            records.forEach(record => {
+                const fetchedAt = record.fetched_at || record.created_at;
+                if (!snapshots[fetchedAt]) {
+                    snapshots[fetchedAt] = [];
+                }
+                snapshots[fetchedAt].push(record);
+            });
+
+            // Transform each snapshot
+            Object.entries(snapshots).forEach(([fetchedAt, snapshotRecords]) => {
+                const fetchedTime = new Date(fetchedAt);
+                const date = fetchedTime.toISOString().split('T')[0];
+                const hour = fetchedTime.getUTCHours();
+
+                if (!daily_data[date]) {
+                    daily_data[date] = { cmg_programado_forecasts: {} };
+                }
+
+                const forecasts = {};
+                snapshotRecords.forEach(record => {
+                    const node = record.node || 'PMontt220';
+                    if (!forecasts[node]) {
+                        forecasts[node] = [];
+                    }
+                    forecasts[node].push({
+                        datetime: record.datetime,
+                        cmg: record.cmg_programmed
+                    });
+                });
+
+                // Sort forecasts by datetime
+                Object.values(forecasts).forEach(nodeForecasts => {
+                    nodeForecasts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+                });
+
+                daily_data[date].cmg_programado_forecasts[hour] = {
+                    fetched_at: fetchedAt,
+                    forecasts
+                };
+            });
+
+            return {
+                metadata: {
+                    last_update: new Date().toISOString(),
+                    total_records: records.length,
+                    source: 'supabase'
+                },
+                daily_data
+            };
+        }
+
+        function transformCMGOnline(records) {
+            const daily_data = {};
+
+            records.forEach(record => {
+                const date = record.date;
+                const hour = record.hour;
+                const node = record.node;
+
+                if (!daily_data[date]) {
+                    daily_data[date] = {
+                        hours: [],
+                        cmg_online: {}
+                    };
+                }
+
+                if (!daily_data[date].cmg_online[node]) {
+                    daily_data[date].cmg_online[node] = {
+                        cmg_usd: new Array(24).fill(null)
+                    };
+                }
+
+                daily_data[date].cmg_online[node].cmg_usd[hour] = record.cmg_usd;
+
+                if (!daily_data[date].hours.includes(hour)) {
+                    daily_data[date].hours.push(hour);
+                    daily_data[date].hours.sort((a, b) => a - b);
+                }
+            });
+
+            return {
+                metadata: {
+                    last_update: new Date().toISOString(),
+                    total_records: records.length,
+                    source: 'supabase'
+                },
+                daily_data
+            };
         }
 
         function mergeGistData(mlData, progData, onlineData) {

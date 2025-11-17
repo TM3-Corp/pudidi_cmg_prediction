@@ -275,6 +275,80 @@ class SupabaseClient:
             return False
 
 
+    # ========================================
+    # FORMAT HELPERS (for API compatibility)
+    # ========================================
+
+    def format_cmg_online_as_cache(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Format Supabase CMG Online records to match cache file structure.
+        Used by API endpoints for backward compatibility.
+        """
+        daily_data = {}
+        santiago_tz = pytz.timezone('America/Santiago')
+
+        for record in records:
+            date_str = record['date'] if isinstance(record['date'], str) else str(record['date'])
+            node = record['node']
+            hour = record['hour']
+
+            if date_str not in daily_data:
+                daily_data[date_str] = {
+                    'hours': [],
+                    'cmg_online': {}
+                }
+
+            if node not in daily_data[date_str]['cmg_online']:
+                daily_data[date_str]['cmg_online'][node] = {
+                    'cmg_usd': [None] * 24
+                }
+
+            daily_data[date_str]['cmg_online'][node]['cmg_usd'][hour] = float(record['cmg_usd'])
+
+            if hour not in daily_data[date_str]['hours']:
+                daily_data[date_str]['hours'].append(hour)
+
+        # Sort hours
+        for date_data in daily_data.values():
+            date_data['hours'].sort()
+
+        return {
+            'metadata': {
+                'last_update': datetime.now(santiago_tz).isoformat(),
+                'total_records': len(records),
+                'source': 'supabase'
+            },
+            'daily_data': daily_data
+        }
+
+    def format_cmg_programado_as_cache(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Format Supabase CMG Programado records to match cache file structure.
+        """
+        daily_data = {}
+        santiago_tz = pytz.timezone('America/Santiago')
+
+        for record in records:
+            date_str = record['date'] if isinstance(record['date'], str) else str(record['date'])
+            hour = record['hour']
+
+            if date_str not in daily_data:
+                daily_data[date_str] = {
+                    'cmg_programado': [None] * 24
+                }
+
+            daily_data[date_str]['cmg_programado'][hour] = float(record['cmg_programmed'])
+
+        return {
+            'metadata': {
+                'last_update': datetime.now(santiago_tz).isoformat(),
+                'total_records': len(records),
+                'source': 'supabase'
+            },
+            'daily_data': daily_data
+        }
+
+
 def get_supabase_client() -> SupabaseClient:
     """Get initialized Supabase client"""
     return SupabaseClient()

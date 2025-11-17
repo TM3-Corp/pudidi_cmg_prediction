@@ -1,15 +1,26 @@
 #!/usr/bin/env python3
 """
-Store CMG Programado forecasts to dedicated Gist
-Keeps 7-day rolling window of hourly forecasts
+Store CMG Programado forecasts to Supabase and Gist (dual-write)
+Keeps 7-day rolling window of hourly forecasts in Gist, all data in Supabase
 """
 
 import json
 import requests
+import sys
 from datetime import datetime, timedelta
 import pytz
 import os
 from pathlib import Path
+
+# Add lib path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from lib.utils.supabase_client import SupabaseClient
+    SUPABASE_AVAILABLE = True
+except Exception as e:
+    print(f"⚠️ Supabase client not available: {e}")
+    SUPABASE_AVAILABLE = False
 
 # Configuration
 GIST_ID = 'd68bb21360b1ac549c32a80195f99b09'  # CMG Programado Gist
@@ -221,6 +232,50 @@ def main():
     # Update Gist
     print("\n📤 Updating Gist...")
     success = update_gist(merged_data)
+
+    # Write to Supabase (dual-write strategy)
+    if prog_forecasts and SUPABASE_AVAILABLE:
+        try:
+            print("☁️  Writing forecasts to Supabase...")
+            supabase = SupabaseClient()
+            santiago_tz = pytz.timezone('America/Santiago')
+
+            # Transform forecasts to Supabase format
+            supabase_records = []
+            for (date, hour), forecast_data in prog_forecasts.items():
+                fetched_at_str = forecast_data['forecast_time']
+                fetched_at = datetime.fromisoformat(fetched_at_str)
+
+                # Get all nodes' forecasts
+                for node, forecasts in forecast_data['forecasts'].items():
+                    for forecast in forecasts:
+                        target_dt_str = forecast['datetime']
+                        # Parse target datetime
+                        if 'T' in target_dt_str:
+                            target_dt = datetime.fromisoformat(target_dt_str.replace('Z', '+00:00'))
+                        else:
+                            target_dt = datetime.strptime(target_dt_str, '%Y-%m-%d %H:%M:%S')
+                            target_dt = santiago_tz.localize(target_dt)
+
+                        supabase_records.append({
+                            'datetime': target_dt.isoformat(),
+                            'date': target_dt.strftime('%Y-%m-%d'),
+                            'hour': target_dt.hour,
+                            'node': node,
+                            'cmg_programmed': float(forecast['cmg']),
+                            'fetched_at': fetched_at.isoformat()
+                        })
+
+            # Insert in batches
+            batch_size = 100
+            for i in range(0, len(supabase_records), batch_size):
+                batch = supabase_records[i:i+batch_size]
+                supabase.insert_cmg_programado_batch(batch)
+
+            print(f"✅ Wrote {len(supabase_records)} forecasts to Supabase")
+        except Exception as e:
+            print(f"⚠️ Failed to write to Supabase: {e}")
+            print("   (Gist and local cache still updated)")
 
     # Save local copy
     local_path = Path('data/cache/cmg_programado_historical.json')
