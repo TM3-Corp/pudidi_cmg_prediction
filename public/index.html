@@ -619,7 +619,7 @@
                 // ML Prediction line (blue, dotted)
                 traces.push({
                     x: mlData.map(d => d.datetime),
-                    y: mlData.map(d => d.cmg_predicted),
+                    y: mlData.map(d => d.predicted_cmg || d.cmg_predicted || 0),
                     name: '🤖 Predicción ML',
                     type: 'scatter',
                     mode: 'lines+markers',

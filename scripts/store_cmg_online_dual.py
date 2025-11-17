@@ -21,9 +21,9 @@ import os
 import sys
 from pathlib import Path
 
-# Add scripts directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
-from supabase_client import get_supabase_client
+# Add parent directories to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from lib.utils.supabase_client import SupabaseClient
 
 # GitHub Gist configuration
 GIST_ID = '8d7864eb26acf6e780d3c0f7fed69365'
@@ -184,10 +184,11 @@ def update_gist(data):
 
 def write_to_supabase(records):
     """Write CMG Online data to Supabase (NEW)"""
-    supabase = get_supabase_client()
-
-    if not supabase:
-        print("⚠️  Supabase client not available, skipping Supabase write")
+    try:
+        supabase = SupabaseClient()
+    except Exception as e:
+        print(f"⚠️  Supabase client not available: {e}")
+        print("   Skipping Supabase write")
         return False
 
     try:
@@ -220,15 +221,15 @@ def write_to_supabase(records):
             print("⚠️  No rows to insert to Supabase")
             return False
 
-        # Upsert to Supabase (insert or update on conflict)
-        result = supabase.table('cmg_online').upsert(
-            rows_to_insert,
-            on_conflict='datetime,node'
-        ).execute()
+        # Use SupabaseClient's insert method (handles upsert internally)
+        success = supabase.insert_cmg_online_batch(rows_to_insert)
 
-        inserted_count = len(rows_to_insert)
-        print(f"✅ Supabase write successful: {inserted_count} rows")
-        return True
+        if success:
+            print(f"✅ Supabase write successful: {len(rows_to_insert)} rows")
+            return True
+        else:
+            print("❌ Supabase write failed")
+            return False
 
     except Exception as e:
         print(f"❌ Error writing to Supabase: {e}")

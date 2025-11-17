@@ -452,13 +452,17 @@
         function updateModelInfo() {
             if (mlPredictionsData) {
                 document.getElementById('model-version').textContent = mlPredictionsData.model_version || 'v1.0';
-                document.getElementById('last-update').textContent =
-                    new Date(mlPredictionsData.generated_at).toLocaleString('es-CL', {
+
+                // Use forecast_time or status.last_update (API changed from generated_at)
+                const lastUpdate = mlPredictionsData.forecast_time || mlPredictionsData.status?.last_update || mlPredictionsData.generated_at;
+                document.getElementById('last-update').textContent = lastUpdate
+                    ? new Date(lastUpdate).toLocaleString('es-CL', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
                         minute: '2-digit'
-                    });
+                    })
+                    : '--';
             }
         }
 
