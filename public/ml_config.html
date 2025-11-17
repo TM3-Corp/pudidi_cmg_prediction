@@ -495,9 +495,10 @@
                     uncertainCount++;
                 }
 
-                const cmgDisplay = pred.cmg_predicted === 0
+                const cmgValue = pred.predicted_cmg || pred.cmg_predicted || 0;
+                const cmgDisplay = cmgValue === 0
                     ? '<span class="text-gray-600 font-semibold">$0.00</span>'
-                    : `<span class="text-green-600 font-semibold">$${pred.cmg_predicted.toFixed(2)}</span>`;
+                    : `<span class="text-green-600 font-semibold">$${cmgValue.toFixed(2)}</span>`;
 
                 row.innerHTML = `
                     <td class="px-4 py-3 text-gray-700">${new Date(pred.datetime).toLocaleString('es-CL', {

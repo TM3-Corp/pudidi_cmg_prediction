@@ -57,18 +57,37 @@ class handler(BaseHTTPRequestHandler):
                     limit=5000
                 )
 
-                # Format as cache structure for API compatibility
-                historical_data = supabase.format_cmg_online_as_cache(cmg_online_records)
-                programmed_data = supabase.format_cmg_programado_as_cache(cmg_programado_records)
+                # Convert to flat array format for frontend compatibility
+                # Frontend expects array of {date, hour, node, cmg_usd, datetime}
+                historical_data = []
+                for record in cmg_online_records:
+                    historical_data.append({
+                        'date': str(record['date']),
+                        'hour': record['hour'],
+                        'node': record['node'],
+                        'cmg_usd': float(record['cmg_usd']),
+                        'datetime': f"{record['date']} {record['hour']:02d}:00:00"
+                    })
+
+                programmed_data = []
+                for record in cmg_programado_records:
+                    programmed_data.append({
+                        'date': str(record['date']),
+                        'hour': record['hour'],
+                        'node': record['node'],
+                        'cmg_programmed': float(record['cmg_programmed']),
+                        'datetime': f"{record['date']} {record['hour']:02d}:00:00"
+                    })
 
                 # Build display data structure
                 display_data = {
                     'historical': {
-                        'available': len(cmg_online_records) > 0,
-                        'data': historical_data
+                        'available': len(historical_data) > 0,
+                        'data': historical_data,
+                        'coverage': min((len(historical_data) / 24) * 100, 100) if historical_data else 0
                     },
                     'programmed': {
-                        'available': len(cmg_programado_records) > 0,
+                        'available': len(programmed_data) > 0,
                         'data': programmed_data
                     },
                     'status': {

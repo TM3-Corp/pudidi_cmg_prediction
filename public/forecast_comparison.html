@@ -155,6 +155,11 @@
             try {
                 console.log('Loading data from Supabase...');
 
+                // TODO: This page needs Supabase RLS policies configured
+                // Temporarily showing maintenance message
+                showError('⚠️ Esta página está en mantenimiento mientras se configura el acceso a Supabase.<br><br>Por favor, usa el <a href="index.html" style="color: #3b82f6; text-decoration: underline;">Dashboard Principal</a> mientras tanto.');
+                return;
+
                 // Fetch all 3 data sources from Supabase concurrently
                 const [mlRecords, progRecords, onlineRecords] = await Promise.all([
                     supabaseAPI.getMLPredictions({ limit: 10000 }),
