@@ -273,12 +273,20 @@ def main():
 
     # === WRITE TO SUPABASE (new behavior) ===
     print("\n📤 Writing to Supabase...")
-    # Filter to last 7 days only to avoid duplicate key errors on old data
+    # Filter to:
+    # 1. Last 7 days only (avoid duplicate key errors on old data)
+    # 2. Only nodes we actually use (PIDPID is excluded in frontend)
+    ACTIVE_NODES = ['NVA_P.MONTT___220', 'DALCAHUE______110']
+
     now = datetime.now(santiago_tz)
     seven_days_ago = (now - timedelta(days=7)).date()
-    recent_records = [r for r in records if r['date'] >= str(seven_days_ago)]
+    recent_records = [
+        r for r in records
+        if r['date'] >= str(seven_days_ago) and r['node'] in ACTIVE_NODES
+    ]
 
-    print(f"   Filtering to last 7 days: {len(recent_records)}/{len(records)} records")
+    print(f"   Filtering to last 7 days + active nodes only: {len(recent_records)}/{len(records)} records")
+    print(f"   Active nodes: {ACTIVE_NODES}")
     if recent_records:
         print(f"   Date range: {min(r['date'] for r in recent_records)} to {max(r['date'] for r in recent_records)}")
 
