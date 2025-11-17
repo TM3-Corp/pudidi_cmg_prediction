@@ -53,12 +53,13 @@ class handler(BaseHTTPRequestHandler):
                 current_date = now.date()
                 current_hour = now.hour
 
-                # CMG Online: Latest 48 hours only
-                historical_start_date = current_date - timedelta(days=2)
+                # CMG Online: Query last 7 days, then filter to 48 hours in memory
+                # (Broader query to ensure we don't miss data due to timezone/boundary issues)
+                historical_start_date = current_date - timedelta(days=7)
                 cmg_online_records = supabase.get_cmg_online(
                     start_date=str(historical_start_date),
                     end_date=str(current_date),
-                    limit=500
+                    limit=1000
                 )
 
                 # CMG Programado: From current hour onwards (future data only)
@@ -77,9 +78,9 @@ class handler(BaseHTTPRequestHandler):
                     record_datetime = datetime.strptime(f"{record['date']} {record['hour']:02d}:00:00", '%Y-%m-%d %H:%M:%S')
                     record_datetime = santiago_tz.localize(record_datetime)
 
-                    # Only include data from last 48 hours
+                    # Only include PAST data from last 48 hours (not future data)
                     hours_ago = (now - record_datetime).total_seconds() / 3600
-                    if hours_ago <= 48:
+                    if 0 <= hours_ago <= 48:  # Must be in the past AND within 48 hours
                         historical_data.append({
                             'date': str(record['date']),
                             'hour': record['hour'],
