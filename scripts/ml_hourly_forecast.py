@@ -346,6 +346,10 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
     """
     print("\n[4/5] Generating 24-hour forecast...")
 
+    # Calculate data staleness
+    now = datetime.now()
+    data_staleness_hours = (now - base_datetime).total_seconds() / 3600
+
     forecasts = []
 
     for h in range(1, 25):
@@ -400,10 +404,16 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
 
         final_prediction = 0 if zero_prob > optimal_threshold else max(0, value_median)
 
+        # Calculate real-time offset and validity
+        real_time_offset = (target_time - now).total_seconds() / 3600
+        is_valid_forecast = (target_time > now)
+
         forecasts.append({
             'horizon': h,
             'target_datetime': target_time.strftime('%Y-%m-%d %H:00:00'),
             'predicted_cmg': round(final_prediction, 2),
+            'real_time_offset': round(real_time_offset, 1),
+            'is_valid_forecast': is_valid_forecast,
             'zero_probability': round(zero_prob, 4),
             'zero_probability_raw': round(zero_prob_raw, 4) if models['meta_calibrator'] is not None else None,
             'decision_threshold': round(optimal_threshold, 4),
@@ -416,14 +426,21 @@ def generate_forecast(models, X_stage2, X_stage1, base_datetime):
         })
 
     print(f"  ✓ Generated {len(forecasts)} predictions")
-    print(f"  t+1:  ${forecasts[0]['predicted_cmg']:.2f} (zero_prob: {forecasts[0]['zero_probability']:.2%})")
-    print(f"  t+6:  ${forecasts[5]['predicted_cmg']:.2f} (zero_prob: {forecasts[5]['zero_probability']:.2%})")
-    print(f"  t+12: ${forecasts[11]['predicted_cmg']:.2f} (zero_prob: {forecasts[11]['zero_probability']:.2%})")
-    print(f"  t+24: ${forecasts[23]['predicted_cmg']:.2f} (zero_prob: {forecasts[23]['zero_probability']:.2%})")
+
+    # Count valid forecasts
+    valid_count = sum(1 for f in forecasts if f['is_valid_forecast'])
+    print(f"  ✓ Data staleness: {data_staleness_hours:.1f} hours")
+    print(f"  ✓ Valid future forecasts: {valid_count}/{len(forecasts)}")
+
+    print(f"  t+1:  ${forecasts[0]['predicted_cmg']:.2f} (zero_prob: {forecasts[0]['zero_probability']:.2%}) [offset: {forecasts[0]['real_time_offset']:.1f}h]")
+    print(f"  t+6:  ${forecasts[5]['predicted_cmg']:.2f} (zero_prob: {forecasts[5]['zero_probability']:.2%}) [offset: {forecasts[5]['real_time_offset']:.1f}h]")
+    print(f"  t+12: ${forecasts[11]['predicted_cmg']:.2f} (zero_prob: {forecasts[11]['zero_probability']:.2%}) [offset: {forecasts[11]['real_time_offset']:.1f}h]")
+    print(f"  t+24: ${forecasts[23]['predicted_cmg']:.2f} (zero_prob: {forecasts[23]['zero_probability']:.2%}) [offset: {forecasts[23]['real_time_offset']:.1f}h]")
 
     return {
-        'generated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC'),
+        'generated_at': now.strftime('%Y-%m-%d %H:%M:%S'),
         'base_datetime': base_datetime.strftime('%Y-%m-%d %H:00:00'),
+        'data_staleness_hours': round(data_staleness_hours, 1),
         'model_version': 'gpu_enhanced_v1',
         'model_performance': {
             'test_mae': 32.43,
