@@ -449,7 +449,8 @@
                 
                 if (filteredData.length > 0) {
                     // Current CMG - use cmg_usd or cmg_real
-                    const latest = filteredData[filteredData.length - 1];
+                    // API returns data sorted by datetime DESC (newest first), so take first element
+                    const latest = filteredData[0];
                     const latestValue = latest.cmg_usd !== undefined ? latest.cmg_usd : (latest.cmg_actual || 0);
                     document.getElementById('current-cmg').textContent = `$${latestValue.toFixed(2)}`;
                     document.getElementById('current-time').textContent = latest.datetime;
