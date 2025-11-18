@@ -227,12 +227,14 @@
         function transformMLPredictionsFromAPI(mlByForecast) {
             const daily_data = {};
 
-            // ML predictions are grouped by forecast_datetime
-            // We organize by the FORECAST date/hour (when the prediction was made)
+            // ML predictions are NOW grouped by (forecast_date, forecast_hour) from backend
+            // Keys are already in Santiago timezone format: "YYYY-MM-DD HH:00:00"
+            // No timezone conversion needed!
             for (const [forecastTime, predictions] of Object.entries(mlByForecast)) {
-                // FIXED: Use Santiago timezone for date and hour extraction
-                const dateKey = getChileDate(forecastTime);
-                const hour = getChileHour(forecastTime);
+                // Parse Santiago time key (format: "YYYY-MM-DD HH:00:00")
+                const [datePart, timePart] = forecastTime.split(' ');
+                const dateKey = datePart;  // "YYYY-MM-DD"
+                const hour = parseInt(timePart.split(':')[0]);  // Extract hour as integer
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {
@@ -247,7 +249,7 @@
                     predictions: predictions.map(pred => ({
                         horizon: pred.horizon,
                         target_datetime: pred.target_datetime,
-                        cmg: pred.predicted_cmg,
+                        cmg: pred.predicted_cmg || pred.cmg_predicted,  // Handle both field names
                         prob_zero: pred.prob_zero || 0,
                         threshold: pred.threshold || 0.5
                     }))
@@ -260,12 +262,13 @@
         function transformCMGProgramadoFromAPI(programadoByForecast) {
             const daily_data = {};
 
-            // Input is already grouped by forecast_datetime from the API
-            // programadoByForecast = { "2025-11-12 04:00:00": [...predictions...], ... }
+            // Input is NOW grouped by (forecast_date, forecast_hour) from the API
+            // Keys are already in Santiago timezone format: "YYYY-MM-DD HH:00:00"
             for (const [forecastTime, predictions] of Object.entries(programadoByForecast)) {
-                // FIXED: Use Santiago timezone for date and hour extraction
-                const dateKey = getChileDate(forecastTime);
-                const hour = getChileHour(forecastTime);
+                // Parse Santiago time key (format: "YYYY-MM-DD HH:00:00")
+                const [datePart, timePart] = forecastTime.split(' ');
+                const dateKey = datePart;  // "YYYY-MM-DD"
+                const hour = parseInt(timePart.split(':')[0]);  // Extract hour as integer
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {
@@ -305,9 +308,11 @@
             const daily_data = {};
 
             onlineArray.forEach(record => {
-                // FIXED: Use Santiago timezone for date and hour extraction
-                const dateKey = getChileDate(record.datetime);
-                const hour = getChileHour(record.datetime);
+                // API returns datetime in format: "YYYY-MM-DD HH:00:00" (already Santiago timezone)
+                // Parse it directly without timezone conversion
+                const [datePart, timePart] = record.datetime.split(' ');
+                const dateKey = datePart;  // "YYYY-MM-DD"
+                const hour = parseInt(timePart.split(':')[0]);  // Extract hour as integer
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {

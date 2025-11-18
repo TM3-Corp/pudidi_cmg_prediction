@@ -68,32 +68,42 @@ class handler(BaseHTTPRequestHandler):
                 )
 
                 # Format data for frontend
-                # Group ML predictions by forecast date
+                # FIXED: Group ML predictions by (forecast_date, forecast_hour) - already in Santiago timezone
+                # This prevents multiple forecast_datetime timestamps in same hour from creating separate groups
                 ml_by_forecast = {}
                 for pred in ml_predictions:
-                    forecast_dt = pred['forecast_datetime']
-                    if forecast_dt not in ml_by_forecast:
-                        ml_by_forecast[forecast_dt] = []
+                    # Create composite key from Santiago timezone columns: "YYYY-MM-DD HH:00:00"
+                    forecast_key = f"{pred['forecast_date']} {pred['forecast_hour']:02d}:00:00"
 
-                    ml_by_forecast[forecast_dt].append({
-                        'forecast_datetime': forecast_dt,
+                    if forecast_key not in ml_by_forecast:
+                        ml_by_forecast[forecast_key] = []
+
+                    ml_by_forecast[forecast_key].append({
+                        'forecast_datetime': pred['forecast_datetime'],  # Keep original UTC timestamp
+                        'forecast_date': str(pred['forecast_date']),
+                        'forecast_hour': pred['forecast_hour'],
                         'target_datetime': pred['target_datetime'],
                         'horizon': pred['horizon'],
                         'predicted_cmg': pred['cmg_predicted'],
                         'prob_zero': pred.get('prob_zero', 0),
                         'threshold': pred.get('threshold', 0.5),
-                        'node': pred.get('node', 'PMontt220')
+                        'model_version': pred.get('model_version', 'v2.0')
                     })
 
-                # Format CMG Programado - group by forecast_datetime
+                # Format CMG Programado - group by (forecast_date, forecast_hour) in Santiago timezone
+                # This ensures all forecasts made in same hour are grouped together
                 programado_by_forecast = {}
                 for p in cmg_programado:
-                    forecast_dt = p['forecast_datetime']
-                    if forecast_dt not in programado_by_forecast:
-                        programado_by_forecast[forecast_dt] = []
+                    # Create composite key from Santiago timezone columns: "YYYY-MM-DD HH:00:00"
+                    forecast_key = f"{p['forecast_date']} {p['forecast_hour']:02d}:00:00"
 
-                    programado_by_forecast[forecast_dt].append({
-                        'forecast_datetime': forecast_dt,
+                    if forecast_key not in programado_by_forecast:
+                        programado_by_forecast[forecast_key] = []
+
+                    programado_by_forecast[forecast_key].append({
+                        'forecast_datetime': p['forecast_datetime'],  # Keep original UTC timestamp
+                        'forecast_date': str(p['forecast_date']),
+                        'forecast_hour': p['forecast_hour'],
                         'target_datetime': p['target_datetime'],
                         'cmg_programmed': p['cmg_usd'],  # Schema uses cmg_usd
                         'node': p['node']
