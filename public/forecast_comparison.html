@@ -246,13 +246,28 @@
                 daily_data[dateKey].ml_forecasts[hour] = {
                     forecast_time: forecastTime,
                     model_version: predictions[0]?.model_version || 'v2.0',
-                    predictions: predictions.map(pred => ({
-                        horizon: pred.horizon,
-                        target_datetime: pred.target_datetime,
-                        cmg: pred.predicted_cmg || pred.cmg_predicted,  // Handle both field names
-                        prob_zero: pred.prob_zero || 0,
-                        threshold: pred.threshold || 0.5
-                    }))
+                    predictions: predictions.map(pred => {
+                        // Convert target_datetime from UTC to Santiago timezone
+                        const targetUTC = new Date(pred.target_datetime);
+                        const targetSantiago = targetUTC.toLocaleString('sv-SE', {
+                            timeZone: 'America/Santiago',
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                        }).replace(' ', 'T');
+
+                        return {
+                            horizon: pred.horizon,
+                            target_datetime: targetSantiago,  // Now in Santiago time
+                            cmg: pred.predicted_cmg ?? pred.cmg_predicted,  // Use ?? to handle 0 values correctly
+                            prob_zero: pred.prob_zero ?? 0,
+                            threshold: pred.threshold ?? 0.5
+                        };
+                    })
                 };
             }
 
@@ -283,9 +298,23 @@
                     if (!forecasts[node]) {
                         forecasts[node] = [];
                     }
+
+                    // Convert target_datetime from UTC to Santiago timezone
+                    const targetUTC = new Date(pred.target_datetime);
+                    const targetSantiago = targetUTC.toLocaleString('sv-SE', {
+                        timeZone: 'America/Santiago',
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    }).replace(' ', 'T');
+
                     forecasts[node].push({
-                        datetime: pred.target_datetime,
-                        cmg: pred.cmg_programmed
+                        datetime: targetSantiago,  // Now in Santiago time
+                        cmg: pred.cmg_programmed  // Direct assignment works for 0 values
                     });
                 });
 
