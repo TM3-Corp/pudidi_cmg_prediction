@@ -617,9 +617,25 @@
             if (mlPredictions && mlPredictions.predictions && selectedNode === 'all') {
                 const mlData = mlPredictions.predictions;
 
+                // Convert UTC datetimes to Santiago time (UTC-3)
+                // ML predictions come as "2025-11-18T15:00:00+00:00" (UTC)
+                // Historical/Programmed come as "2025-11-18 12:00:00" (local, no timezone)
+                // We need to convert ML times to local format for consistency
+                const convertToSantiagoTime = (utcDatetimeStr) => {
+                    const date = new Date(utcDatetimeStr);
+                    // Format as "YYYY-MM-DD HH:MM:SS" in local timezone (Santiago)
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+                };
+
                 // ML Prediction line (blue, dotted)
                 traces.push({
-                    x: mlData.map(d => d.datetime),
+                    x: mlData.map(d => convertToSantiagoTime(d.datetime)),
                     y: mlData.map(d => d.predicted_cmg || d.cmg_predicted || 0),
                     name: '🤖 Predicción ML',
                     type: 'scatter',
