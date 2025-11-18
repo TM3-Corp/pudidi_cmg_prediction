@@ -187,15 +187,52 @@
             }
         }
 
+        // ========================================
+        // TIMEZONE HELPERS (Santiago/Chile = UTC-3)
+        // ========================================
+
+        /**
+         * Extract date in Santiago timezone (YYYY-MM-DD format)
+         * @param {string} utcDatetimeStr - UTC datetime string (ISO format)
+         * @returns {string} Date in Santiago timezone (YYYY-MM-DD)
+         */
+        function getChileDate(utcDatetimeStr) {
+            const date = new Date(utcDatetimeStr);
+            // Format as YYYY-MM-DD in Chile timezone
+            // en-CA locale gives YYYY-MM-DD format
+            return date.toLocaleString('en-CA', {
+                timeZone: 'America/Santiago',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        }
+
+        /**
+         * Extract hour in Santiago timezone (0-23)
+         * @param {string} utcDatetimeStr - UTC datetime string (ISO format)
+         * @returns {number} Hour in Santiago timezone (0-23)
+         */
+        function getChileHour(utcDatetimeStr) {
+            const date = new Date(utcDatetimeStr);
+            // Get hour in Chile timezone
+            const hourStr = date.toLocaleString('en-US', {
+                timeZone: 'America/Santiago',
+                hour12: false,
+                hour: '2-digit'
+            });
+            return parseInt(hourStr);
+        }
+
         function transformMLPredictionsFromAPI(mlByForecast) {
             const daily_data = {};
 
             // ML predictions are grouped by forecast_datetime
             // We organize by the FORECAST date/hour (when the prediction was made)
             for (const [forecastTime, predictions] of Object.entries(mlByForecast)) {
-                const forecastDate = new Date(forecastTime);
-                const dateKey = forecastDate.toISOString().split('T')[0];
-                const hour = forecastDate.getHours();
+                // FIXED: Use Santiago timezone for date and hour extraction
+                const dateKey = getChileDate(forecastTime);
+                const hour = getChileHour(forecastTime);
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {
@@ -226,9 +263,9 @@
             // Input is already grouped by forecast_datetime from the API
             // programadoByForecast = { "2025-11-12 04:00:00": [...predictions...], ... }
             for (const [forecastTime, predictions] of Object.entries(programadoByForecast)) {
-                const forecastDate = new Date(forecastTime);
-                const dateKey = forecastDate.toISOString().split('T')[0];
-                const hour = forecastDate.getHours();
+                // FIXED: Use Santiago timezone for date and hour extraction
+                const dateKey = getChileDate(forecastTime);
+                const hour = getChileHour(forecastTime);
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {
@@ -268,9 +305,9 @@
             const daily_data = {};
 
             onlineArray.forEach(record => {
-                const dt = new Date(record.datetime);
-                const dateKey = dt.toISOString().split('T')[0];
-                const hour = dt.getHours();
+                // FIXED: Use Santiago timezone for date and hour extraction
+                const dateKey = getChileDate(record.datetime);
+                const hour = getChileHour(record.datetime);
 
                 if (!daily_data[dateKey]) {
                     daily_data[dateKey] = {
