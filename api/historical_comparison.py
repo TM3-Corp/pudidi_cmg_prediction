@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
+import requests
 
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -49,11 +50,18 @@ class handler(BaseHTTPRequestHandler):
                 start_date = end_date - timedelta(days=30)
 
                 # Fetch all data sources
-                ml_predictions = supabase.get_ml_predictions(
-                    start_date=str(start_date),
-                    end_date=str(end_date),
-                    limit=10000
-                )
+                # NOTE: For historical comparison, we need to filter by FORECAST datetime
+                # (when the prediction was made), not target datetime (what was predicted)
+                # This ensures we show all forecasts that were MADE during the date range
+                url = f"{supabase.base_url}/ml_predictions"
+                ml_params = [
+                    ("forecast_datetime", f"gte.{start_date}T00:00:00"),
+                    ("forecast_datetime", f"lte.{end_date}T23:59:59"),
+                    ("order", "forecast_datetime.desc"),
+                    ("limit", 10000)
+                ]
+                ml_response = requests.get(url, params=ml_params, headers=supabase.headers)
+                ml_predictions = ml_response.json() if ml_response.status_code == 200 else []
 
                 cmg_programado = supabase.get_cmg_programado(
                     start_date=str(start_date),
