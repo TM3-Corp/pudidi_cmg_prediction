@@ -68,20 +68,29 @@ class handler(BaseHTTPRequestHandler):
                 )
 
                 # Format data for frontend
-                # FIXED: Group ML predictions by (forecast_date, forecast_hour) - already in Santiago timezone
-                # This prevents multiple forecast_datetime timestamps in same hour from creating separate groups
+                # FIXED: Group ML predictions by (forecast_date, forecast_hour) in Santiago timezone
+                # NOTE: ml_predictions table doesn't have forecast_date/hour columns yet,
+                # so we calculate them from forecast_datetime
                 ml_by_forecast = {}
                 for pred in ml_predictions:
-                    # Create composite key from Santiago timezone columns: "YYYY-MM-DD HH:00:00"
-                    forecast_key = f"{pred['forecast_date']} {pred['forecast_hour']:02d}:00:00"
+                    # Convert UTC forecast_datetime to Santiago timezone
+                    forecast_dt_utc = datetime.fromisoformat(pred['forecast_datetime'].replace('Z', '+00:00'))
+                    forecast_dt_santiago = forecast_dt_utc.astimezone(santiago_tz)
+
+                    # Extract date and hour in Santiago timezone
+                    forecast_date = forecast_dt_santiago.date()
+                    forecast_hour = forecast_dt_santiago.hour
+
+                    # Create composite key: "YYYY-MM-DD HH:00:00"
+                    forecast_key = f"{forecast_date} {forecast_hour:02d}:00:00"
 
                     if forecast_key not in ml_by_forecast:
                         ml_by_forecast[forecast_key] = []
 
                     ml_by_forecast[forecast_key].append({
                         'forecast_datetime': pred['forecast_datetime'],  # Keep original UTC timestamp
-                        'forecast_date': str(pred['forecast_date']),
-                        'forecast_hour': pred['forecast_hour'],
+                        'forecast_date': str(forecast_date),
+                        'forecast_hour': forecast_hour,
                         'target_datetime': pred['target_datetime'],
                         'horizon': pred['horizon'],
                         'predicted_cmg': pred['cmg_predicted'],
