@@ -63,11 +63,17 @@ class handler(BaseHTTPRequestHandler):
                 ml_response = requests.get(url, params=ml_params, headers=supabase.headers)
                 ml_predictions = ml_response.json() if ml_response.status_code == 200 else []
 
-                cmg_programado = supabase.get_cmg_programado(
-                    start_date=str(start_date),
-                    end_date=str(end_date),
-                    limit=10000
-                )
+                # Fetch CMG Programado - filter by FORECAST date (when made), not target date
+                # This matches the ML predictions logic above
+                prog_url = f"{supabase.base_url}/cmg_programado"
+                prog_params = [
+                    ("forecast_date", f"gte.{start_date}"),
+                    ("forecast_date", f"lte.{end_date}"),
+                    ("order", "forecast_datetime.desc"),
+                    ("limit", 10000)
+                ]
+                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
+                cmg_programado = prog_response.json() if prog_response.status_code == 200 else []
 
                 cmg_online = supabase.get_cmg_online(
                     start_date=str(start_date),
