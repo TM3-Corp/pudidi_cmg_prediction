@@ -24,13 +24,13 @@
 
 ---
 
-## 🚨 CRITICAL CURRENT ISSUE: SCHEMA MISMATCH (Nov 17, 2025)
+## ✅ MIGRATION COMPLETED: Schema Fixed (Nov 17, 2025)
 
-### The Problem
+### The Problem (RESOLVED)
 
-A **critical schema mismatch** was discovered between the documented schema and the actual Supabase database:
+A **critical schema mismatch** was discovered and **successfully resolved** between the documented schema and the actual Supabase database.
 
-**Schema.sql (documented)**:
+**Schema.sql (documented)** - NOW MATCHES ACTUAL DATABASE:
 ```sql
 CREATE TABLE cmg_programado (
     forecast_datetime TIMESTAMPTZ,  -- When forecast was made
@@ -40,32 +40,43 @@ CREATE TABLE cmg_programado (
 )
 ```
 
-**Actual Supabase Database**:
+**Previous Database Schema** (before migration):
 ```sql
--- Columns that actually exist:
+-- Old columns (now migrated):
 datetime, fetched_at, cmg_programmed, date, hour, node
 ```
 
-### Impact
+### Migration Results ✅
 
-1. ❌ All recent code changes (lib/utils/supabase_client.py, scripts/store_cmg_programado.py, api/historical_comparison.py) **fail with 400 errors**
-2. ❌ CMG Programado data **cannot be queried** with new code
-3. ✅ BUT: 696 existing records ARE in Supabase (just with old schema)
-4. ✅ Gists contain 43,109 CMG Programado records (29 days) ready for backfill
+**Completed** (Nov 17, 2025):
+- ✅ SQL migration executed successfully via Transaction Pooler
+- ✅ All 696 existing records migrated from old → new schema
+- ✅ New columns added: forecast_datetime, target_datetime, cmg_usd, etc.
+- ✅ Unique constraints and indexes created
+- ✅ SupabaseClient now works (no more 400 errors!)
+- ✅ API endpoints returning data: 602 CMG Programado forecasts
+- ✅ All 5 verification tests passed
 
-### Migration Status
+**Key Learning - Supabase Connection**:
+```python
+# IMPORTANT: Use Transaction Pooler for IPv4 networks (Supabase free plan)
+# Connection string format:
+# postgresql://postgres.btyfbrclgmphcjgrvcgd:[PASSWORD]@aws-1-sa-east-1.pooler.supabase.com:6543/postgres
 
-**Created** (Nov 17, 2025):
-- ✅ `supabase/migrations/001_migrate_cmg_programado_schema.sql` - SQL migration script
-- ✅ `scripts/migrate_cmg_programado_schema.py` - Python backfill script
-- ✅ Committed and pushed to main branch
+conn_params = {
+    'host': 'aws-1-sa-east-1.pooler.supabase.com',  # South America region
+    'port': 6543,  # Transaction pooler port (NOT 5432!)
+    'user': 'postgres.btyfbrclgmphcjgrvcgd',  # Format: postgres.[project-ref]
+    'password': 'YOUR_PASSWORD',
+    'sslmode': 'require'
+}
+```
 
-**Pending** (YOU MUST DO THIS):
-1. ⏳ Run SQL migration in Supabase SQL Editor
-2. ⏳ Run Python backfill script
-3. ⏳ Verify data migration success
-4. ⏳ Test all API endpoints
-5. ⏳ Verify frontend displays data correctly
+**Remaining Tasks**:
+1. ⏳ Backfill 29 days of CMG Programado from Gist (43,109 records)
+2. ⏳ Backfill ML predictions gap (Nov 11-16)
+3. ⏳ Test frontend forecast_comparison.html displays all horizons
+4. ⏳ Verify hourly workflows populate new schema correctly
 
 ---
 
