@@ -64,11 +64,14 @@ class handler(BaseHTTPRequestHandler):
 
                 # CMG Programado: From current hour onwards (future data only)
                 # Fetch from today up to 3 days ahead
+                # IMPORTANT: Get ALL nodes (don't filter by node) so frontend can display all
                 programmed_end_date = current_date + timedelta(days=3)
                 cmg_programado_records = supabase.get_cmg_programado(
                     start_date=str(current_date),
                     end_date=str(programmed_end_date),
-                    limit=200
+                    node=None,  # Get all nodes
+                    limit=300,  # 72 hours x 3 nodes = 216 max
+                    latest_forecast_only=True  # CRITICAL: Prevents duplicates
                 )
 
                 # Convert to flat array format for frontend compatibility

@@ -177,7 +177,9 @@ class SupabaseClient:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        limit: int = 10000
+        node: Optional[str] = None,
+        limit: int = 10000,
+        latest_forecast_only: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Get CMG Programado forecast records.
@@ -185,7 +187,9 @@ class SupabaseClient:
         Args:
             start_date: Filter by target_date >= this (YYYY-MM-DD)
             end_date: Filter by target_date <= this (YYYY-MM-DD)
+            node: Filter by specific node
             limit: Max records to return
+            latest_forecast_only: If True, only return records from the latest forecast (prevents duplicates)
 
         Returns:
             List of forecast records with forecast_datetime and target_datetime
@@ -193,14 +197,41 @@ class SupabaseClient:
         try:
             url = f"{self.base_url}/cmg_programado"
 
-            # Build params - filter by target_date (what's being forecast)
-            params = [("order", "forecast_datetime.desc,target_datetime.asc"), ("limit", limit)]
+            if latest_forecast_only:
+                # STEP 1: Get the latest forecast_datetime for this node
+                params_latest = [
+                    ("select", "forecast_datetime"),
+                    ("order", "forecast_datetime.desc"),
+                    ("limit", "1")
+                ]
+                if node:
+                    params_latest.append(("node", f"eq.{node}"))
+
+                response_latest = requests.get(url, params=params_latest, headers=self.headers)
+
+                if response_latest.status_code != 200 or not response_latest.json():
+                    print("⚠️ No forecasts found")
+                    return []
+
+                latest_forecast_dt = response_latest.json()[0]['forecast_datetime']
+
+                # STEP 2: Get all records from this specific forecast
+                params = [
+                    ("forecast_datetime", f"eq.{latest_forecast_dt}"),
+                    ("order", "target_datetime.asc"),
+                    ("limit", limit)
+                ]
+            else:
+                # Original behavior: get multiple forecasts (may contain duplicates)
+                params = [("order", "forecast_datetime.desc,target_datetime.asc"), ("limit", limit)]
 
             # Handle date range filters properly (PostgREST syntax)
             if start_date:
                 params.append(("target_date", f"gte.{start_date}"))
             if end_date:
                 params.append(("target_date", f"lte.{end_date}"))
+            if node:
+                params.append(("node", f"eq.{node}"))
 
             response = requests.get(url, params=params, headers=self.headers)
 
