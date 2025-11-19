@@ -28,6 +28,38 @@ except Exception as e:
     print(f"⚠️ Supabase unavailable: {e}")
     USE_SUPABASE = False
 
+def fetch_all_with_pagination(url, params, headers, max_records=50000):
+    """
+    Fetch all records from Supabase with pagination to bypass 1000-row limit.
+    PostgREST has a default max of 1000 rows per request.
+    """
+    all_records = []
+    offset = 0
+    batch_size = 1000
+
+    while len(all_records) < max_records:
+        # Add pagination params
+        paginated_params = params + [("offset", offset), ("limit", batch_size)]
+
+        response = requests.get(url, params=paginated_params, headers=headers)
+
+        if response.status_code != 200:
+            break
+
+        batch = response.json()
+        if not batch:  # No more records
+            break
+
+        all_records.extend(batch)
+        offset += batch_size
+
+        # Stop if we got less than batch_size (last page)
+        if len(batch) < batch_size:
+            break
+
+    return all_records
+
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Return historical data for all 3 sources"""
@@ -49,31 +81,27 @@ class handler(BaseHTTPRequestHandler):
                 end_date = datetime.now(santiago_tz).date()
                 start_date = end_date - timedelta(days=30)
 
-                # Fetch all data sources
-                # NOTE: For historical comparison, we need to filter by FORECAST datetime
-                # (when the prediction was made), not target datetime (what was predicted)
-                # This ensures we show all forecasts that were MADE during the date range
+                # Fetch all data sources with PAGINATION
+                # NOTE: Supabase/PostgREST has a default max of 1000 rows per request
+                # We need pagination to get all records
+
+                # Fetch ML predictions
                 url = f"{supabase.base_url}/ml_predictions"
                 ml_params = [
                     ("forecast_datetime", f"gte.{start_date}T00:00:00"),
                     ("forecast_datetime", f"lte.{end_date}T23:59:59"),
-                    ("order", "forecast_datetime.desc"),
-                    ("limit", 100000)  # Increased to capture all forecasts (30 days × 24 hrs × 24 targets ≈ 17K)
+                    ("order", "forecast_datetime.desc")
                 ]
-                ml_response = requests.get(url, params=ml_params, headers=supabase.headers)
-                ml_predictions = ml_response.json() if ml_response.status_code == 200 else []
+                ml_predictions = fetch_all_with_pagination(url, ml_params, supabase.headers)
 
-                # Fetch CMG Programado - filter by FORECAST date (when made), not target date
-                # This matches the ML predictions logic above
+                # Fetch CMG Programado with pagination
                 prog_url = f"{supabase.base_url}/cmg_programado"
                 prog_params = [
                     ("forecast_date", f"gte.{start_date}"),
                     ("forecast_date", f"lte.{end_date}"),
-                    ("order", "forecast_datetime.desc"),
-                    ("limit", 100000)  # Increased to capture all forecasts (30 days × 24 hrs × 3 nodes × 24 targets ≈ 52K)
+                    ("order", "forecast_datetime.desc")
                 ]
-                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
-                cmg_programado = prog_response.json() if prog_response.status_code == 200 else []
+                cmg_programado = fetch_all_with_pagination(prog_url, prog_params, supabase.headers)
 
                 cmg_online = supabase.get_cmg_online(
                     start_date=str(start_date),
