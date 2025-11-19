@@ -278,6 +278,38 @@ class SupabaseClient:
             print(f"❌ Error inserting ML predictions: {e}")
             return False
     
+    def get_nodes(self) -> List[Dict[str, Any]]:
+        """
+        Get all nodes from the nodes table.
+
+        Returns:
+            List of node records with id, code, name, etc.
+        """
+        try:
+            url = f"{self.base_url}/nodes"
+            params = {"order": "code.asc"}
+
+            response = requests.get(url, params=params, headers=self.headers)
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                print(f"❌ Failed to get nodes: {response.status_code}")
+                return []
+        except Exception as e:
+            print(f"❌ Error getting nodes: {e}")
+            return []
+
+    def get_node_id_map(self) -> Dict[str, int]:
+        """
+        Get mapping of node code -> node_id for efficient lookups.
+
+        Returns:
+            Dict mapping node codes to their IDs
+        """
+        nodes = self.get_nodes()
+        return {node['code']: node['id'] for node in nodes}
+
     def get_latest_ml_predictions(self, limit: int = 24) -> List[Dict[str, Any]]:
         """
         Get the most recent ML forecast (latest 24 predictions).

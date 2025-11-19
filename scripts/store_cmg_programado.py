@@ -240,14 +240,27 @@ def main():
             supabase = SupabaseClient()
             santiago_tz = pytz.timezone('America/Santiago')
 
+            # Get node_id mapping (node code -> node_id)
+            print("   Fetching node_id mapping...")
+            node_id_map = supabase.get_node_id_map()
+            print(f"   Found {len(node_id_map)} nodes: {list(node_id_map.keys())}")
+
             # Transform forecasts to Supabase format (matching schema.sql)
             supabase_records = []
+            skipped = 0
             for (date, hour), forecast_data in prog_forecasts.items():
                 forecast_time_str = forecast_data['forecast_time']
                 forecast_dt = datetime.fromisoformat(forecast_time_str)
 
                 # Get all nodes' forecasts
                 for node, forecasts in forecast_data['forecasts'].items():
+                    node_id = node_id_map.get(node)
+
+                    if node_id is None:
+                        print(f"⚠️  Warning: Node '{node}' not found in nodes table, skipping forecast")
+                        skipped += 1
+                        continue
+
                     for forecast in forecasts:
                         target_dt_str = forecast['datetime']
                         # Parse target datetime
@@ -266,8 +279,12 @@ def main():
                             'target_date': target_dt.strftime('%Y-%m-%d'),
                             'target_hour': target_dt.hour,
                             'node': node,
+                            'node_id': node_id,
                             'cmg_usd': float(forecast['cmg'])  # Column is cmg_usd, not cmg_programmed
                         })
+
+            if skipped > 0:
+                print(f"⚠️  Skipped {skipped} forecast(s) due to missing nodes")
 
             # Insert in batches
             batch_size = 100

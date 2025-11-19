@@ -399,17 +399,35 @@ def main():
             print("☁️  Writing new records to Supabase...")
             supabase = SupabaseClient()
 
+            # Get node_id mapping (node code -> node_id)
+            print("   Fetching node_id mapping...")
+            node_id_map = supabase.get_node_id_map()
+            print(f"   Found {len(node_id_map)} nodes: {list(node_id_map.keys())}")
+
             # Transform records to Supabase format
             supabase_records = []
+            skipped = 0
             for record in new_records:
+                node_code = record['node']
+                node_id = node_id_map.get(node_code)
+
+                if node_id is None:
+                    print(f"⚠️  Warning: Node '{node_code}' not found in nodes table, skipping record")
+                    skipped += 1
+                    continue
+
                 supabase_records.append({
                     'datetime': record['datetime'],
                     'date': record['date'],
                     'hour': record['hour'],
-                    'node': record['node'],
+                    'node': node_code,
+                    'node_id': node_id,
                     'cmg_usd': float(record['cmg_usd']),
                     'source': 'sip_api'
                 })
+
+            if skipped > 0:
+                print(f"⚠️  Skipped {skipped} records due to missing nodes")
 
             # Insert in batches of 100
             batch_size = 100
