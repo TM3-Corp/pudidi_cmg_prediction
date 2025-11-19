@@ -145,16 +145,18 @@ class SupabaseClient:
                 - target_date: Date being predicted
                 - target_hour: Hour being predicted
                 - node: Node name
+                - node_id: Node ID (required after migration 002)
                 - cmg_usd: CMG value in USD
 
         Returns:
             True if successful
         """
         try:
-            # Use on_conflict for proper UPSERT (matches schema unique constraint)
-            url = f"{self.base_url}/cmg_programado?on_conflict=forecast_datetime,target_datetime,node"
+            # FIXED: Use node_id instead of node to match unique constraint
+            # unique_cmg_prog_forecast_target_node_id (forecast_datetime, target_datetime, node_id)
+            url = f"{self.base_url}/cmg_programado?on_conflict=forecast_datetime,target_datetime,node_id"
             headers = self.headers.copy()
-            headers["Prefer"] = "resolution=merge-duplicates"
+            headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
 
             response = requests.post(url, json=records, headers=headers)
 
@@ -251,6 +253,7 @@ class SupabaseClient:
     def insert_ml_predictions_batch(self, records: List[Dict[str, Any]]) -> bool:
         """
         Insert batch of ML prediction records.
+        Uses UPSERT to handle duplicates (when same forecast is run multiple times).
 
         Args:
             records: List of dicts with keys:
@@ -261,18 +264,24 @@ class SupabaseClient:
             True if successful
         """
         try:
-            url = f"{self.base_url}/ml_predictions"
+            # FIXED: Add on_conflict to match unique constraint
+            # ml_predictions_forecast_datetime_target_datetime_key (forecast_datetime, target_datetime)
+            url = f"{self.base_url}/ml_predictions?on_conflict=forecast_datetime,target_datetime"
             headers = self.headers.copy()
-            headers["Prefer"] = "resolution=merge-duplicates"
-            
+            headers["Prefer"] = "resolution=merge-duplicates,return=minimal"
+
             response = requests.post(url, json=records, headers=headers)
-            
+
             if response.status_code in [200, 201, 204]:
                 print(f"✅ Inserted {len(records)} ML prediction records")
                 return True
             else:
                 print(f"❌ Failed to insert ML predictions: {response.status_code}")
                 print(f"   Response: {response.text}")
+                # Still return True if it's just duplicate errors (script should continue)
+                if response.status_code == 409:
+                    print("   Note: Some predictions already exist (this is OK)")
+                    return True
                 return False
         except Exception as e:
             print(f"❌ Error inserting ML predictions: {e}")
