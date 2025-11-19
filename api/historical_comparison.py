@@ -84,18 +84,22 @@ class handler(BaseHTTPRequestHandler):
                 # Fetch all data sources with PAGINATION
                 # NOTE: Supabase/PostgREST has a default max of 1000 rows per request
                 # We need pagination to get all records
+                #
+                # IMPORTANT: Use Santiago timezone VIEWS for all queries
+                # These views have pre-converted Santiago timezone columns (forecast_date, forecast_hour, etc.)
+                # This eliminates the need for timezone conversion and improves performance
 
-                # Fetch ML predictions
-                url = f"{supabase.base_url}/ml_predictions"
+                # Fetch ML predictions from SANTIAGO VIEW
+                url = f"{supabase.base_url}/ml_predictions_santiago"
                 ml_params = [
-                    ("forecast_datetime", f"gte.{start_date}T00:00:00"),
-                    ("forecast_datetime", f"lte.{end_date}T23:59:59"),
+                    ("forecast_date", f"gte.{start_date}"),
+                    ("forecast_date", f"lte.{end_date}"),
                     ("order", "forecast_datetime.desc")
                 ]
                 ml_predictions = fetch_all_with_pagination(url, ml_params, supabase.headers)
 
-                # Fetch CMG Programado with pagination
-                prog_url = f"{supabase.base_url}/cmg_programado"
+                # Fetch CMG Programado from SANTIAGO VIEW
+                prog_url = f"{supabase.base_url}/cmg_programado_santiago"
                 prog_params = [
                     ("forecast_date", f"gte.{start_date}"),
                     ("forecast_date", f"lte.{end_date}"),
@@ -103,36 +107,30 @@ class handler(BaseHTTPRequestHandler):
                 ]
                 cmg_programado = fetch_all_with_pagination(prog_url, prog_params, supabase.headers)
 
-                cmg_online = supabase.get_cmg_online(
-                    start_date=str(start_date),
-                    end_date=str(end_date),
-                    limit=100000  # Increased for consistency (30 days × 24 hrs × 3 nodes ≈ 2.2K)
-                )
+                # Fetch CMG Online from SANTIAGO VIEW
+                online_url = f"{supabase.base_url}/cmg_online_santiago"
+                online_params = [
+                    ("date", f"gte.{start_date}"),
+                    ("date", f"lte.{end_date}"),
+                    ("order", "datetime.desc")
+                ]
+                cmg_online = fetch_all_with_pagination(online_url, online_params, supabase.headers)
 
                 # Format data for frontend
-                # FIXED: Group ML predictions by (forecast_date, forecast_hour) in Santiago timezone
-                # NOTE: ml_predictions table doesn't have forecast_date/hour columns yet,
-                # so we calculate them from forecast_datetime
+                # Using Santiago timezone views - forecast_date/forecast_hour are already in Santiago timezone!
+                # No conversion needed - much faster for 46K+ records
                 ml_by_forecast = {}
                 for pred in ml_predictions:
-                    # Convert UTC forecast_datetime to Santiago timezone
-                    forecast_dt_utc = datetime.fromisoformat(pred['forecast_datetime'].replace('Z', '+00:00'))
-                    forecast_dt_santiago = forecast_dt_utc.astimezone(santiago_tz)
-
-                    # Extract date and hour in Santiago timezone
-                    forecast_date = forecast_dt_santiago.date()
-                    forecast_hour = forecast_dt_santiago.hour
-
-                    # Create composite key: "YYYY-MM-DD HH:00:00"
-                    forecast_key = f"{forecast_date} {forecast_hour:02d}:00:00"
+                    # Use pre-converted Santiago timezone columns from the view
+                    forecast_key = f"{pred['forecast_date']} {pred['forecast_hour']:02d}:00:00"
 
                     if forecast_key not in ml_by_forecast:
                         ml_by_forecast[forecast_key] = []
 
                     ml_by_forecast[forecast_key].append({
-                        'forecast_datetime': pred['forecast_datetime'],  # Keep original UTC timestamp
-                        'forecast_date': str(forecast_date),
-                        'forecast_hour': forecast_hour,
+                        'forecast_datetime': pred['forecast_datetime'],  # UTC timestamp
+                        'forecast_date': str(pred['forecast_date']),
+                        'forecast_hour': pred['forecast_hour'],
                         'target_datetime': pred['target_datetime'],
                         'horizon': pred['horizon'],
                         'predicted_cmg': pred['cmg_predicted'],
