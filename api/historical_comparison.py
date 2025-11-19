@@ -58,7 +58,7 @@ class handler(BaseHTTPRequestHandler):
                     ("forecast_datetime", f"gte.{start_date}T00:00:00"),
                     ("forecast_datetime", f"lte.{end_date}T23:59:59"),
                     ("order", "forecast_datetime.desc"),
-                    ("limit", 10000)
+                    ("limit", 100000)  # Increased to capture all forecasts (30 days × 24 hrs × 24 targets ≈ 17K)
                 ]
                 ml_response = requests.get(url, params=ml_params, headers=supabase.headers)
                 ml_predictions = ml_response.json() if ml_response.status_code == 200 else []
@@ -70,7 +70,7 @@ class handler(BaseHTTPRequestHandler):
                     ("forecast_date", f"gte.{start_date}"),
                     ("forecast_date", f"lte.{end_date}"),
                     ("order", "forecast_datetime.desc"),
-                    ("limit", 10000)
+                    ("limit", 100000)  # Increased to capture all forecasts (30 days × 24 hrs × 3 nodes × 24 targets ≈ 52K)
                 ]
                 prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
                 cmg_programado = prog_response.json() if prog_response.status_code == 200 else []
@@ -78,7 +78,7 @@ class handler(BaseHTTPRequestHandler):
                 cmg_online = supabase.get_cmg_online(
                     start_date=str(start_date),
                     end_date=str(end_date),
-                    limit=10000
+                    limit=100000  # Increased for consistency (30 days × 24 hrs × 3 nodes ≈ 2.2K)
                 )
 
                 # Format data for frontend
