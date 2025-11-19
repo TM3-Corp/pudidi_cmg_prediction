@@ -192,8 +192,14 @@ def write_to_supabase(records):
         return False
 
     try:
+        # Get node_id mapping (node code → node_id)
+        print("   Fetching node_id mapping...")
+        node_id_map = supabase.get_node_id_map()
+        print(f"   Found {len(node_id_map)} nodes: {list(node_id_map.keys())}")
+
         # Transform records to Supabase format
         rows_to_insert = []
+        skipped = 0
 
         for record in records:
             # Parse datetime from record
@@ -206,16 +212,29 @@ def write_to_supabase(records):
             if dt.tzinfo is None:
                 dt = santiago_tz.localize(dt)
 
+            # Look up node_id
+            node_code = record['node']
+            node_id = node_id_map.get(node_code)
+
+            if node_id is None:
+                print(f"⚠️  Warning: Node '{node_code}' not found in nodes table, skipping record")
+                skipped += 1
+                continue
+
             row = {
                 'datetime': dt.isoformat(),
                 'date': record['date'],
                 'hour': record['hour'],
-                'node': record['node'],
+                'node': node_code,
+                'node_id': node_id,
                 'cmg_usd': round(record.get('cmg_usd', 0), 2),
                 'source': 'SIP_API_v4'
             }
 
             rows_to_insert.append(row)
+
+        if skipped > 0:
+            print(f"⚠️  Skipped {skipped} records due to missing nodes")
 
         if not rows_to_insert:
             print("⚠️  No rows to insert to Supabase")
