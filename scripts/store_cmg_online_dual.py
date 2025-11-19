@@ -198,7 +198,9 @@ def write_to_supabase(records):
         print(f"   Found {len(node_id_map)} nodes: {list(node_id_map.keys())}")
 
         # Transform records to Supabase format
-        rows_to_insert = []
+        # IMPORTANT: Deduplicate by (datetime, node_id) - keep only the LATEST value
+        # CMG Online has 15-minute granularity, so we may have multiple records per hour
+        rows_dict = {}
         skipped = 0
 
         for record in records:
@@ -221,7 +223,11 @@ def write_to_supabase(records):
                 skipped += 1
                 continue
 
-            row = {
+            # Use (datetime, node_id) as key to deduplicate
+            key = (dt.isoformat(), node_id)
+
+            # Keep only the latest record (overwrite if duplicate)
+            rows_dict[key] = {
                 'datetime': dt.isoformat(),
                 'date': record['date'],
                 'hour': record['hour'],
@@ -231,10 +237,15 @@ def write_to_supabase(records):
                 'source': 'SIP_API_v4'
             }
 
-            rows_to_insert.append(row)
-
         if skipped > 0:
             print(f"⚠️  Skipped {skipped} records due to missing nodes")
+
+        # Convert deduplicated dict back to list
+        rows_to_insert = list(rows_dict.values())
+
+        if len(rows_to_insert) < len(records):
+            duplicates_removed = len(records) - len(rows_to_insert)
+            print(f"   Deduplicated: {duplicates_removed} duplicate (datetime, node) pairs removed")
 
         if not rows_to_insert:
             print("⚠️  No rows to insert to Supabase")

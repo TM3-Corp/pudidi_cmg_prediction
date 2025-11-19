@@ -405,8 +405,11 @@ def main():
             print(f"   Found {len(node_id_map)} nodes: {list(node_id_map.keys())}")
 
             # Transform records to Supabase format
-            supabase_records = []
+            # IMPORTANT: Deduplicate by (datetime, node_id) - keep only the LATEST value
+            # CMG Online has 15-minute granularity, so we may have multiple records per hour
+            records_dict = {}
             skipped = 0
+
             for record in new_records:
                 node_code = record['node']
                 node_id = node_id_map.get(node_code)
@@ -416,7 +419,11 @@ def main():
                     skipped += 1
                     continue
 
-                supabase_records.append({
+                # Use (datetime, node_id) as key to deduplicate
+                key = (record['datetime'], node_id)
+
+                # Keep only the latest record (overwrite if duplicate)
+                records_dict[key] = {
                     'datetime': record['datetime'],
                     'date': record['date'],
                     'hour': record['hour'],
@@ -424,10 +431,17 @@ def main():
                     'node_id': node_id,
                     'cmg_usd': float(record['cmg_usd']),
                     'source': 'sip_api'
-                })
+                }
 
             if skipped > 0:
                 print(f"⚠️  Skipped {skipped} records due to missing nodes")
+
+            # Convert deduplicated dict back to list
+            supabase_records = list(records_dict.values())
+
+            if len(supabase_records) < len(new_records):
+                duplicates_removed = len(new_records) - len(supabase_records)
+                print(f"   Deduplicated: {duplicates_removed} duplicate (datetime, node) pairs removed")
 
             # Insert in batches of 100
             batch_size = 100
