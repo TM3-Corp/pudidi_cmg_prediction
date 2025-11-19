@@ -62,7 +62,15 @@ def fetch_all_with_pagination(url, params, headers, max_records=50000):
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        """Return historical data for all 3 sources"""
+        """
+        Return historical data for forecast comparison.
+
+        Two modes:
+        1. Summary mode (no query params): Return available dates/hours only
+        2. Detail mode (?date=YYYY-MM-DD&hour=HH): Return full forecast data for specific hour
+
+        This two-stage approach prevents UI blocking from loading 46K+ records upfront.
+        """
 
         # CORS headers
         self.send_response(200)
@@ -73,48 +81,120 @@ class handler(BaseHTTPRequestHandler):
 
         try:
             if USE_SUPABASE:
+                # Parse query parameters
+                from urllib.parse import urlparse, parse_qs
+                query_params = parse_qs(urlparse(self.path).query)
+
+                # Check if specific date/hour requested (Detail mode)
+                requested_date = query_params.get('date', [None])[0]
+                requested_hour = query_params.get('hour', [None])[0]
+
                 # Initialize Supabase client
                 supabase = SupabaseClient()
-
-                # Get date range (last 30 days for historical comparison)
                 santiago_tz = pytz.timezone('America/Santiago')
-                end_date = datetime.now(santiago_tz).date()
-                start_date = end_date - timedelta(days=30)
 
-                # Fetch all data sources with PAGINATION
-                # NOTE: Supabase/PostgREST has a default max of 1000 rows per request
-                # We need pagination to get all records
+                # SUMMARY MODE: Return available dates/hours only
+                if not requested_date or requested_hour is None:
+                    end_date = datetime.now(santiago_tz).date()
+                    start_date = end_date - timedelta(days=30)
+
+                    # Get unique (forecast_date, forecast_hour) combinations
+                    # This is MUCH faster than loading all 46K records
+                    ml_summary_url = f"{supabase.base_url}/ml_predictions_santiago"
+                    ml_summary_params = [
+                        ("forecast_date", f"gte.{start_date}"),
+                        ("forecast_date", f"lte.{end_date}"),
+                        ("select", "forecast_date,forecast_hour")
+                    ]
+                    ml_summary_response = requests.get(ml_summary_url, params=ml_summary_params, headers=supabase.headers)
+                    ml_summary = ml_summary_response.json() if ml_summary_response.status_code == 200 else []
+
+                    prog_summary_url = f"{supabase.base_url}/cmg_programado_santiago"
+                    prog_summary_params = [
+                        ("forecast_date", f"gte.{start_date}"),
+                        ("forecast_date", f"lte.{end_date}"),
+                        ("select", "forecast_date,forecast_hour")
+                    ]
+                    prog_summary_response = requests.get(prog_summary_url, params=prog_summary_params, headers=supabase.headers)
+                    prog_summary = prog_summary_response.json() if prog_summary_response.status_code == 200 else []
+
+                    # Group by (date, hour) to get unique combinations
+                    ml_hours = set()
+                    for record in ml_summary:
+                        ml_hours.add((str(record['forecast_date']), record['forecast_hour']))
+
+                    prog_hours = set()
+                    for record in prog_summary:
+                        prog_hours.add((str(record['forecast_date']), record['forecast_hour']))
+
+                    # Convert to list of dicts
+                    available_hours = []
+                    all_hours = ml_hours | prog_hours
+                    for date, hour in sorted(all_hours, reverse=True):
+                        available_hours.append({
+                            'date': date,
+                            'hour': hour,
+                            'has_ml': (date, hour) in ml_hours,
+                            'has_programado': (date, hour) in prog_hours
+                        })
+
+                    response = {
+                        'success': True,
+                        'mode': 'summary',
+                        'data': {
+                            'available_hours': available_hours
+                        },
+                        'metadata': {
+                            'start_date': str(start_date),
+                            'end_date': str(end_date),
+                            'total_hours': len(available_hours)
+                        }
+                    }
+
+                    self.wfile.write(json.dumps(response, default=str).encode())
+                    return
+
+                # DETAIL MODE: Return full forecast data for specific date/hour
+                requested_hour = int(requested_hour)
+
+                # OPTIMIZED: Query only the specific date/hour requested
+                # This reduces data transfer from 46K records to ~96 records
                 #
                 # IMPORTANT: Use Santiago timezone VIEWS for all queries
                 # These views have pre-converted Santiago timezone columns (forecast_date, forecast_hour, etc.)
-                # This eliminates the need for timezone conversion and improves performance
 
-                # Fetch ML predictions from SANTIAGO VIEW
+                # Fetch ML predictions for SPECIFIC date/hour from SANTIAGO VIEW
                 url = f"{supabase.base_url}/ml_predictions_santiago"
                 ml_params = [
-                    ("forecast_date", f"gte.{start_date}"),
-                    ("forecast_date", f"lte.{end_date}"),
-                    ("order", "forecast_datetime.desc")
+                    ("forecast_date", f"eq.{requested_date}"),
+                    ("forecast_hour", f"eq.{requested_hour}"),
+                    ("order", "target_datetime.asc")
                 ]
-                ml_predictions = fetch_all_with_pagination(url, ml_params, supabase.headers)
+                ml_response = requests.get(url, params=ml_params, headers=supabase.headers)
+                ml_predictions = ml_response.json() if ml_response.status_code == 200 else []
 
-                # Fetch CMG Programado from SANTIAGO VIEW
+                # Fetch CMG Programado for SPECIFIC date/hour from SANTIAGO VIEW
                 prog_url = f"{supabase.base_url}/cmg_programado_santiago"
                 prog_params = [
-                    ("forecast_date", f"gte.{start_date}"),
-                    ("forecast_date", f"lte.{end_date}"),
-                    ("order", "forecast_datetime.desc")
+                    ("forecast_date", f"eq.{requested_date}"),
+                    ("forecast_hour", f"eq.{requested_hour}"),
+                    ("order", "target_datetime.asc")
                 ]
-                cmg_programado = fetch_all_with_pagination(prog_url, prog_params, supabase.headers)
+                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
+                cmg_programado = prog_response.json() if prog_response.status_code == 200 else []
 
-                # Fetch CMG Online from SANTIAGO VIEW
+                # Fetch CMG Online (actual values) for the target period being forecasted
+                # Get the datetime range being forecasted (typically next 24 hours)
+                # We'll fetch a bit wider range to ensure coverage
                 online_url = f"{supabase.base_url}/cmg_online_santiago"
                 online_params = [
-                    ("date", f"gte.{start_date}"),
-                    ("date", f"lte.{end_date}"),
-                    ("order", "datetime.desc")
+                    ("date", f"gte.{requested_date}"),
+                    ("date", f"lte.{(datetime.strptime(requested_date, '%Y-%m-%d') + timedelta(days=2)).strftime('%Y-%m-%d')}"),
+                    ("order", "datetime.asc"),
+                    ("limit", "200")  # Max 2 days * 24 hours * 3 nodes = 144 records
                 ]
-                cmg_online = fetch_all_with_pagination(online_url, online_params, supabase.headers)
+                online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
+                cmg_online = online_response.json() if online_response.status_code == 200 else []
 
                 # Format data for frontend
                 # Using Santiago timezone views - forecast_date/forecast_hour are already in Santiago timezone!
@@ -175,6 +255,7 @@ class handler(BaseHTTPRequestHandler):
 
                 response = {
                     'success': True,
+                    'mode': 'detail',
                     'data': {
                         'ml_predictions': ml_by_forecast,
                         'cmg_programado': programado_by_forecast,  # FIXED: Send grouped dict like ML predictions
@@ -182,8 +263,8 @@ class handler(BaseHTTPRequestHandler):
                         'cmg_online': online_data
                     },
                     'metadata': {
-                        'start_date': str(start_date),
-                        'end_date': str(end_date),
+                        'requested_date': requested_date,
+                        'requested_hour': requested_hour,
                         'ml_forecast_count': len(ml_by_forecast),
                         'ml_predictions_count': len(ml_predictions),
                         'programado_forecast_count': len(programado_by_forecast),
