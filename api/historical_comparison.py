@@ -151,7 +151,7 @@ class handler(BaseHTTPRequestHandler):
                     'success': True,
                     'data': {
                         'ml_predictions': ml_by_forecast,
-                        'cmg_programado': programado_data,  # Flat array for compatibility
+                        'cmg_programado': programado_by_forecast,  # FIXED: Send grouped dict like ML predictions
                         'cmg_programado_by_forecast': programado_by_forecast,  # Grouped by forecast_datetime
                         'cmg_online': online_data
                     },
