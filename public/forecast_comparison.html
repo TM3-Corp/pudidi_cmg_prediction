@@ -151,12 +151,22 @@
             await loadHistoricalData();
         });
 
-        async function loadHistoricalData() {
+        async function loadHistoricalData(date = null, hour = null) {
             try {
                 console.log('Loading historical comparison data from backend...');
 
-                // Use backend API instead of direct Supabase access
-                const response = await fetch('/api/historical_comparison');
+                // Build API URL based on mode
+                let apiUrl = '/api/historical_comparison';
+                if (date && hour !== null) {
+                    // Detail Mode: fetch specific date/hour
+                    apiUrl += `?date=${date}&hour=${hour}`;
+                    console.log(`Detail Mode: Fetching ${date} ${hour}:00`);
+                } else {
+                    // Summary Mode: fetch available hours
+                    console.log('Summary Mode: Fetching available hours');
+                }
+
+                const response = await fetch(apiUrl);
 
                 if (!response.ok) {
                     throw new Error(`API error: ${response.status}`);
@@ -170,17 +180,23 @@
 
                 console.log('API Response:', apiData);
 
-                // Transform API data to expected structure
-                const mlData = transformMLPredictionsFromAPI(apiData.data.ml_predictions);
-                // FIXED: Use pre-grouped cmg_programado_by_forecast instead of flat array
-                const progData = transformCMGProgramadoFromAPI(apiData.data.cmg_programado_by_forecast || {});
-                const onlineData = transformCMGOnlineFromAPI(apiData.data.cmg_online);
+                // Handle based on mode
+                if (apiData.mode === 'summary') {
+                    // Summary Mode: populate date/hour selector
+                    populateDateSelectorFromAvailableHours(apiData.data.available_hours);
+                    console.log(`Loaded ${apiData.metadata.total_hours} available hours`);
+                } else if (apiData.mode === 'detail') {
+                    // Detail Mode: transform and display forecast data
+                    const mlData = transformMLPredictionsFromAPI(apiData.data.ml_predictions || {});
+                    const progData = transformCMGProgramadoFromAPI(apiData.data.cmg_programado_by_forecast || {});
+                    const onlineData = transformCMGOnlineFromAPI(apiData.data.cmg_online || []);
 
-                // Merge the 3 data sources into unified structure
-                historicalData = mergeGistData(mlData, progData, onlineData);
+                    // Merge the 3 data sources into unified structure
+                    historicalData = mergeGistData(mlData, progData, onlineData);
 
-                console.log('Merged historical data:', historicalData);
-                populateDateSelector();
+                    console.log('Merged historical data:', historicalData);
+                    // Data is now ready for rendering by loadForecast()
+                }
             } catch (error) {
                 console.error('Error loading historical data:', error);
                 showError('No se pudo cargar los datos históricos. Por favor, intenta más tarde.');
@@ -567,6 +583,64 @@
             return merged;
         }
 
+        // NEW: Populate selectors from Summary Mode API response
+        function populateDateSelectorFromAvailableHours(availableHours) {
+            const dateSelector = document.getElementById('date-selector');
+            const hourSelector = document.getElementById('hour-selector');
+
+            if (!availableHours || availableHours.length === 0) {
+                dateSelector.innerHTML = '<option value="">No hay datos disponibles</option>';
+                return;
+            }
+
+            // Group hours by date
+            const hoursByDate = {};
+            availableHours.forEach(item => {
+                const date = item.date;
+                if (!hoursByDate[date]) {
+                    hoursByDate[date] = [];
+                }
+                hoursByDate[date].push({
+                    hour: item.hour,
+                    has_ml: item.has_ml,
+                    has_programado: item.has_programado
+                });
+            });
+
+            // Get dates sorted descending
+            const dates = Object.keys(hoursByDate).sort().reverse();
+
+            dateSelector.innerHTML = '<option value="">Seleccionar fecha</option>' +
+                dates.map(date =>
+                    `<option value="${date}">${date}</option>`
+                ).join('');
+
+            // Handle date selection
+            dateSelector.addEventListener('change', function() {
+                const selectedDate = this.value;
+                if (!selectedDate) {
+                    hourSelector.innerHTML = '<option value="">Seleccionar primero una fecha</option>';
+                    return;
+                }
+
+                const hoursData = hoursByDate[selectedDate] || [];
+                if (hoursData.length === 0) {
+                    hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
+                    return;
+                }
+
+                // Sort hours ascending
+                hoursData.sort((a, b) => a.hour - b.hour);
+
+                hourSelector.innerHTML = '<option value="">Seleccionar hora</option>' +
+                    hoursData.map(item => {
+                        const mlIcon = item.has_ml ? '✅' : '⏳';
+                        const progIcon = item.has_programado ? '✅' : '⏳';
+                        return `<option value="${item.hour}">${item.hour.toString().padStart(2, '0')}:00 (ML:${mlIcon} Prog:${progIcon})</option>`;
+                    }).join('');
+            });
+        }
+
         function populateDateSelector() {
             const dateSelector = document.getElementById('date-selector');
             const hourSelector = document.getElementById('hour-selector');
@@ -661,6 +735,15 @@
             document.getElementById('error-container').classList.add('hidden');
 
             try {
+                // Fetch Detail Mode data from API
+                console.log(`Fetching detail data for ${date} ${hour}:00`);
+                await loadHistoricalData(date, hour);
+
+                // Data is now loaded in historicalData by loadHistoricalData()
+                if (!historicalData || !historicalData.daily_data || !historicalData.daily_data[date]) {
+                    throw new Error('No se pudieron cargar los datos para esta fecha y hora');
+                }
+
                 const dayData = historicalData.daily_data[date];
                 const mlForecast = dayData.ml_forecasts ? dayData.ml_forecasts[hour] : null;
                 const progForecast = dayData.cmg_programado_forecasts ? dayData.cmg_programado_forecasts[hour] : null;
