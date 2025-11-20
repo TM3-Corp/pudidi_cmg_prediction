@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de la Blancura - Mapa de Calor - CMG Monitor</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly for heatmaps -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .heatmap-container {
+            height: 600px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        🔥 Test de la Blancura - Mapa de Calor Diario
+                    </h1>
+                    <p class="text-gray-600 mt-2">
+                        Matriz de errores 24×24 por día (Hora de Pronóstico × Horizonte)
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="rendimiento.html"
+                       class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <span>Rendimiento</span>
+                    </a>
+                    <a href="index.html"
+                       class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span>Inicio</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Date Selector -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Seleccionar Fecha</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
+                    <input type="date" id="date-input"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           value="">
+                </div>
+                <div class="flex items-end">
+                    <button id="load-heatmap-btn" onclick="loadHeatmap()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-semibold">
+                        Generar Mapa de Calor
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Cómo Interpretar</h3>
+                <p class="text-sm text-blue-800 mb-2">
+                    El mapa de calor muestra los errores de pronóstico para todas las horas del día seleccionado.
+                </p>
+                <ul class="text-sm text-blue-800 list-disc list-inside space-y-1">
+                    <li><strong>Eje X (Horizonte):</strong> 1-24 horas adelante desde el momento del pronóstico</li>
+                    <li><strong>Eje Y (Hora de Pronóstico):</strong> 0-23 (hora del día cuando se hizo el pronóstico)</li>
+                    <li><strong>🔴 Rojo:</strong> Sobrepredicción (pronóstico mayor que el real)</li>
+                    <li><strong>🔵 Azul:</strong> Subpredicción (pronóstico menor que el real)</li>
+                    <li><strong>⚪ Blanco:</strong> Pronóstico preciso (error cercano a cero)</li>
+                    <li><strong>Gris:</strong> Sin datos reales disponibles para comparar</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-container" class="hidden bg-white rounded-xl shadow-lg p-8">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loading-spinner mb-4"></div>
+                <h2 class="text-xl font-semibold text-gray-700">
+                    Generando mapas de calor...
+                </h2>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-container" class="hidden bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 class="text-red-900 font-bold mb-2">❌ Error</h3>
+            <p id="error-message" class="text-red-800"></p>
+        </div>
+
+        <!-- Heatmap Results -->
+        <div id="results-container" class="hidden">
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- ML Stats Card -->
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border border-purple-200">
+                    <h3 class="text-xl font-bold text-purple-900 mb-4">🤖 ML Predictions</h3>
+                    <div id="ml-stats" class="space-y-2">
+                        <!-- Will be populated -->
+                    </div>
+                </div>
+
+                <!-- CMG Programado Stats Card -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border border-blue-200">
+                    <h3 class="text-xl font-bold text-blue-900 mb-4">📊 CMG Programado</h3>
+                    <div id="prog-stats" class="space-y-2">
+                        <!-- Will be populated -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heatmaps -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- ML Heatmap -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">🤖 ML Predictions - Errores</h3>
+                    <div id="ml-heatmap" class="heatmap-container"></div>
+                </div>
+
+                <!-- CMG Programado Heatmap -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📊 CMG Programado - Errores</h3>
+                    <div id="prog-heatmap" class="heatmap-container"></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        // Set default date to yesterday (most likely to have complete data)
+        document.addEventListener('DOMContentLoaded', function() {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const dateString = yesterday.toISOString().split('T')[0];
+            document.getElementById('date-input').value = dateString;
+        });
+
+        async function loadHeatmap() {
+            const dateInput = document.getElementById('date-input');
+            const selectedDate = dateInput.value;
+
+            if (!selectedDate) {
+                showError('Por favor selecciona una fecha');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('loading-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('error-container').classList.add('hidden');
+
+            try {
+                console.log(`Fetching heatmap data for ${selectedDate}...`);
+
+                const response = await fetch(`/api/performance_heatmap?date=${selectedDate}`);
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to load heatmap data');
+                }
+
+                console.log('Heatmap data received:', data);
+
+                // Hide loading, show results
+                document.getElementById('loading-container').classList.add('hidden');
+                document.getElementById('results-container').classList.remove('hidden');
+
+                // Render heatmaps
+                renderHeatmap('ml-heatmap', data.ml_predictions, 'ML Predictions');
+                renderHeatmap('prog-heatmap', data.cmg_programado, 'CMG Programado');
+
+                // Display stats
+                displayStats('ml-stats', data.ml_predictions);
+                displayStats('prog-stats', data.cmg_programado);
+
+            } catch (error) {
+                console.error('Error loading heatmap:', error);
+                showError(error.message);
+                document.getElementById('loading-container').classList.add('hidden');
+            }
+        }
+
+        function renderHeatmap(containerId, data, title) {
+            const matrix = data.matrix;
+
+            // Create z-data for Plotly (transpose to get correct orientation)
+            const zData = matrix.map(row => row.map(cell => cell === null ? NaN : cell));
+
+            // Create hover text with formatted values
+            const hoverText = matrix.map((row, i) =>
+                row.map((cell, j) => {
+                    if (cell === null) {
+                        return `Hora: ${i}<br>Horizonte: ${j+1}<br>Error: N/A`;
+                    } else {
+                        const sign = cell >= 0 ? '+' : '';
+                        return `Hora: ${i}<br>Horizonte: ${j+1}<br>Error: ${sign}$${cell.toFixed(2)}`;
+                    }
+                })
+            );
+
+            // Custom colorscale: Blue (negative) → White (0) → Red (positive)
+            const colorscale = [
+                [0.0, '#0066FF'],    // Dark blue (large negative)
+                [0.25, '#66B2FF'],   // Light blue
+                [0.5, '#FFFFFF'],    // White (zero)
+                [0.75, '#FF9999'],   // Light red
+                [1.0, '#FF0000']     // Dark red (large positive)
+            ];
+
+            const trace = {
+                z: zData,
+                type: 'heatmap',
+                colorscale: colorscale,
+                zmid: 0,  // Center colorscale at zero
+                text: hoverText,
+                hovertemplate: '%{text}<extra></extra>',
+                colorbar: {
+                    title: 'Error (USD/MWh)',
+                    titleside: 'right',
+                    tickprefix: '$',
+                    thickness: 15,
+                    len: 0.7
+                }
+            };
+
+            const layout = {
+                xaxis: {
+                    title: 'Horizonte (horas adelante)',
+                    tickmode: 'linear',
+                    tick0: 1,
+                    dtick: 2,
+                    side: 'bottom'
+                },
+                yaxis: {
+                    title: 'Hora de Pronóstico',
+                    tickmode: 'linear',
+                    tick0: 0,
+                    dtick: 2,
+                    autorange: 'reversed'  // 0 at top, 23 at bottom
+                },
+                margin: { l: 60, r: 60, t: 20, b: 60 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)'
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot(containerId, [trace], layout, config);
+        }
+
+        function displayStats(containerId, data) {
+            const container = document.getElementById(containerId);
+
+            const html = `
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Pronósticos Totales:</span>
+                    <span class="text-lg font-bold text-gray-900">${data.forecast_count}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Errores Calculados:</span>
+                    <span class="text-lg font-bold text-gray-900">${data.error_count}</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Horas con Datos Reales:</span>
+                    <span class="text-lg font-bold text-gray-900">${data.actuals_available} / 24</span>
+                </div>
+                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span class="text-sm font-medium text-gray-700">Distancia Total:</span>
+                    <span class="text-lg font-bold text-red-600">$${data.total_distance.toFixed(2)}</span>
+                </div>
+                <div class="flex justify-between items-center py-2">
+                    <span class="text-sm font-medium text-gray-700">Distancia Promedio:</span>
+                    <span class="text-lg font-bold ${data.average_distance < 30 ? 'text-green-600' : data.average_distance < 50 ? 'text-yellow-600' : 'text-red-600'}">
+                        $${data.average_distance.toFixed(2)}
+                    </span>
+                </div>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
