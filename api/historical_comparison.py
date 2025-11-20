@@ -99,15 +99,15 @@ class handler(BaseHTTPRequestHandler):
                     start_date = end_date - timedelta(days=30)
 
                     # Get unique (forecast_date, forecast_hour) combinations
-                    # This is MUCH faster than loading all 46K records
+                    # Use pagination to get ALL records (not limited to 1000)
+                    # Even though we only select 2 columns, there can be 46K+ rows
                     ml_summary_url = f"{supabase.base_url}/ml_predictions_santiago"
                     ml_summary_params = [
                         ("forecast_date", f"gte.{start_date}"),
                         ("forecast_date", f"lte.{end_date}"),
                         ("select", "forecast_date,forecast_hour")
                     ]
-                    ml_summary_response = requests.get(ml_summary_url, params=ml_summary_params, headers=supabase.headers)
-                    ml_summary = ml_summary_response.json() if ml_summary_response.status_code == 200 else []
+                    ml_summary = fetch_all_with_pagination(ml_summary_url, ml_summary_params, supabase.headers, max_records=10000)
 
                     prog_summary_url = f"{supabase.base_url}/cmg_programado_santiago"
                     prog_summary_params = [
@@ -115,8 +115,7 @@ class handler(BaseHTTPRequestHandler):
                         ("forecast_date", f"lte.{end_date}"),
                         ("select", "forecast_date,forecast_hour")
                     ]
-                    prog_summary_response = requests.get(prog_summary_url, params=prog_summary_params, headers=supabase.headers)
-                    prog_summary = prog_summary_response.json() if prog_summary_response.status_code == 200 else []
+                    prog_summary = fetch_all_with_pagination(prog_summary_url, prog_summary_params, supabase.headers, max_records=50000)
 
                     # Group by (date, hour) to get unique combinations
                     ml_hours = set()
