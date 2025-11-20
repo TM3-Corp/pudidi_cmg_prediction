@@ -220,8 +220,17 @@ class handler(BaseHTTPRequestHandler):
 
                 # Format CMG Programado - group by (forecast_date, forecast_hour) in Santiago timezone
                 # This ensures all forecasts made in same hour are grouped together
+                # IMPORTANT: Filter out past values (target <= forecast) - these are historical actuals, not forecasts
                 programado_by_forecast = {}
                 for p in cmg_programado:
+                    # Skip backwards forecasts (historical actuals included in Coordinador data)
+                    forecast_dt = datetime.fromisoformat(p['forecast_datetime'].replace('Z', '+00:00'))
+                    target_dt = datetime.fromisoformat(p['target_datetime'].replace('Z', '+00:00'))
+
+                    if target_dt <= forecast_dt:
+                        # This is a historical actual, not a forecast - skip it
+                        continue
+
                     # Create composite key from Santiago timezone columns: "YYYY-MM-DD HH:00:00"
                     forecast_key = f"{p['forecast_date']} {p['forecast_hour']:02d}:00:00"
 
