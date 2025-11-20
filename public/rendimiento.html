@@ -3,483 +3,465 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rendimiento - Análisis de Performance</title>
+    <title>Rendimiento - Análisis de Pronósticos</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Plotly for charts -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
-        
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-        
-        .nav-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 20px;
-        }
-        
-        .nav-btn {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        .controls {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-        }
-        
-        .control-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-        }
-        
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .control-group label {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #334155;
-            font-size: 0.9rem;
-        }
-        
-        .period-selector {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .period-btn {
-            flex: 1;
-            padding: 10px;
-            background: #f1f5f9;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 500;
-            color: #475569;
-        }
-        
-        .period-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        .period-btn:hover:not(.active) {
-            background: #e2e8f0;
-        }
-        
-        input[type="date"], select {
-            padding: 10px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            background: #f8fafc;
-        }
-        
-        .btn {
-            padding: 12px 24px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .metric-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-        
-        .metric-label {
-            font-size: 0.9rem;
-            color: #64748b;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
-        
-        .metric-delta {
-            font-size: 0.9rem;
-            margin-top: 5px;
-        }
-        
-        .positive {
-            color: #10b981;
-        }
-        
-        .negative {
-            color: #ef4444;
-        }
-        
-        .chart-card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        }
-        
-        .chart-card h3 {
-            margin-bottom: 20px;
-            color: #1e293b;
-            font-size: 1.3rem;
-        }
-        
-        .chart-container {
-            position: relative;
-            height: 400px;
-        }
-        
-        .loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 400px;
-        }
-        
-        .spinner {
-            border: 4px solid #f3f4f6;
-            border-top: 4px solid #667eea;
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        .efficiency-gauge {
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-        }
-        
-        .legend {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-        }
-        
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-        }
-        
-        .info-tooltip {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            background: #94a3b8;
-            color: white;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 16px;
-            font-size: 12px;
-            cursor: help;
-        }
-        
-        .table-container {
-            overflow-x: auto;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        
-        th {
-            background: #f8fafc;
-            font-weight: 600;
-            color: #475569;
-        }
-        
-        tr:hover {
-            background: #f8fafc;
-        }
-        
-        .text-right {
-            text-align: right;
-        }
-        
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-            display: none;
-        }
-        
-        .no-data {
-            text-align: center;
-            padding: 40px;
-            color: #64748b;
+
+        .chart-container {
+            height: 450px;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📊 Análisis de Rendimiento</h1>
-            <p>Comparación de estrategias de optimización vs. resultados reales</p>
-        </div>
-        
-        <div class="nav-buttons">
-            <a href="/" class="nav-btn">← Dashboard</a>
-            <a href="/optimizer.html" class="nav-btn">Optimizador</a>
-        </div>
-        
-        <!-- Data Availability Card -->
-        <div class="controls" id="dataAvailability" style="margin-bottom: 15px;">
-            <h3 style="margin-bottom: 15px; color: #334155;">📊 Disponibilidad de Datos Históricos</h3>
-            <div id="availabilityContent">
-                <p style="color: #64748b;">Verificando datos disponibles...</p>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-800">
+                        📊 Test de la Blancura - Análisis de Rendimiento
+                    </h1>
+                    <p class="text-gray-600 mt-2">
+                        Análisis dual: Rendimiento por día (temporal) y por horizonte (estructural)
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="performance_heatmap.html"
+                       class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <span>🔥</span>
+                        <span>Mapa de Calor</span>
+                    </a>
+                    <a href="index.html"
+                       class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span>Inicio</span>
+                    </a>
+                </div>
             </div>
         </div>
-        
-        <div class="controls">
-            <div class="control-row">
-                <div class="control-group">
-                    <label>Fecha Inicio</label>
-                    <input type="date" id="startDate" 
-                           title="Fecha de inicio del análisis">
+    </header>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8">
+
+        <!-- Date Range Selector -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Seleccionar Rango de Fechas</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
+                    <input type="date" id="start-date"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           value="">
                 </div>
-                
-                <div class="control-group">
-                    <label>Fecha Fin</label>
-                    <input type="date" id="endDate" 
-                           title="Fecha de fin del análisis">
-                    <small id="dateHelpText" style="color: #64748b; display: block; margin-top: 5px;">
-                        Cargando fechas disponibles...
-                    </small>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
+                    <input type="date" id="end-date"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           value="">
                 </div>
-                
-                <div class="control-group">
-                    <label>Nodo</label>
-                    <select id="nodeSelect">
-                        <option value="NVA_P.MONTT___220">Nueva Puerto Montt 220kV</option>
-                        <option value="PIDPID________110">Pid-Pid 110kV</option>
-                        <option value="DALCAHUE______110">Dalcahue 110kV</option>
-                    </select>
-                </div>
-                
-                <div class="control-group">
-                    <label>&nbsp;</label>
-                    <button class="btn" onclick="analyzePerformance()">
+                <div class="flex items-end">
+                    <button id="load-range-btn" onclick="loadRangePerformance()"
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-semibold">
                         Analizar Rendimiento
                     </button>
                 </div>
-            </div>
-        </div>
-        
-        <div class="error-message" id="errorMessage"></div>
-        
-        <div id="loadingSection" class="chart-card loading" style="display: none;">
-            <div class="spinner"></div>
-        </div>
-        
-        <div id="resultsSection" style="display: none;">
-            <!-- Summary Metrics -->
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-label">
-                        💰 Ingreso Base (Generación Estable)
-                        <span class="info-tooltip" title="Ingreso con generación constante">?</span>
-                    </div>
-                    <div class="metric-value" id="revenueStable">$0</div>
-                    <div class="metric-delta">Potencia: <span id="pStable">0</span> MW</div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-label">
-                        📈 Ingreso Optimizado (CMG Programado)
-                        <span class="info-tooltip" title="Ingreso usando predicciones CMG">?</span>
-                    </div>
-                    <div class="metric-value" id="revenueProgrammed">$0</div>
-                    <div class="metric-delta" id="improvementDelta"></div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-label">
-                        🎯 Ingreso Óptimo (Hindsight Perfecto)
-                        <span class="info-tooltip" title="Máximo posible con valores reales">?</span>
-                    </div>
-                    <div class="metric-value" id="revenueHindsight">$0</div>
-                    <div class="metric-delta">Máximo teórico alcanzable</div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-label">
-                        ⚡ Eficiencia de Optimización
-                        <span class="info-tooltip" title="% del óptimo alcanzado">?</span>
-                    </div>
-                    <div class="metric-value" id="efficiency">0%</div>
-                    <div class="metric-delta" id="efficiencyStatus"></div>
+                <div class="flex items-end">
+                    <button onclick="setQuickRange(7)"
+                            class="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition-colors font-semibold">
+                        Últimos 7 días
+                    </button>
                 </div>
             </div>
-            
-            <!-- Revenue Comparison Chart -->
-            <div class="chart-card">
-                <h3>Comparación de Ingresos</h3>
-                <div class="chart-container">
-                    <canvas id="revenueChart"></canvas>
-                </div>
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #94a3b8;"></div>
-                        <span>Generación Estable</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #667eea;"></div>
-                        <span>CMG Programado</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #10b981;"></div>
-                        <span>Óptimo (Hindsight)</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Power Generation Pattern -->
-            <div class="chart-card">
-                <h3>Patrón de Generación (MW)</h3>
-                <div class="chart-container">
-                    <canvas id="powerChart"></canvas>
-                </div>
-            </div>
-            
-            <!-- Price Comparison -->
-            <div class="chart-card">
-                <h3>Comparación de Precios CMG ($/MWh)</h3>
-                <div class="chart-container">
-                    <canvas id="priceChart"></canvas>
-                </div>
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #ef4444;"></div>
-                        <span>CMG Real (Online)</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #3b82f6;"></div>
-                        <span>CMG Programado (Forecast)</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Daily Performance Table (for multi-day periods) -->
-            <div class="chart-card" id="dailyTableCard" style="display: none;">
-                <h3>Rendimiento Diario</h3>
-                <div class="table-container">
-                    <table id="dailyTable">
-                        <thead>
-                            <tr>
-                                <th>Día</th>
-                                <th class="text-right">Ingreso Base ($)</th>
-                                <th class="text-right">Ingreso Optimizado ($)</th>
-                                <th class="text-right">Ingreso Óptimo ($)</th>
-                                <th class="text-right">Eficiencia (%)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dailyTableBody">
-                        </tbody>
-                    </table>
+
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Análisis Dual-Dimensional</h3>
+                <div class="text-sm text-blue-800 space-y-1">
+                    <p><strong>Dimensión Temporal:</strong> Muestra el rendimiento promedio por día. Identifica días con pronósticos atípicamente buenos o malos (factores externos como clima, demanda).</p>
+                    <p><strong>Dimensión Estructural:</strong> Muestra cómo se degrada el pronóstico con el horizonte (t+1 a t+24). Revela limitaciones inherentes del modelo.</p>
                 </div>
             </div>
         </div>
+
+        <!-- Loading State -->
+        <div id="loading-container" class="hidden bg-white rounded-xl shadow-lg p-8">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loading-spinner mb-4"></div>
+                <h2 class="text-xl font-semibold text-gray-700">
+                    Analizando pronósticos...
+                </h2>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-container" class="hidden bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 class="text-red-900 font-bold mb-2">❌ Error</h3>
+            <p id="error-message" class="text-red-800"></p>
+        </div>
+
+        <!-- Results Container -->
+        <div id="results-container" class="hidden">
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <!-- ML Overall Card -->
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg shadow-md p-6 border border-purple-200">
+                    <h3 class="text-lg font-bold text-purple-900 mb-2">🤖 ML Predictions</h3>
+                    <div class="text-3xl font-bold text-purple-700" id="ml-overall-avg">$0.00</div>
+                    <p class="text-sm text-purple-600 mt-1">Distancia promedio</p>
+                </div>
+
+                <!-- Prog Overall Card -->
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-md p-6 border border-blue-200">
+                    <h3 class="text-lg font-bold text-blue-900 mb-2">📊 CMG Programado</h3>
+                    <div class="text-3xl font-bold text-blue-700" id="prog-overall-avg">$0.00</div>
+                    <p class="text-sm text-blue-600 mt-1">Distancia promedio</p>
+                </div>
+
+                <!-- ML Degradation Card -->
+                <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow-md p-6 border border-orange-200">
+                    <h3 class="text-lg font-bold text-orange-900 mb-2">📉 ML Degradación</h3>
+                    <div class="text-3xl font-bold text-orange-700" id="ml-degradation">$0.00/h</div>
+                    <p class="text-sm text-orange-600 mt-1">Tasa de degradación</p>
+                </div>
+
+                <!-- Prog Degradation Card -->
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg shadow-md p-6 border border-green-200">
+                    <h3 class="text-lg font-bold text-green-900 mb-2">📉 Prog Degradación</h3>
+                    <div class="text-3xl font-bold text-green-700" id="prog-degradation">$0.00/h</div>
+                    <p class="text-sm text-green-600 mt-1">Tasa de degradación</p>
+                </div>
+            </div>
+
+            <!-- Temporal Dimension Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Distance by Day - Line Chart -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">📅 Distancia Promedio por Día</h3>
+                    <p class="text-sm text-gray-600 mb-4">Dimensión Temporal: Identifica días atípicos</p>
+                    <div id="temporal-line-chart" class="chart-container"></div>
+                </div>
+
+                <!-- Daily Comparison - Bar Chart -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">⚖️ Comparación Diaria</h3>
+                    <p class="text-sm text-gray-600 mb-4">ML vs CMG Programado por día</p>
+                    <div id="temporal-bar-chart" class="chart-container"></div>
+                </div>
+            </div>
+
+            <!-- Structural Dimension Chart -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📈 Curva de Degradación por Horizonte</h3>
+                <p class="text-sm text-gray-600 mb-4">Dimensión Estructural: Cómo se degrada la precisión con el tiempo</p>
+                <div id="structural-chart" class="chart-container"></div>
+            </div>
+
+            <!-- Summary Statistics Table -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">📋 Estadísticas Resumidas</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Temporal Stats -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-700 mb-3">Dimensión Temporal (por día)</h4>
+                        <div class="space-y-3">
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Mejor Día ML</p>
+                                <p class="font-bold text-green-600" id="ml-best-day">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Peor Día ML</p>
+                                <p class="font-bold text-red-600" id="ml-worst-day">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Mejor Día Prog</p>
+                                <p class="font-bold text-green-600" id="prog-best-day">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Peor Día Prog</p>
+                                <p class="font-bold text-red-600" id="prog-worst-day">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Structural Stats -->
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-700 mb-3">Dimensión Estructural (por horizonte)</h4>
+                        <div class="space-y-3">
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">ML: Horizonte t+1</p>
+                                <p class="font-bold text-purple-600" id="ml-h1">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">ML: Horizonte t+24</p>
+                                <p class="font-bold text-purple-600" id="ml-h24">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Prog: Horizonte t+1</p>
+                                <p class="font-bold text-blue-600" id="prog-h1">-</p>
+                            </div>
+                            <div class="border-b border-gray-200 pb-2">
+                                <p class="text-sm text-gray-600">Prog: Horizonte t+24</p>
+                                <p class="font-bold text-blue-600" id="prog-h24">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
     </div>
-    
-    <script src="/js/rendimiento.js"></script>
+
+    <script>
+        // Set default date range to last 7 days
+        document.addEventListener('DOMContentLoaded', function() {
+            setQuickRange(7);
+        });
+
+        function setQuickRange(days) {
+            const end = new Date();
+            end.setDate(end.getDate() - 1); // Yesterday
+            const start = new Date(end);
+            start.setDate(start.getDate() - (days - 1));
+
+            document.getElementById('start-date').value = start.toISOString().split('T')[0];
+            document.getElementById('end-date').value = end.toISOString().split('T')[0];
+        }
+
+        async function loadRangePerformance() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            if (!startDate || !endDate) {
+                showError('Por favor selecciona ambas fechas');
+                return;
+            }
+
+            if (new Date(endDate) < new Date(startDate)) {
+                showError('La fecha fin debe ser mayor o igual a la fecha inicio');
+                return;
+            }
+
+            // Show loading state
+            document.getElementById('loading-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('error-container').classList.add('hidden');
+
+            try {
+                console.log(`Fetching performance data for ${startDate} to ${endDate}...`);
+
+                const response = await fetch(`/api/performance_range?start_date=${startDate}&end_date=${endDate}`);
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.message || 'Failed to load performance data');
+                }
+
+                console.log('Performance data received:', data);
+
+                // Hide loading, show results
+                document.getElementById('loading-container').classList.add('hidden');
+                document.getElementById('results-container').classList.remove('hidden');
+
+                // Render visualizations
+                renderSummaryStats(data.summary);
+                renderTemporalCharts(data.metrics_by_day);
+                renderStructuralChart(data.metrics_by_horizon);
+                renderStatsTable(data.summary, data.metrics_by_horizon);
+
+            } catch (error) {
+                console.error('Error loading performance data:', error);
+                showError(error.message);
+                document.getElementById('loading-container').classList.add('hidden');
+            }
+        }
+
+        function renderSummaryStats(summary) {
+            const mlTemp = summary.temporal.ml;
+            const progTemp = summary.temporal.prog;
+            const mlStruct = summary.structural.ml;
+            const progStruct = summary.structural.prog;
+
+            document.getElementById('ml-overall-avg').textContent = mlTemp.overall_avg ? `$${mlTemp.overall_avg}` : 'N/A';
+            document.getElementById('prog-overall-avg').textContent = progTemp.overall_avg ? `$${progTemp.overall_avg}` : 'N/A';
+
+            document.getElementById('ml-degradation').textContent = mlStruct.degradation_rate !== null ? `$${mlStruct.degradation_rate}/h` : 'N/A';
+            document.getElementById('prog-degradation').textContent = progStruct.degradation_rate !== null ? `$${progStruct.degradation_rate}/h` : 'N/A';
+        }
+
+        function renderTemporalCharts(metricsByDay) {
+            // Prepare data
+            const dates = metricsByDay.map(d => d.date);
+            const mlDistances = metricsByDay.map(d => d.ml_avg_distance);
+            const progDistances = metricsByDay.map(d => d.prog_avg_distance);
+
+            // Line chart - Distance by day
+            const lineTrace1 = {
+                x: dates,
+                y: mlDistances,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'ML Predictions',
+                line: { color: '#8b5cf6', width: 3 },
+                marker: { size: 8 }
+            };
+
+            const lineTrace2 = {
+                x: dates,
+                y: progDistances,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'CMG Programado',
+                line: { color: '#3b82f6', width: 3 },
+                marker: { size: 8 }
+            };
+
+            const lineLayout = {
+                xaxis: { title: 'Fecha' },
+                yaxis: { title: 'Distancia Promedio (USD/MWh)' },
+                margin: { l: 60, r: 20, t: 20, b: 60 },
+                showlegend: true,
+                legend: { x: 0.5, xanchor: 'center', y: -0.2, orientation: 'h' }
+            };
+
+            Plotly.newPlot('temporal-line-chart', [lineTrace1, lineTrace2], lineLayout, { responsive: true });
+
+            // Bar chart - Daily comparison
+            const barTrace1 = {
+                x: dates,
+                y: mlDistances,
+                type: 'bar',
+                name: 'ML',
+                marker: { color: '#8b5cf6' }
+            };
+
+            const barTrace2 = {
+                x: dates,
+                y: progDistances,
+                type: 'bar',
+                name: 'Prog',
+                marker: { color: '#3b82f6' }
+            };
+
+            const barLayout = {
+                barmode: 'group',
+                xaxis: { title: 'Fecha' },
+                yaxis: { title: 'Distancia Promedio (USD/MWh)' },
+                margin: { l: 60, r: 20, t: 20, b: 60 },
+                showlegend: true,
+                legend: { x: 0.5, xanchor: 'center', y: -0.2, orientation: 'h' }
+            };
+
+            Plotly.newPlot('temporal-bar-chart', [barTrace1, barTrace2], barLayout, { responsive: true });
+        }
+
+        function renderStructuralChart(metricsByHorizon) {
+            const mlHorizons = metricsByHorizon.ml.map(h => h.horizon);
+            const mlDistances = metricsByHorizon.ml.map(h => h.avg_distance);
+
+            const progHorizons = metricsByHorizon.prog.map(h => h.horizon);
+            const progDistances = metricsByHorizon.prog.map(h => h.avg_distance);
+
+            const trace1 = {
+                x: mlHorizons,
+                y: mlDistances,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'ML Predictions',
+                line: { color: '#8b5cf6', width: 3 },
+                marker: { size: 8 }
+            };
+
+            const trace2 = {
+                x: progHorizons,
+                y: progDistances,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'CMG Programado',
+                line: { color: '#3b82f6', width: 3 },
+                marker: { size: 8 }
+            };
+
+            const layout = {
+                xaxis: {
+                    title: 'Horizonte (horas adelante)',
+                    tickmode: 'linear',
+                    tick0: 1,
+                    dtick: 2
+                },
+                yaxis: { title: 'Distancia Promedio (USD/MWh)' },
+                margin: { l: 60, r: 20, t: 20, b: 60 },
+                showlegend: true,
+                legend: { x: 0.5, xanchor: 'center', y: -0.15, orientation: 'h' }
+            };
+
+            Plotly.newPlot('structural-chart', [trace1, trace2], layout, { responsive: true });
+        }
+
+        function renderStatsTable(summary, metricsByHorizon) {
+            const mlTemp = summary.temporal.ml;
+            const progTemp = summary.temporal.prog;
+
+            // Temporal stats
+            if (mlTemp.best_day) {
+                document.getElementById('ml-best-day').textContent = `${mlTemp.best_day.date}: $${mlTemp.best_day.ml_avg_distance}`;
+            }
+            if (mlTemp.worst_day) {
+                document.getElementById('ml-worst-day').textContent = `${mlTemp.worst_day.date}: $${mlTemp.worst_day.ml_avg_distance}`;
+            }
+            if (progTemp.best_day) {
+                document.getElementById('prog-best-day').textContent = `${progTemp.best_day.date}: $${progTemp.best_day.prog_avg_distance}`;
+            }
+            if (progTemp.worst_day) {
+                document.getElementById('prog-worst-day').textContent = `${progTemp.worst_day.date}: $${progTemp.worst_day.prog_avg_distance}`;
+            }
+
+            // Structural stats
+            const mlH1 = metricsByHorizon.ml.find(h => h.horizon === 1);
+            const mlH24 = metricsByHorizon.ml.find(h => h.horizon === 24);
+            const progH1 = metricsByHorizon.prog.find(h => h.horizon === 1);
+            const progH24 = metricsByHorizon.prog.find(h => h.horizon === 24);
+
+            if (mlH1) document.getElementById('ml-h1').textContent = `$${mlH1.avg_distance}`;
+            if (mlH24) document.getElementById('ml-h24').textContent = `$${mlH24.avg_distance}`;
+            if (progH1) document.getElementById('prog-h1').textContent = `$${progH1.avg_distance}`;
+            if (progH24) document.getElementById('prog-h24').textContent = `$${progH24.avg_distance}`;
+        }
+
+        function showError(message) {
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-container').classList.remove('hidden');
+            document.getElementById('results-container').classList.add('hidden');
+        }
+    </script>
 </body>
 </html>
