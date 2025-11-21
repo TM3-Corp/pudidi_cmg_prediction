@@ -196,12 +196,6 @@ cmg_usd DECIMAL                -- Precio en USD/MWh
 1. `cmg_online_hourly.yml` - Pipeline principal (cada hora :05)
 2. `daily_optimization.yml` - Optimización diaria (17:00 Chilean time) [Opcional]
 3. `cmg_5pm_snapshot.yml` - Snapshot diario [Opcional]
-
-**Ventajas:**
-- Gratis (2000 minutos/mes en free tier)
-- Logs accesibles 90 días
-- Re-intento automático si falla
-
 ---
 
 ## 5. RESILIENCIA - ESTRATEGIA DUAL-WRITE
@@ -290,3 +284,4 @@ flowchart LR
 **Documento preparado por:** TM3 Corp para Pudidi
 **Contacto técnico:** Ver repositorio GitHub
 **URL Repositorio:** https://github.com/TM3-Corp/pudidi_cmg_prediction
+
