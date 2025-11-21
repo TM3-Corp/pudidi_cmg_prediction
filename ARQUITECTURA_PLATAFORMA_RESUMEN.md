@@ -32,9 +32,9 @@ graph TB
         API[🔌 API Gateway<br/>11 Python Endpoints<br/>Serverless Functions]
     end
 
-    Railway[🤖 RAILWAY ML BACKEND<br/>FastAPI Server<br/>192 Modelos ML | 103 MB<br/>/ml_forecast, /ml_thresholds]
+    Railway[🤖 RAILWAY ML BACKEND<br/>FastAPI Server<br/>192 Modelos ML - 103 MB<br/>/ml_forecast, /ml_thresholds]
 
-    Supabase[🗄️ SUPABASE DATABASE<br/>PostgreSQL 15<br/>3 Tablas | 46K+ registros<br/>cmg_online, cmg_programado, ml_predictions]
+    Supabase[🗄️ SUPABASE DATABASE<br/>PostgreSQL 15<br/>3 Tablas - 46K+ registros<br/>cmg_online, cmg_programado, ml_predictions]
 
     subgraph GitHub[" GITHUB ACTIONS "]
         Pipeline[⚙️ Pipeline Horario<br/>Ejecuta cada hora :05<br/>Duración: 2-5 minutos]
