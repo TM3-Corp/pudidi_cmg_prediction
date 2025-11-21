@@ -286,13 +286,45 @@ def main():
             if skipped > 0:
                 print(f"⚠️  Skipped {skipped} forecast(s) due to missing nodes")
 
-            # Insert in batches
+            # Insert in batches with detailed error tracking
             batch_size = 100
+            total_batches = (len(supabase_records) + batch_size - 1) // batch_size
+            successful_batches = 0
+            failed_batches = 0
+            successful_records = 0
+
+            print(f"\n📤 Inserting {len(supabase_records)} records in {total_batches} batches...")
+
             for i in range(0, len(supabase_records), batch_size):
                 batch = supabase_records[i:i+batch_size]
-                supabase.insert_cmg_programado_batch(batch)
+                batch_num = i // batch_size + 1
 
-            print(f"✅ Wrote {len(supabase_records)} forecasts to Supabase")
+                # Extract forecast hours in this batch for logging
+                forecast_hours = set(r['forecast_hour'] for r in batch)
+
+                print(f"   Batch {batch_num}/{total_batches}: {len(batch)} records (forecast hours: {sorted(forecast_hours)})")
+
+                success = supabase.insert_cmg_programado_batch(batch)
+
+                if success:
+                    successful_batches += 1
+                    successful_records += len(batch)
+                else:
+                    failed_batches += 1
+                    print(f"   ❌ Batch {batch_num} FAILED!")
+                    print(f"      Sample record from failed batch:")
+                    print(f"      - forecast_datetime: {batch[0]['forecast_datetime']}")
+                    print(f"      - target_datetime: {batch[0]['target_datetime']}")
+                    print(f"      - node: {batch[0]['node']}")
+
+            print(f"\n📊 Supabase Insert Summary:")
+            print(f"   ✅ Successful batches: {successful_batches}/{total_batches}")
+            print(f"   ✅ Records inserted: {successful_records}/{len(supabase_records)}")
+            if failed_batches > 0:
+                print(f"   ❌ Failed batches: {failed_batches}")
+                print(f"   ⚠️  WARNING: Some records failed to insert!")
+            else:
+                print(f"   🎉 All records inserted successfully!")
         except Exception as e:
             print(f"⚠️ Failed to write to Supabase: {e}")
             print("   (Gist and local cache still updated)")

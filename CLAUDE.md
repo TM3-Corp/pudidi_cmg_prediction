@@ -1,7 +1,174 @@
 # CLAUDE.md - AI Assistant Context & Session Continuity
 
-**Last Updated**: 2025-11-18
-**Current Session**: Migration Complete - System Fully Operational
+**Last Updated**: 2025-11-20
+**Current Session**: CRITICAL - CMG Programado Storage Failure Detected
+
+---
+
+## 🚨 CRITICAL ISSUE: CMG PROGRAMADO STORAGE FAILURES (Nov 20, 2025)
+
+### Root Cause Analysis COMPLETE ✅
+
+**User was RIGHT to be skeptical!** Deep investigation revealed **TWO critical bugs** affecting CMG Programado data:
+
+#### Bug #1: Timezone-Naive Datetime Strings 🕐
+
+**Location:** `scripts/process_pmontt_programado.py` line 219 + `scripts/store_cmg_programado.py` lines 265-271
+
+**The Problem:**
+```python
+# process_pmontt_programado.py line 219
+"datetime": f"{date}T{hour}:00:00"  # ❌ NO TIMEZONE SUFFIX!
+
+# Cache file produces:
+{
+  "timestamp": "2025-11-20T19:28:34.997394-03:00",  # ✅ Has timezone
+  "data": [
+    {"datetime": "2025-11-20T00:00:00", ...}        # ❌ No timezone!
+  ]
+}
+
+# store_cmg_programado.py line 268
+target_dt = datetime.fromisoformat(target_dt_str)  # Creates timezone-NAIVE datetime
+
+# Line 278 sends to Supabase
+'target_datetime': target_dt.isoformat()  # Returns "2025-11-20T00:00:00" (no timezone)
+
+# Supabase TIMESTAMPTZ defaults to UTC when no timezone provided!
+# Result: Wrong timestamps, wrong target_date/target_hour extraction
+```
+
+**Impact:**
+- All datetime comparisons may be off by 3 hours (Santiago is UTC-3)
+- `target_date` and `target_hour` extracted AFTER UTC default may be incorrect
+- Performance metrics compare wrong time periods
+
+**Fix Required:**
+Change line 219 in `process_pmontt_programado.py` to use the already timezone-aware `dt` object:
+```python
+"datetime": dt.isoformat()  # dt is already santiago_tz.localize(dt) from line 54
+```
+
+#### Bug #2: Sporadic Storage Failures 💾
+
+**Evidence (with proper pagination):**
+
+**Nov 18, 2025:**
+- **Gist**: 19/24 forecast hours `[0-8, 10-16, 19, 20, 23]` ✅
+- **Supabase**: 17/24 forecast hours `[0-8, 10-16, 19]` (1,296 records)
+- **DATA LOSS**: Hours 20, 23 missing from Supabase ❌
+
+**Nov 20, 2025:**
+- **Supabase**: 20/24 forecast hours `[0-8, 10-16, 17-18, 20, 23]` (1,512 records)
+- **DATA LOSS**: Hours 9, 19, 21, 22 missing ❌
+- **Cache shows hour 19 was fetched but 0 records in Supabase!**
+
+**Pattern**:
+- Hour 9 consistently missing (both Nov 18 and 20)
+- Other hours sporadically missing (not a consistent "14-23" pattern as initially thought)
+- Some fetches succeed, others silently fail
+
+**Possible Causes:**
+- Constraint violations during batch insert?
+- Node ID lookup failures for certain forecast times?
+- Exception swallowing in error handling (lines 296-298)?
+- Timezone-naive datetimes causing constraint conflicts?
+
+**Location:** `scripts/store_cmg_programado.py` lines 289-294 + `lib/utils/supabase_client.py` lines 157-176
+
+**Lesson Learned**: Always use pagination when querying Supabase! PostgREST has 1000-row default limit.
+
+### Impact
+
+1. **Performance Heatmap Shows Artificial Gaps**
+   - Heatmap queries Supabase (not Gist)
+   - Missing hours create fake "no data" cells
+   - Performance metrics are INCOMPLETE and MISLEADING
+
+2. **Distance Calculation is Correct**
+   - Formula: `distance = |forecast - actual|` ✅
+   - Terminology issue: "360 errors" → should say "360 comparisons"
+   - Each comparison is valid, "error" just means "signed difference"
+
+3. **Timezone Mismatch Causes Wrong Aggregations**
+   - Daily charts may aggregate wrong hours
+   - Horizon charts may compare misaligned timestamps
+
+### Data Pipeline Flow
+
+```
+Hourly Workflow (runs at :05 every hour)
+├─ 1. Scrape CMG Programado CSV from Coordinador website (Playwright)
+│    └─ scripts/download_cmg_programado_simple.py
+├─ 2. Process CSV → Extract PMontt220 node → Create cache file
+│    └─ scripts/process_pmontt_programado.py
+│    ❌ BUG: Line 219 creates timezone-naive datetime strings
+├─ 3. Store to Gist
+│    └─ scripts/store_cmg_programado.py
+│    ✅ SUCCESS (19 hours on Nov 18)
+└─ 4. Store to Supabase
+     └─ scripts/store_cmg_programado.py
+     ❌ BUG: Parses timezone-naive strings, silent failures for hours 14-23
+     ❌ PARTIAL FAILURE (13 hours on Nov 18, lost 6 hours!)
+```
+
+### Fixes Applied (Nov 21, 2025) ✅
+
+1. ✅ **Bug #1 FIXED: Timezone-Naive Strings**
+   - **File**: `scripts/process_pmontt_programado.py` line 221
+   - **Change**: Added `-03:00` timezone suffix to datetime strings
+   - **Before**: `"datetime": f"{date}T{hour}:00:00"`
+   - **After**: `"datetime": f"{date}T{hour}:00:00-03:00"`
+   - **Impact**: New CMG Programado data will have correct Santiago timezone
+
+2. ✅ **Bug #2 FIXED: Added Detailed Error Logging**
+   - **Files**:
+     - `scripts/store_cmg_programado.py` lines 289-327 (batch insert loop)
+     - `lib/utils/supabase_client.py` lines 166-179 (error details)
+   - **Added**:
+     - Per-batch success/failure tracking
+     - Forecast hours in each batch logged
+     - Failed batch sample records printed
+     - Detailed HTTP error response parsing
+     - Insert summary statistics
+   - **Impact**: Will now see exactly which batches fail and why
+
+3. ✅ **Performance Views Investigation Complete**
+   - All views (rendimiento.html, performance_heatmap.html) are **consistent**
+   - Both require: Forecasts AND Actuals (CMG Online)
+   - **Why Horizon Chart Shows Complete Data**:
+     - Aggregates by `horizon` across ALL dates
+     - Partial data from different dates fills all 24 horizons
+   - **Why Daily Charts Show Gaps**:
+     - Requires complete forecasts for each specific date
+     - Missing forecasts for a date = gap in daily view
+   - **Data Coverage Analysis** (Nov 14-20):
+     - CMG Online (Actuals): ✅ 100% complete (24 hours × 7 days)
+     - ML Predictions: 4/7 dates (missing Nov 14, 15, 20)
+     - CMG Programado: 1/7 dates visible in `forecast_date` (timezone bug affected date extraction)
+
+### Next Steps
+
+1. **Deploy Fixes**
+   - Commit timezone fix and error logging
+   - Push to GitHub
+   - Wait for next hourly workflow run
+   - Monitor GitHub Actions logs for detailed error messages
+
+2. **Investigate ML Predictions Gap**
+   - Why are ML Predictions missing for Nov 14, 15, 20?
+   - Check if `ml_hourly_forecast.py` is running consistently
+   - Review GitHub Actions logs for those dates
+
+3. **Backfill CMG Programado** (AFTER timezone fix deployed)
+   - Once new data confirms timezone fix works
+   - Backfill Nov 15-20 from Gist with correct timezone handling
+   - Write backfill script: `scripts/backfill_cmg_programado.py`
+
+4. **Monitor Next Hourly Run**
+   - Check if hour 9, 19, etc. still fail
+   - Review detailed error logs from new logging
+   - Verify timezone-aware datetimes are stored correctly
 
 ---
 

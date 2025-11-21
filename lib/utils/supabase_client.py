@@ -161,11 +161,23 @@ class SupabaseClient:
             response = requests.post(url, json=records, headers=headers)
 
             if response.status_code in [200, 201, 204]:
-                print(f"✅ Inserted {len(records)} CMG Programado records")
                 return True
             else:
-                print(f"❌ Failed to insert CMG Programado: {response.status_code}")
-                print(f"   Response: {response.text}")
+                print(f"❌ Failed to insert CMG Programado batch: HTTP {response.status_code}")
+                print(f"   Response: {response.text[:500]}")  # Limit to first 500 chars
+
+                # Parse error response for more details
+                try:
+                    error_data = response.json()
+                    if 'message' in error_data:
+                        print(f"   Error message: {error_data['message']}")
+                    if 'details' in error_data:
+                        print(f"   Error details: {error_data['details']}")
+                    if 'hint' in error_data:
+                        print(f"   Hint: {error_data['hint']}")
+                except:
+                    pass
+
                 # Still return True if it's just duplicate errors (script should continue)
                 if response.status_code == 409:
                     print("   Note: Some records already exist (this is OK)")

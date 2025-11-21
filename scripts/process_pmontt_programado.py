@@ -215,8 +215,10 @@ def save_local_cache(pmontt_data: Dict):
     for date, hours_data in pmontt_data.items():
         for hour, value in hours_data.items():
             hour_int = int(hour)
+            # FIXED: Include timezone suffix to preserve Santiago timezone (UTC-3)
+            # This prevents Supabase from defaulting to UTC when parsing TIMESTAMPTZ columns
             api_data.append({
-                "datetime": f"{date}T{hour}:00:00",
+                "datetime": f"{date}T{hour}:00:00-03:00",
                 "date": date,
                 "hour": hour_int,
                 "node": "PMontt220",
