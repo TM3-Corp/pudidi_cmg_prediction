@@ -149,10 +149,10 @@ Esta cuantificación de incertidumbre permite **gestión de riesgo** en optimiza
 
 ---
 
-## 7. PERFORMANCE ACTUAL
+## 7. PERFORMANCE EN DATOS ENTRENAMIENTO
 
 ### Métricas de Evaluación
-- **MAE (Mean Absolute Error):** $32.43 /MWh
+- **MAE (Mean Absolute Error):** $31.43 /MWh
 - **Horizonte:** Promedio sobre 24 horas (t+1 hasta t+24)
 - **Dataset de validación:** Últimos 2 meses de datos (no usados en entrenamiento)
 
@@ -194,3 +194,4 @@ Por esta razón, **el modelo final NO usa variables meteorológicas**.
 
 **Contacto técnico:** Sistema desarrollado por TM3 Corp para Pudidi
 **Documentación completa:** Ver `ARCHITECTURE.md` y `SUPUESTOS_SISTEMA.md` en repositorio
+
