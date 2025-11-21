@@ -16,6 +16,16 @@ A production-ready system for predicting and analyzing Marginal Cost (CMG) value
 - **Performance Analysis**: https://pudidicmgprediction.vercel.app/rendimiento
 - **Optimizer Tool**: https://pudidicmgprediction.vercel.app/optimizer
 
+## 📚 Documentation
+
+Complete documentation is available in the [`docs/`](./docs/) folder:
+
+- **[Client Documentation](./docs/client/)** - Technical documentation for clients (ML models, platform architecture)
+- **[Internal Documentation](./docs/internal/)** - Developer documentation (architecture, data formats, migration guides)
+- **[Guides](./docs/guides/)** - Step-by-step setup and deployment guides
+
+📖 **[View Full Documentation Index →](./docs/README.md)**
+
 ## 📁 Project Structure
 
 ```
