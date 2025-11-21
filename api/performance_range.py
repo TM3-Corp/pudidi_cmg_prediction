@@ -79,27 +79,39 @@ class handler(BaseHTTPRequestHandler):
             # Calculate number of days
             num_days = (end_date - start_date).days + 1
 
-            # Query all ML forecasts in date range
+            # Query ML forecasts - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
             ml_url = f"{supabase.base_url}/ml_predictions_santiago"
-            ml_params = [
-                ("forecast_date", f"gte.{start_date_str}"),
-                ("forecast_date", f"lte.{end_date_str}"),
-                ("order", "forecast_date.asc,forecast_hour.asc,horizon.asc"),
-                ("limit", "20000")  # Max ~30 days × 24 hours × 24 horizons
-            ]
-            ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
-            ml_forecasts = ml_response.json() if ml_response.status_code == 200 else []
+            ml_forecasts = []
 
-            # Query all CMG Programado in date range
+            current_date = start_date
+            while current_date <= end_date:
+                date_str = current_date.strftime('%Y-%m-%d')
+                ml_params = [
+                    ("forecast_date", f"eq.{date_str}"),
+                    ("order", "forecast_hour.asc,horizon.asc"),
+                    ("limit", "1000")  # Max per day: 24 hours × 24 horizons = 576
+                ]
+                ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
+                if ml_response.status_code == 200:
+                    ml_forecasts.extend(ml_response.json())
+                current_date += timedelta(days=1)
+
+            # Query CMG Programado - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
             prog_url = f"{supabase.base_url}/cmg_programado_santiago"
-            prog_params = [
-                ("forecast_date", f"gte.{start_date_str}"),
-                ("forecast_date", f"lte.{end_date_str}"),
-                ("order", "forecast_date.asc,forecast_hour.asc,target_datetime.asc"),
-                ("limit", "100000")  # Max ~30 days × 24 hours × 72 horizons
-            ]
-            prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
-            prog_forecasts = prog_response.json() if prog_response.status_code == 200 else []
+            prog_forecasts = []
+
+            current_date = start_date
+            while current_date <= end_date:
+                date_str = current_date.strftime('%Y-%m-%d')
+                prog_params = [
+                    ("forecast_date", f"eq.{date_str}"),
+                    ("order", "forecast_hour.asc,target_datetime.asc"),
+                    ("limit", "5000")  # Max per day: 24 hours × 72 horizons = 1,728
+                ]
+                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
+                if prog_response.status_code == 200:
+                    prog_forecasts.extend(prog_response.json())
+                current_date += timedelta(days=1)
 
             # Filter CMG Programado to only future forecasts and first 24 hours
             prog_filtered = []
