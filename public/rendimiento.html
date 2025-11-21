@@ -244,7 +244,7 @@
 
         function setQuickRange(days) {
             const end = new Date();
-            end.setDate(end.getDate() - 1); // Yesterday
+            // Use today as end date (not yesterday)
             const start = new Date(end);
             start.setDate(start.getDate() - (days - 1));
 

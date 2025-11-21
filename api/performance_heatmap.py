@@ -142,8 +142,9 @@ class handler(BaseHTTPRequestHandler):
                 horizon = forecast['horizon']
                 predicted_cmg = forecast['cmg_predicted']
 
-                # Calculate target hour (forecast_hour + horizon)
-                target_hour = (forecast_hour + horizon) % 24
+                # FIXED: Use target_hour from view (already timezone-corrected)
+                # Don't calculate with modulo - that doesn't account for day boundaries
+                target_hour = forecast['target_hour']
 
                 # Get actual for target hour
                 if target_hour in actuals_avg:
@@ -166,8 +167,9 @@ class handler(BaseHTTPRequestHandler):
                 horizon = forecast['horizon']
                 predicted_cmg = forecast['cmg_usd']
 
-                # Calculate target hour
-                target_hour = (forecast_hour + horizon) % 24
+                # FIXED: Use target_hour from view (already timezone-corrected)
+                # Don't calculate with modulo - that doesn't account for day boundaries
+                target_hour = forecast['target_hour']
 
                 # Get actual for target hour
                 if target_hour in actuals_avg:
