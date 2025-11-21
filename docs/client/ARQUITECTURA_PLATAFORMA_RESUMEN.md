@@ -229,15 +229,8 @@ flowchart LR
     API -->|Read| Supabase
     Frontend -.->|Fallback| Gist
 
-    subgraph Recovery[" 🛡️ RECUPERACIÓN AUTOMÁTICA "]
-        R1[❌ Si Supabase falla<br/>→ Frontend lee desde Gist]
-        R2[❌ Si Railway falla<br/>→ API usa caché de Supabase]
-        R3[❌ Si GitHub Actions falla<br/>→ Re-intento próxima hora]
-    end
-
     style Primary fill:#3ECF8E,stroke:#2E7D32,stroke-width:3px,color:#000
     style Secondary fill:#FFC107,stroke:#F57F17,stroke-width:3px,color:#000
-    style Recovery fill:#f8f9fa,stroke:#dee2e6,stroke-width:2px,color:#000
     style Supabase fill:#fff,stroke:#3ECF8E,stroke-width:2px
     style Gist fill:#fff,stroke:#FFC107,stroke-width:2px
 ```
