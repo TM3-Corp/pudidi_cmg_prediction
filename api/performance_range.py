@@ -79,11 +79,17 @@ class handler(BaseHTTPRequestHandler):
             # Calculate number of days
             num_days = (end_date - start_date).days + 1
 
+            # IMPORTANT: To capture all forecasts that TARGET our date range,
+            # we need to query forecasts from (start_date - 1 day) because:
+            # - A forecast made on Day N with horizon t+24 targets Day N+1
+            # - So to get all forecasts targeting start_date, we need Day (start_date - 1)
+            forecast_query_start = start_date - timedelta(days=1)
+
             # Query ML forecasts - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
             ml_url = f"{supabase.base_url}/ml_predictions_santiago"
             ml_forecasts = []
 
-            current_date = start_date
+            current_date = forecast_query_start
             while current_date <= end_date:
                 date_str = current_date.strftime('%Y-%m-%d')
                 ml_params = [
@@ -97,10 +103,11 @@ class handler(BaseHTTPRequestHandler):
                 current_date += timedelta(days=1)
 
             # Query CMG Programado - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
+            # Also use extended start date to capture forecasts targeting our range
             prog_url = f"{supabase.base_url}/cmg_programado_santiago"
             prog_forecasts = []
 
-            current_date = start_date
+            current_date = forecast_query_start
             while current_date <= end_date:
                 date_str = current_date.strftime('%Y-%m-%d')
                 prog_params = [
