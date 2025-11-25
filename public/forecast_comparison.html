@@ -89,11 +89,11 @@
             <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
                 <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Cómo Usar</h3>
                 <p class="text-sm text-blue-800 mb-2">
-                    Selecciona una fecha y hora específica para ver qué pronósticos se hicieron en ese momento.
-                    Solo se muestran predicciones que apuntan a horas <strong>dentro del mismo día</strong>.
+                    Selecciona una fecha y hora específica para ver la matriz completa de pronósticos (t+1 a t+24).
+                    Se muestran las <strong>24 horas de predicciones</strong> que se hicieron en ese momento.
                 </p>
                 <p class="text-sm text-blue-800">
-                    <strong>Ejemplo:</strong> Si seleccionas las 18:00, verás predicciones para las 19:00-23:00 (5 horas restantes del día).
+                    <strong>Ejemplo:</strong> Si seleccionas las 14:00 del Nov 24, verás predicciones para Nov 24 15:00 hasta Nov 25 14:00.
                 </p>
             </div>
         </div>
@@ -830,20 +830,20 @@
             const forecastDate = date;
             const forecastHour = parseInt(hour);
 
-            // Helper: Check if target datetime is within the forecast day
-            function isSameDay(targetDatetime) {
-                if (!targetDatetime) return false;
-                const targetDate = targetDatetime.split('T')[0];
-                return targetDate === forecastDate;
-            }
+            // Show FULL 24-hour forecast window (t+1 to t+24)
+            // This spans from forecast hour+1 to the same hour next day
 
-            // ML Predictions - Filter to same day only
+            // ML Predictions - Show all 24 hours
             if (mlForecast && mlForecast.predictions) {
-                const sameDayPredictions = mlForecast.predictions.filter(p => isSameDay(p.target_datetime));
-                if (sameDayPredictions.length > 0) {
+                // Sort by target datetime and take first 24
+                const sortedPredictions = [...mlForecast.predictions]
+                    .sort((a, b) => a.target_datetime.localeCompare(b.target_datetime))
+                    .slice(0, 24);
+
+                if (sortedPredictions.length > 0) {
                     traces.push({
-                        x: sameDayPredictions.map(p => p.target_datetime),
-                        y: sameDayPredictions.map(p => p.cmg),
+                        x: sortedPredictions.map(p => p.target_datetime),
+                        y: sortedPredictions.map(p => p.cmg),
                         name: '🤖 Predicción ML',
                         type: 'scatter',
                         mode: 'lines+markers',
@@ -853,17 +853,20 @@
                 }
             }
 
-            // CMG Programado (first node) - Filter to same day only
+            // CMG Programado (first node) - Show all 24 hours
             if (progForecast && progForecast.forecasts) {
                 const firstNode = Object.keys(progForecast.forecasts)[0];
                 if (firstNode) {
                     const forecasts = progForecast.forecasts[firstNode];
-                    const sameDayForecasts = forecasts.filter(f => isSameDay(f.datetime));
+                    // Sort and take first 24
+                    const sortedForecasts = [...forecasts]
+                        .sort((a, b) => a.datetime.localeCompare(b.datetime))
+                        .slice(0, 24);
 
-                    if (sameDayForecasts.length > 0) {
+                    if (sortedForecasts.length > 0) {
                         traces.push({
-                            x: sameDayForecasts.map(f => f.datetime),
-                            y: sameDayForecasts.map(f => f.cmg),
+                            x: sortedForecasts.map(f => f.datetime),
+                            y: sortedForecasts.map(f => f.cmg),
                             name: '📅 CMG Programado',
                             type: 'scatter',
                             mode: 'lines+markers',
@@ -874,21 +877,41 @@
                 }
             }
 
-            // Actual CMG Online - Filter to same day, t+1 onwards
+            // Actual CMG Online - Show actuals for the full 24h forecast window
             if (actualData && Object.keys(actualData).length > 0) {
                 const firstNode = Object.keys(actualData)[0];
                 if (actualData[firstNode] && actualData[firstNode].cmg_usd) {
                     const allCmgValues = actualData[firstNode].cmg_usd;
-
-                    // Start from t+1 (hour + 1), end at 23:00
-                    const startHour = forecastHour + 1;
                     const filteredValues = [];
                     const filteredDatetimes = [];
 
+                    // Start from t+1 (hour + 1)
+                    const startHour = forecastHour + 1;
+
+                    // Get actuals for same day (from t+1 to 23:00)
                     for (let h = startHour; h < 24; h++) {
                         if (allCmgValues[h] !== null && allCmgValues[h] !== undefined) {
                             filteredValues.push(allCmgValues[h]);
                             filteredDatetimes.push(`${forecastDate}T${h.toString().padStart(2, '0')}:00:00`);
+                        }
+                    }
+
+                    // Try to get actuals for next day (from 00:00 to forecast hour)
+                    const nextDate = new Date(forecastDate);
+                    nextDate.setDate(nextDate.getDate() + 1);
+                    const nextDateStr = nextDate.toISOString().split('T')[0];
+
+                    if (historicalData && historicalData.daily_data && historicalData.daily_data[nextDateStr]) {
+                        const nextDayData = historicalData.daily_data[nextDateStr];
+                        if (nextDayData.cmg_online && nextDayData.cmg_online[firstNode]) {
+                            const nextDayCmg = nextDayData.cmg_online[firstNode].cmg_usd;
+                            // Get hours 0 to forecastHour (to complete 24h window)
+                            for (let h = 0; h <= forecastHour; h++) {
+                                if (nextDayCmg[h] !== null && nextDayCmg[h] !== undefined) {
+                                    filteredValues.push(nextDayCmg[h]);
+                                    filteredDatetimes.push(`${nextDateStr}T${h.toString().padStart(2, '0')}:00:00`);
+                                }
+                            }
                         }
                     }
 
@@ -906,15 +929,12 @@
                 }
             }
 
-            // Calculate expected hours for this forecast
-            const expectedHours = 23 - forecastHour;
-
             const layout = {
                 title: {
-                    text: `Pronóstico ${forecastDate} ${forecastHour.toString().padStart(2, '0')}:00 → ${expectedHours} horas restantes del día`,
+                    text: `Pronóstico ${forecastDate} ${forecastHour.toString().padStart(2, '0')}:00 → 24 horas (t+1 a t+24)`,
                     font: { size: 14 }
                 },
-                xaxis: { title: 'Hora del Día' },
+                xaxis: { title: 'Fecha y Hora' },
                 yaxis: { title: 'CMG (USD/MWh)' },
                 showlegend: true,
                 legend: { x: 0.02, y: 0.98 },
@@ -946,15 +966,8 @@
 
             // Use a Map to merge predictions by target datetime (avoids duplicates)
             const rowMap = new Map();
-            const forecastDate = date; // The day we're analyzing
+            const forecastDate = date;
             const forecastHour = parseInt(hour);
-
-            // Helper: Check if target datetime is within the forecast day
-            function isSameDay(targetDatetime) {
-                if (!targetDatetime) return false;
-                const targetDate = targetDatetime.split('T')[0];
-                return targetDate === forecastDate;
-            }
 
             // Helper: Get datetime key for merging (YYYY-MM-DD HH:00)
             function getDatetimeKey(datetimeStr) {
@@ -962,11 +975,14 @@
                 return datetimeStr.substring(0, 13) + ':00'; // "2025-11-24T14:00"
             }
 
-            // Process ML predictions - filter to same day only
+            // Process ML predictions - show ALL 24 hours (t+1 to t+24)
             if (mlForecast && mlForecast.predictions) {
-                mlForecast.predictions.forEach(pred => {
-                    if (!isSameDay(pred.target_datetime)) return; // Skip cross-day predictions
+                // Sort and take first 24
+                const sortedPreds = [...mlForecast.predictions]
+                    .sort((a, b) => a.target_datetime.localeCompare(b.target_datetime))
+                    .slice(0, 24);
 
+                sortedPreds.forEach(pred => {
                     const key = getDatetimeKey(pred.target_datetime);
                     if (!key) return;
 
@@ -977,45 +993,67 @@
                 });
             }
 
-            // Process CMG Programado - filter to same day only, pick first node
+            // Process CMG Programado - show ALL 24 hours, pick first node
             if (progForecast && progForecast.forecasts) {
-                // Get first node's forecasts (typically PMontt220)
                 const firstNodeKey = Object.keys(progForecast.forecasts)[0];
                 const progData = progForecast.forecasts[firstNodeKey] || [];
 
-                progData.forEach(pred => {
-                    if (!isSameDay(pred.datetime)) return; // Skip cross-day predictions
+                // Sort and take first 24
+                const sortedProg = [...progData]
+                    .sort((a, b) => a.datetime.localeCompare(b.datetime))
+                    .slice(0, 24);
 
+                sortedProg.forEach(pred => {
                     const key = getDatetimeKey(pred.datetime);
                     if (!key) return;
 
                     if (!rowMap.has(key)) {
                         rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
                     }
-                    // Only set if not already set (avoid duplicates from multiple nodes)
+                    // Only set if not already set (avoid duplicates)
                     if (!rowMap.get(key).prog) {
                         rowMap.get(key).prog = pred;
                     }
                 });
             }
 
-            // Add actual CMG Online values
+            // Add actual CMG Online values for the 24h forecast window
             if (actualData) {
                 const firstNode = Object.keys(actualData)[0];
                 if (firstNode && actualData[firstNode] && actualData[firstNode].cmg_usd) {
-                    actualData[firstNode].cmg_usd.forEach((value, hourIdx) => {
-                        if (value === null || value === undefined) return;
+                    const cmgValues = actualData[firstNode].cmg_usd;
 
-                        const key = `${forecastDate}T${hourIdx.toString().padStart(2, '0')}:00`;
-
-                        // Only add actuals for hours AFTER the forecast hour (t+1 onwards)
-                        if (hourIdx <= forecastHour) return;
-
-                        if (!rowMap.has(key)) {
-                            rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
+                    // Same day actuals (from t+1 to 23:00)
+                    for (let h = forecastHour + 1; h < 24; h++) {
+                        if (cmgValues[h] !== null && cmgValues[h] !== undefined) {
+                            const key = `${forecastDate}T${h.toString().padStart(2, '0')}:00`;
+                            if (!rowMap.has(key)) {
+                                rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
+                            }
+                            rowMap.get(key).actual = cmgValues[h];
                         }
-                        rowMap.get(key).actual = value;
-                    });
+                    }
+
+                    // Next day actuals (from 00:00 to forecastHour)
+                    const nextDate = new Date(forecastDate);
+                    nextDate.setDate(nextDate.getDate() + 1);
+                    const nextDateStr = nextDate.toISOString().split('T')[0];
+
+                    if (historicalData && historicalData.daily_data && historicalData.daily_data[nextDateStr]) {
+                        const nextDayData = historicalData.daily_data[nextDateStr];
+                        if (nextDayData.cmg_online && nextDayData.cmg_online[firstNode]) {
+                            const nextDayCmg = nextDayData.cmg_online[firstNode].cmg_usd;
+                            for (let h = 0; h <= forecastHour; h++) {
+                                if (nextDayCmg[h] !== null && nextDayCmg[h] !== undefined) {
+                                    const key = `${nextDateStr}T${h.toString().padStart(2, '0')}:00`;
+                                    if (!rowMap.has(key)) {
+                                        rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
+                                    }
+                                    rowMap.get(key).actual = nextDayCmg[h];
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1023,9 +1061,6 @@
             const rows = Array.from(rowMap.values())
                 .filter(row => row.ml || row.prog || row.actual) // Only rows with data
                 .sort((a, b) => a.datetime.localeCompare(b.datetime));
-
-            // Calculate how many hours are being shown
-            const hoursInDay = 23 - forecastHour; // Hours remaining in the day after forecast
 
             table.innerHTML = `
                 <thead class="bg-gray-50 border-b-2 border-gray-200">
