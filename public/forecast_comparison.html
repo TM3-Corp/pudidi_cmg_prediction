@@ -67,9 +67,10 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
-                    <select id="date-selector" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Cargando fechas...</option>
-                    </select>
+                    <input type="date" id="date-selector"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           onchange="onDateSelected()">
+                    <p id="date-availability" class="text-xs text-gray-500 mt-1"></p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Hora</label>
@@ -89,11 +90,10 @@
                 <h3 class="font-semibold text-blue-900 mb-2">ℹ️ Cómo Usar</h3>
                 <p class="text-sm text-blue-800 mb-2">
                     Selecciona una fecha y hora específica para ver qué pronósticos se hicieron en ese momento.
-                    Se mostrarán las predicciones ML, el CMG Programado, y los valores reales CMG Online (si están disponibles).
+                    Solo se muestran predicciones que apuntan a horas <strong>dentro del mismo día</strong>.
                 </p>
                 <p class="text-sm text-blue-800">
-                    <strong>Nota:</strong> Las matrices de pronóstico (ML y CMG Programado) se guardan automáticamente cada hora.
-                    Los datos históricos se acumularán progresivamente con cada ciclo del workflow.
+                    <strong>Ejemplo:</strong> Si seleccionas las 18:00, verás predicciones para las 19:00-23:00 (5 horas restantes del día).
                 </p>
             </div>
         </div>
@@ -583,62 +583,91 @@
             return merged;
         }
 
+        // Store available hours globally for date picker
+        let availableHoursByDate = {};
+
         // NEW: Populate selectors from Summary Mode API response
         function populateDateSelectorFromAvailableHours(availableHours) {
             const dateSelector = document.getElementById('date-selector');
             const hourSelector = document.getElementById('hour-selector');
+            const dateAvailability = document.getElementById('date-availability');
 
             if (!availableHours || availableHours.length === 0) {
-                dateSelector.innerHTML = '<option value="">No hay datos disponibles</option>';
+                dateAvailability.textContent = 'No hay datos disponibles';
+                dateAvailability.className = 'text-xs text-red-500 mt-1';
                 return;
             }
 
             // Group hours by date
-            const hoursByDate = {};
+            availableHoursByDate = {};
             availableHours.forEach(item => {
                 const date = item.date;
-                if (!hoursByDate[date]) {
-                    hoursByDate[date] = [];
+                if (!availableHoursByDate[date]) {
+                    availableHoursByDate[date] = [];
                 }
-                hoursByDate[date].push({
+                availableHoursByDate[date].push({
                     hour: item.hour,
                     has_ml: item.has_ml,
                     has_programado: item.has_programado
                 });
             });
 
-            // Get dates sorted descending
-            const dates = Object.keys(hoursByDate).sort().reverse();
+            // Get dates sorted
+            const dates = Object.keys(availableHoursByDate).sort();
 
-            dateSelector.innerHTML = '<option value="">Seleccionar fecha</option>' +
-                dates.map(date =>
-                    `<option value="${date}">${date}</option>`
-                ).join('');
+            if (dates.length > 0) {
+                // Set min/max for date picker
+                dateSelector.min = dates[0];
+                dateSelector.max = dates[dates.length - 1];
 
-            // Handle date selection
-            dateSelector.addEventListener('change', function() {
-                const selectedDate = this.value;
-                if (!selectedDate) {
-                    hourSelector.innerHTML = '<option value="">Seleccionar primero una fecha</option>';
-                    return;
-                }
+                // Default to most recent date
+                dateSelector.value = dates[dates.length - 1];
 
-                const hoursData = hoursByDate[selectedDate] || [];
-                if (hoursData.length === 0) {
-                    hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
-                    return;
-                }
+                // Show availability info
+                dateAvailability.textContent = `Datos disponibles: ${dates[0]} a ${dates[dates.length - 1]}`;
+                dateAvailability.className = 'text-xs text-green-600 mt-1';
 
-                // Sort hours ascending
-                hoursData.sort((a, b) => a.hour - b.hour);
+                // Trigger date selection to populate hours
+                onDateSelected();
+            }
+        }
 
-                hourSelector.innerHTML = '<option value="">Seleccionar hora</option>' +
-                    hoursData.map(item => {
-                        const mlIcon = item.has_ml ? '✅' : '⏳';
-                        const progIcon = item.has_programado ? '✅' : '⏳';
-                        return `<option value="${item.hour}">${item.hour.toString().padStart(2, '0')}:00 (ML:${mlIcon} Prog:${progIcon})</option>`;
-                    }).join('');
-            });
+        // Handle date picker change
+        function onDateSelected() {
+            const dateSelector = document.getElementById('date-selector');
+            const hourSelector = document.getElementById('hour-selector');
+            const dateAvailability = document.getElementById('date-availability');
+            const selectedDate = dateSelector.value;
+
+            if (!selectedDate) {
+                hourSelector.innerHTML = '<option value="">Seleccionar primero una fecha</option>';
+                return;
+            }
+
+            const hoursData = availableHoursByDate[selectedDate] || [];
+
+            if (hoursData.length === 0) {
+                hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
+                dateAvailability.textContent = `⚠️ Sin datos para ${selectedDate}`;
+                dateAvailability.className = 'text-xs text-yellow-600 mt-1';
+                return;
+            }
+
+            // Sort hours ascending
+            hoursData.sort((a, b) => a.hour - b.hour);
+
+            // Calculate remaining hours for each option
+            hourSelector.innerHTML = '<option value="">Seleccionar hora</option>' +
+                hoursData.map(item => {
+                    const mlIcon = item.has_ml ? '✅' : '⏳';
+                    const progIcon = item.has_programado ? '✅' : '⏳';
+                    const remainingHours = 23 - item.hour;
+                    return `<option value="${item.hour}">${item.hour.toString().padStart(2, '0')}:00 → ${remainingHours}h (ML:${mlIcon} Prog:${progIcon})</option>`;
+                }).join('');
+
+            // Update availability message
+            dateAvailability.textContent = `✓ ${hoursData.length} horas disponibles para ${selectedDate}`;
+            dateAvailability.className = 'text-xs text-green-600 mt-1';
         }
 
         function populateDateSelector() {
@@ -798,37 +827,43 @@
 
         function renderComparisonChart(date, hour, mlForecast, progForecast, actualData) {
             const traces = [];
+            const forecastDate = date;
+            const forecastHour = parseInt(hour);
 
-            // ML Predictions
-            if (mlForecast && mlForecast.predictions) {
-                traces.push({
-                    x: mlForecast.predictions.map(p => p.target_datetime),
-                    y: mlForecast.predictions.map(p => p.cmg),
-                    name: '🤖 Predicción ML',
-                    type: 'scatter',
-                    mode: 'lines+markers',
-                    line: { color: '#3b82f6', width: 3, dash: 'dot' },
-                    marker: { size: 6, color: '#3b82f6' }
-                });
+            // Helper: Check if target datetime is within the forecast day
+            function isSameDay(targetDatetime) {
+                if (!targetDatetime) return false;
+                const targetDate = targetDatetime.split('T')[0];
+                return targetDate === forecastDate;
             }
 
-            // CMG Programado (first node for simplicity) - Filter to show only t+1 onwards
+            // ML Predictions - Filter to same day only
+            if (mlForecast && mlForecast.predictions) {
+                const sameDayPredictions = mlForecast.predictions.filter(p => isSameDay(p.target_datetime));
+                if (sameDayPredictions.length > 0) {
+                    traces.push({
+                        x: sameDayPredictions.map(p => p.target_datetime),
+                        y: sameDayPredictions.map(p => p.cmg),
+                        name: '🤖 Predicción ML',
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        line: { color: '#3b82f6', width: 3, dash: 'dot' },
+                        marker: { size: 6, color: '#3b82f6' }
+                    });
+                }
+            }
+
+            // CMG Programado (first node) - Filter to same day only
             if (progForecast && progForecast.forecasts) {
                 const firstNode = Object.keys(progForecast.forecasts)[0];
                 if (firstNode) {
                     const forecasts = progForecast.forecasts[firstNode];
+                    const sameDayForecasts = forecasts.filter(f => isSameDay(f.datetime));
 
-                    // Calculate t+1: selected hour + 1
-                    const selectedHour = parseInt(hour);
-                    const t1DateTime = `${date}T${(selectedHour + 1).toString().padStart(2, '0')}:00:00`;
-
-                    // Filter to show only from t+1 onwards (skip t+0 if present)
-                    const filteredForecasts = forecasts.filter(f => f.datetime >= t1DateTime);
-
-                    if (filteredForecasts.length > 0) {
+                    if (sameDayForecasts.length > 0) {
                         traces.push({
-                            x: filteredForecasts.map(f => f.datetime),
-                            y: filteredForecasts.map(f => f.cmg),
+                            x: sameDayForecasts.map(f => f.datetime),
+                            y: sameDayForecasts.map(f => f.cmg),
                             name: '📅 CMG Programado',
                             type: 'scatter',
                             mode: 'lines+markers',
@@ -839,23 +874,21 @@
                 }
             }
 
-            // Actual CMG Online (if available) - Start from t+1
+            // Actual CMG Online - Filter to same day, t+1 onwards
             if (actualData && Object.keys(actualData).length > 0) {
                 const firstNode = Object.keys(actualData)[0];
                 if (actualData[firstNode] && actualData[firstNode].cmg_usd) {
                     const allCmgValues = actualData[firstNode].cmg_usd;
 
-                    // Start from t+1 (hour + 1), not from 00:00
-                    const startHour = parseInt(hour) + 1;
-
-                    // Filter to show only from t+1 onwards (within the selected day)
+                    // Start from t+1 (hour + 1), end at 23:00
+                    const startHour = forecastHour + 1;
                     const filteredValues = [];
                     const filteredDatetimes = [];
 
                     for (let h = startHour; h < 24; h++) {
                         if (allCmgValues[h] !== null && allCmgValues[h] !== undefined) {
                             filteredValues.push(allCmgValues[h]);
-                            filteredDatetimes.push(`${date}T${h.toString().padStart(2, '0')}:00:00`);
+                            filteredDatetimes.push(`${forecastDate}T${h.toString().padStart(2, '0')}:00:00`);
                         }
                     }
 
@@ -873,13 +906,20 @@
                 }
             }
 
+            // Calculate expected hours for this forecast
+            const expectedHours = 23 - forecastHour;
+
             const layout = {
-                xaxis: { title: 'Fecha y Hora' },
+                title: {
+                    text: `Pronóstico ${forecastDate} ${forecastHour.toString().padStart(2, '0')}:00 → ${expectedHours} horas restantes del día`,
+                    font: { size: 14 }
+                },
+                xaxis: { title: 'Hora del Día' },
                 yaxis: { title: 'CMG (USD/MWh)' },
                 showlegend: true,
                 legend: { x: 0.02, y: 0.98 },
                 hovermode: 'x unified',
-                margin: { t: 20, r: 20, b: 60, l: 60 },
+                margin: { t: 40, r: 20, b: 60, l: 60 },
                 autosize: true
             };
 
@@ -890,7 +930,6 @@
             };
 
             Plotly.newPlot('comparison-chart', traces, layout, config).then(() => {
-                // Force resize after render to ensure full width is used
                 setTimeout(() => {
                     Plotly.Plots.resize('comparison-chart');
                 }, 100);
@@ -905,47 +944,88 @@
                 return;
             }
 
-            // Build unified data structure
-            const rows = [];
-            const maxLength = Math.max(
-                mlForecast ? mlForecast.predictions.length : 0,
-                progForecast ? (progForecast.forecasts ? Object.values(progForecast.forecasts)[0].length : 0) : 0
-            );
+            // Use a Map to merge predictions by target datetime (avoids duplicates)
+            const rowMap = new Map();
+            const forecastDate = date; // The day we're analyzing
+            const forecastHour = parseInt(hour);
 
-            const progData = progForecast && progForecast.forecasts ? Object.values(progForecast.forecasts)[0] : null;
+            // Helper: Check if target datetime is within the forecast day
+            function isSameDay(targetDatetime) {
+                if (!targetDatetime) return false;
+                const targetDate = targetDatetime.split('T')[0];
+                return targetDate === forecastDate;
+            }
 
-            for (let i = 0; i < maxLength; i++) {
-                const mlPred = mlForecast && mlForecast.predictions[i];
-                const progPred = progData && progData[i];
+            // Helper: Get datetime key for merging (YYYY-MM-DD HH:00)
+            function getDatetimeKey(datetimeStr) {
+                if (!datetimeStr) return null;
+                return datetimeStr.substring(0, 13) + ':00'; // "2025-11-24T14:00"
+            }
 
-                // Determine the datetime for this row
-                const rowDatetime = mlPred ? mlPred.target_datetime : (progPred ? progPred.datetime : null);
+            // Process ML predictions - filter to same day only
+            if (mlForecast && mlForecast.predictions) {
+                mlForecast.predictions.forEach(pred => {
+                    if (!isSameDay(pred.target_datetime)) return; // Skip cross-day predictions
 
-                // Get actual CMG Online value if available (for ANY row, not just those with ML predictions)
-                let actualValue = null;
-                if (rowDatetime && actualData) {
-                    const targetDateTime = new Date(rowDatetime);
-                    const targetDate = targetDateTime.toISOString().split('T')[0];
-                    const targetHour = targetDateTime.getHours();
+                    const key = getDatetimeKey(pred.target_datetime);
+                    if (!key) return;
 
-                    // Check if we have actual data for this datetime
-                    const firstNode = Object.keys(actualData)[0];
-                    if (firstNode && actualData[firstNode] && actualData[firstNode].cmg_usd) {
-                        const dayData = historicalData.daily_data[targetDate];
-                        if (dayData && dayData.cmg_online && dayData.cmg_online[firstNode]) {
-                            actualValue = dayData.cmg_online[firstNode].cmg_usd[targetHour];
-                        }
+                    if (!rowMap.has(key)) {
+                        rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
                     }
-                }
-
-                rows.push({
-                    datetime: rowDatetime || '',
-                    ml: mlPred,
-                    prog: progPred,
-                    actual: actualValue,
-                    horizon: mlPred ? mlPred.horizon : null
+                    rowMap.get(key).ml = pred;
                 });
             }
+
+            // Process CMG Programado - filter to same day only, pick first node
+            if (progForecast && progForecast.forecasts) {
+                // Get first node's forecasts (typically PMontt220)
+                const firstNodeKey = Object.keys(progForecast.forecasts)[0];
+                const progData = progForecast.forecasts[firstNodeKey] || [];
+
+                progData.forEach(pred => {
+                    if (!isSameDay(pred.datetime)) return; // Skip cross-day predictions
+
+                    const key = getDatetimeKey(pred.datetime);
+                    if (!key) return;
+
+                    if (!rowMap.has(key)) {
+                        rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
+                    }
+                    // Only set if not already set (avoid duplicates from multiple nodes)
+                    if (!rowMap.get(key).prog) {
+                        rowMap.get(key).prog = pred;
+                    }
+                });
+            }
+
+            // Add actual CMG Online values
+            if (actualData) {
+                const firstNode = Object.keys(actualData)[0];
+                if (firstNode && actualData[firstNode] && actualData[firstNode].cmg_usd) {
+                    actualData[firstNode].cmg_usd.forEach((value, hourIdx) => {
+                        if (value === null || value === undefined) return;
+
+                        const key = `${forecastDate}T${hourIdx.toString().padStart(2, '0')}:00`;
+
+                        // Only add actuals for hours AFTER the forecast hour (t+1 onwards)
+                        if (hourIdx <= forecastHour) return;
+
+                        if (!rowMap.has(key)) {
+                            rowMap.set(key, { datetime: key, ml: null, prog: null, actual: null });
+                        }
+                        rowMap.get(key).actual = value;
+                    });
+                }
+            }
+
+            // Convert to sorted array (by datetime)
+            const rows = Array.from(rowMap.values())
+                .filter(row => row.ml || row.prog || row.actual) // Only rows with data
+                .sort((a, b) => a.datetime.localeCompare(b.datetime));
+
+            // Calculate how many hours are being shown
+            const hoursInDay = 23 - forecastHour; // Hours remaining in the day after forecast
 
             table.innerHTML = `
                 <thead class="bg-gray-50 border-b-2 border-gray-200">
@@ -974,9 +1054,12 @@
                                          (probZero > 0.7 ? 'text-red-600' :
                                           probZero > 0.3 ? 'text-yellow-600' : 'text-green-600');
 
+                        // Extract hour for display
+                        const displayTime = row.datetime.substring(11, 16); // "HH:00"
+
                         return `
                         <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2 font-medium">${row.datetime.substring(0, 16).replace('T', ' ')}</td>
+                            <td class="px-3 py-2 font-medium">${row.datetime.substring(0, 10)} ${displayTime}</td>
                             <td class="px-3 py-2 text-right ${mlValue === 0 ? 'text-gray-500' : 'text-blue-700'} font-semibold">
                                 ${mlValue != null ? `$${mlValue.toFixed(2)}` : '-'}
                             </td>
@@ -1000,6 +1083,14 @@
                     }).join('')}
                 </tbody>
             `;
+
+            // Add summary row with count
+            if (rows.length > 0) {
+                const mlCount = rows.filter(r => r.ml).length;
+                const progCount = rows.filter(r => r.prog).length;
+                const actualCount = rows.filter(r => r.actual !== null).length;
+                console.log(`[Table] Showing ${rows.length} rows: ${mlCount} ML, ${progCount} Prog, ${actualCount} Actual (same-day only)`);
+            }
         }
 
         function showError(message) {
