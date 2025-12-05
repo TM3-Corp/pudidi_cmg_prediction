@@ -118,6 +118,49 @@
                 </div>
             </div>
 
+            <!-- KPI Summary Cards -->
+            <div id="kpi-cards" class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Resumen de Errores</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- ML Row -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-3">🤖 ML Predictions</h3>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-xs text-gray-600">Min Δ</p>
+                                <p id="ml-min-delta" class="text-xl font-bold text-blue-700">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Promedio |Δ|</p>
+                                <p id="ml-avg-delta" class="text-xl font-bold text-blue-700">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Max Δ</p>
+                                <p id="ml-max-delta" class="text-xl font-bold text-blue-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Programado Row -->
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-purple-800 mb-3">📅 CMG Programado</h3>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <p class="text-xs text-gray-600">Min Δ</p>
+                                <p id="prog-min-delta" class="text-xl font-bold text-purple-700">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Promedio |Δ|</p>
+                                <p id="prog-avg-delta" class="text-xl font-bold text-purple-700">-</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-600">Max Δ</p>
+                                <p id="prog-max-delta" class="text-xl font-bold text-purple-700">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Comparison Chart -->
             <div class="bg-white rounded-lg shadow-md p-6 mb-8">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">📈 Comparación Visual</h2>
@@ -145,6 +188,8 @@
 
     <script>
         let historicalData = null;
+        let availableHoursByDate = {};
+        let isLoadingSummary = true; // Track if initial summary is loading
 
         // Load historical data on page load
         document.addEventListener('DOMContentLoaded', async function() {
@@ -184,6 +229,7 @@
                 if (apiData.mode === 'summary') {
                     // Summary Mode: populate date/hour selector
                     populateDateSelectorFromAvailableHours(apiData.data.available_hours);
+                    isLoadingSummary = false; // Summary data loaded
                     console.log(`Loaded ${apiData.metadata.total_hours} available hours`);
                 } else if (apiData.mode === 'detail') {
                     // Detail Mode: transform and display forecast data
@@ -199,6 +245,7 @@
                 }
             } catch (error) {
                 console.error('Error loading historical data:', error);
+                isLoadingSummary = false; // Mark as done even on error
                 showError('No se pudo cargar los datos históricos. Por favor, intenta más tarde.');
             }
         }
@@ -583,9 +630,6 @@
             return merged;
         }
 
-        // Store available hours globally for date picker
-        let availableHoursByDate = {};
-
         // NEW: Populate selectors from Summary Mode API response
         function populateDateSelectorFromAvailableHours(availableHours) {
             const dateSelector = document.getElementById('date-selector');
@@ -647,9 +691,17 @@
             const hoursData = availableHoursByDate[selectedDate] || [];
 
             if (hoursData.length === 0) {
-                hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
-                dateAvailability.textContent = `⚠️ Sin datos para ${selectedDate}`;
-                dateAvailability.className = 'text-xs text-yellow-600 mt-1';
+                if (isLoadingSummary) {
+                    // Still loading - show loading state
+                    hourSelector.innerHTML = '<option value="">Cargando...</option>';
+                    dateAvailability.textContent = `⏳ Cargando datos para ${selectedDate}...`;
+                    dateAvailability.className = 'text-xs text-blue-600 mt-1';
+                } else {
+                    // Data loaded but no data for this date
+                    hourSelector.innerHTML = '<option value="">No hay datos para esta fecha</option>';
+                    dateAvailability.textContent = `⚠️ Sin datos para ${selectedDate}`;
+                    dateAvailability.className = 'text-xs text-yellow-600 mt-1';
+                }
                 return;
             }
 
@@ -1125,7 +1177,63 @@
                 const progCount = rows.filter(r => r.prog).length;
                 const actualCount = rows.filter(r => r.actual !== null).length;
                 console.log(`[Table] Showing ${rows.length} rows: ${mlCount} ML, ${progCount} Prog, ${actualCount} Actual (same-day only)`);
+
+                // Update KPI cards with error statistics
+                updateKPICards(rows);
             }
+        }
+
+        // Calculate and display KPI summary cards for ML and Programado errors
+        function updateKPICards(rows) {
+            // Calculate ML errors (only rows with actual values)
+            const mlErrors = rows
+                .filter(r => r.ml && r.actual !== null)
+                .map(r => r.ml.cmg - r.actual);
+
+            // Calculate Programado errors (only rows with actual values)
+            const progErrors = rows
+                .filter(r => r.prog && r.actual !== null)
+                .map(r => r.prog.cmg - r.actual);
+
+            // Update ML KPIs
+            if (mlErrors.length > 0) {
+                const mlMin = Math.min(...mlErrors);
+                const mlMax = Math.max(...mlErrors);
+                const mlAvgAbs = mlErrors.reduce((sum, e) => sum + Math.abs(e), 0) / mlErrors.length;
+
+                document.getElementById('ml-min-delta').textContent = mlMin.toFixed(1);
+                document.getElementById('ml-min-delta').className = `text-xl font-bold ${mlMin < 0 ? 'text-red-600' : 'text-green-600'}`;
+
+                document.getElementById('ml-avg-delta').textContent = mlAvgAbs.toFixed(1);
+
+                document.getElementById('ml-max-delta').textContent = `+${mlMax.toFixed(1)}`;
+                document.getElementById('ml-max-delta').className = `text-xl font-bold ${mlMax > 0 ? 'text-red-600' : 'text-green-600'}`;
+            } else {
+                document.getElementById('ml-min-delta').textContent = '-';
+                document.getElementById('ml-avg-delta').textContent = '-';
+                document.getElementById('ml-max-delta').textContent = '-';
+            }
+
+            // Update Programado KPIs
+            if (progErrors.length > 0) {
+                const progMin = Math.min(...progErrors);
+                const progMax = Math.max(...progErrors);
+                const progAvgAbs = progErrors.reduce((sum, e) => sum + Math.abs(e), 0) / progErrors.length;
+
+                document.getElementById('prog-min-delta').textContent = progMin.toFixed(1);
+                document.getElementById('prog-min-delta').className = `text-xl font-bold ${progMin < 0 ? 'text-red-600' : 'text-green-600'}`;
+
+                document.getElementById('prog-avg-delta').textContent = progAvgAbs.toFixed(1);
+
+                document.getElementById('prog-max-delta').textContent = `+${progMax.toFixed(1)}`;
+                document.getElementById('prog-max-delta').className = `text-xl font-bold ${progMax > 0 ? 'text-red-600' : 'text-green-600'}`;
+            } else {
+                document.getElementById('prog-min-delta').textContent = '-';
+                document.getElementById('prog-avg-delta').textContent = '-';
+                document.getElementById('prog-max-delta').textContent = '-';
+            }
+
+            console.log(`[KPI] ML errors: ${mlErrors.length}, Prog errors: ${progErrors.length}`);
         }
 
         function showError(message) {
