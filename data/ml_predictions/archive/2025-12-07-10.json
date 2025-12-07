@@ -1,0 +1,396 @@
+{
+  "generated_at": "2025-12-07 10:31:03",
+  "base_datetime": "2025-12-07 06:00:00",
+  "data_staleness_hours": 4.5,
+  "model_version": "gpu_enhanced_v1",
+  "model_performance": {
+    "test_mae": 32.43,
+    "baseline_mae": 32.2
+  },
+  "forecasts": [
+    {
+      "horizon": 1,
+      "target_datetime": "2025-12-07 07:00:00",
+      "predicted_cmg": 45.87,
+      "real_time_offset": -3.5,
+      "is_valid_forecast": false,
+      "zero_probability": 0.0267,
+      "zero_probability_raw": 0.2144,
+      "decision_threshold": 0.3706,
+      "value_prediction": 45.87,
+      "confidence_interval": {
+        "lower_10th": 27.54,
+        "median": 45.87,
+        "upper_90th": 65.13
+      }
+    },
+    {
+      "horizon": 2,
+      "target_datetime": "2025-12-07 08:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": -2.5,
+      "is_valid_forecast": false,
+      "zero_probability": 0.4295,
+      "zero_probability_raw": 0.419,
+      "decision_threshold": 0.3707,
+      "value_prediction": 42.64,
+      "confidence_interval": {
+        "lower_10th": 24.31,
+        "median": 42.64,
+        "upper_90th": 85.95
+      }
+    },
+    {
+      "horizon": 3,
+      "target_datetime": "2025-12-07 09:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": -1.5,
+      "is_valid_forecast": false,
+      "zero_probability": 0.9157,
+      "zero_probability_raw": 0.6122,
+      "decision_threshold": 0.3703,
+      "value_prediction": 31.99,
+      "confidence_interval": {
+        "lower_10th": 16.14,
+        "median": 31.99,
+        "upper_90th": 124.31
+      }
+    },
+    {
+      "horizon": 4,
+      "target_datetime": "2025-12-07 10:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": -0.5,
+      "is_valid_forecast": false,
+      "zero_probability": 0.8932,
+      "zero_probability_raw": 0.5948,
+      "decision_threshold": 0.3704,
+      "value_prediction": 46.79,
+      "confidence_interval": {
+        "lower_10th": 17.5,
+        "median": 46.79,
+        "upper_90th": 152.29
+      }
+    },
+    {
+      "horizon": 5,
+      "target_datetime": "2025-12-07 11:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 0.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.795,
+      "zero_probability_raw": 0.5401,
+      "decision_threshold": 0.3701,
+      "value_prediction": 51.02,
+      "confidence_interval": {
+        "lower_10th": 27.35,
+        "median": 51.02,
+        "upper_90th": 176.07
+      }
+    },
+    {
+      "horizon": 6,
+      "target_datetime": "2025-12-07 12:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 1.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.7494,
+      "zero_probability_raw": 0.5204,
+      "decision_threshold": 0.3693,
+      "value_prediction": 62.88,
+      "confidence_interval": {
+        "lower_10th": 29.42,
+        "median": 62.88,
+        "upper_90th": 180.65
+      }
+    },
+    {
+      "horizon": 7,
+      "target_datetime": "2025-12-07 13:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 2.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.8448,
+      "zero_probability_raw": 0.5618,
+      "decision_threshold": 0.3693,
+      "value_prediction": 65.48,
+      "confidence_interval": {
+        "lower_10th": 34.2,
+        "median": 65.48,
+        "upper_90th": 188.03
+      }
+    },
+    {
+      "horizon": 8,
+      "target_datetime": "2025-12-07 14:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 3.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.8609,
+      "zero_probability_raw": 0.5683,
+      "decision_threshold": 0.3695,
+      "value_prediction": 69.53,
+      "confidence_interval": {
+        "lower_10th": 27.93,
+        "median": 69.53,
+        "upper_90th": 209.95
+      }
+    },
+    {
+      "horizon": 9,
+      "target_datetime": "2025-12-07 15:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 4.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.8709,
+      "zero_probability_raw": 0.5711,
+      "decision_threshold": 0.3695,
+      "value_prediction": 65.1,
+      "confidence_interval": {
+        "lower_10th": 22.56,
+        "median": 65.1,
+        "upper_90th": 179.54
+      }
+    },
+    {
+      "horizon": 10,
+      "target_datetime": "2025-12-07 16:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 5.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.4716,
+      "zero_probability_raw": 0.4212,
+      "decision_threshold": 0.3694,
+      "value_prediction": 65.33,
+      "confidence_interval": {
+        "lower_10th": 24.89,
+        "median": 65.33,
+        "upper_90th": 140.84
+      }
+    },
+    {
+      "horizon": 11,
+      "target_datetime": "2025-12-07 17:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 6.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.3967,
+      "zero_probability_raw": 0.3955,
+      "decision_threshold": 0.3688,
+      "value_prediction": 70.84,
+      "confidence_interval": {
+        "lower_10th": 25.16,
+        "median": 70.84,
+        "upper_90th": 140.59
+      }
+    },
+    {
+      "horizon": 12,
+      "target_datetime": "2025-12-07 18:00:00",
+      "predicted_cmg": 69.44,
+      "real_time_offset": 7.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.227,
+      "zero_probability_raw": 0.337,
+      "decision_threshold": 0.3685,
+      "value_prediction": 69.44,
+      "confidence_interval": {
+        "lower_10th": 39.45,
+        "median": 69.44,
+        "upper_90th": 121.46
+      }
+    },
+    {
+      "horizon": 13,
+      "target_datetime": "2025-12-07 19:00:00",
+      "predicted_cmg": 77.95,
+      "real_time_offset": 8.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.1676,
+      "zero_probability_raw": 0.3092,
+      "decision_threshold": 0.3681,
+      "value_prediction": 77.95,
+      "confidence_interval": {
+        "lower_10th": 32.72,
+        "median": 77.95,
+        "upper_90th": 95.16
+      }
+    },
+    {
+      "horizon": 14,
+      "target_datetime": "2025-12-07 20:00:00",
+      "predicted_cmg": 64.8,
+      "real_time_offset": 9.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0304,
+      "zero_probability_raw": 0.2041,
+      "decision_threshold": 0.3686,
+      "value_prediction": 64.8,
+      "confidence_interval": {
+        "lower_10th": 40.21,
+        "median": 64.8,
+        "upper_90th": 81.93
+      }
+    },
+    {
+      "horizon": 15,
+      "target_datetime": "2025-12-07 21:00:00",
+      "predicted_cmg": 74.85,
+      "real_time_offset": 10.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0102,
+      "zero_probability_raw": 0.1549,
+      "decision_threshold": 0.3682,
+      "value_prediction": 74.85,
+      "confidence_interval": {
+        "lower_10th": 46.52,
+        "median": 74.85,
+        "upper_90th": 100.98
+      }
+    },
+    {
+      "horizon": 16,
+      "target_datetime": "2025-12-07 22:00:00",
+      "predicted_cmg": 68.23,
+      "real_time_offset": 11.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0749,
+      "zero_probability_raw": 0.2481,
+      "decision_threshold": 0.368,
+      "value_prediction": 68.23,
+      "confidence_interval": {
+        "lower_10th": 53.76,
+        "median": 68.23,
+        "upper_90th": 89.03
+      }
+    },
+    {
+      "horizon": 17,
+      "target_datetime": "2025-12-07 23:00:00",
+      "predicted_cmg": 69.86,
+      "real_time_offset": 12.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0155,
+      "zero_probability_raw": 0.1692,
+      "decision_threshold": 0.368,
+      "value_prediction": 69.86,
+      "confidence_interval": {
+        "lower_10th": 51.25,
+        "median": 69.86,
+        "upper_90th": 74.92
+      }
+    },
+    {
+      "horizon": 18,
+      "target_datetime": "2025-12-08 00:00:00",
+      "predicted_cmg": 69.16,
+      "real_time_offset": 13.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0244,
+      "zero_probability_raw": 0.1885,
+      "decision_threshold": 0.3615,
+      "value_prediction": 69.16,
+      "confidence_interval": {
+        "lower_10th": 49.93,
+        "median": 69.16,
+        "upper_90th": 85.33
+      }
+    },
+    {
+      "horizon": 19,
+      "target_datetime": "2025-12-08 01:00:00",
+      "predicted_cmg": 60.63,
+      "real_time_offset": 14.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.0225,
+      "zero_probability_raw": 0.1849,
+      "decision_threshold": 0.3621,
+      "value_prediction": 60.63,
+      "confidence_interval": {
+        "lower_10th": 45.08,
+        "median": 60.63,
+        "upper_90th": 66.14
+      }
+    },
+    {
+      "horizon": 20,
+      "target_datetime": "2025-12-08 02:00:00",
+      "predicted_cmg": 57.43,
+      "real_time_offset": 15.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.1164,
+      "zero_probability_raw": 0.2744,
+      "decision_threshold": 0.3636,
+      "value_prediction": 57.43,
+      "confidence_interval": {
+        "lower_10th": 42.58,
+        "median": 57.43,
+        "upper_90th": 63.9
+      }
+    },
+    {
+      "horizon": 21,
+      "target_datetime": "2025-12-08 03:00:00",
+      "predicted_cmg": 57.24,
+      "real_time_offset": 16.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.1014,
+      "zero_probability_raw": 0.2669,
+      "decision_threshold": 0.3651,
+      "value_prediction": 57.24,
+      "confidence_interval": {
+        "lower_10th": 36.23,
+        "median": 57.24,
+        "upper_90th": 62.54
+      }
+    },
+    {
+      "horizon": 22,
+      "target_datetime": "2025-12-08 04:00:00",
+      "predicted_cmg": 52.94,
+      "real_time_offset": 17.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.1757,
+      "zero_probability_raw": 0.3066,
+      "decision_threshold": 0.3676,
+      "value_prediction": 52.94,
+      "confidence_interval": {
+        "lower_10th": 31.8,
+        "median": 52.94,
+        "upper_90th": 64.23
+      }
+    },
+    {
+      "horizon": 23,
+      "target_datetime": "2025-12-08 05:00:00",
+      "predicted_cmg": 48.67,
+      "real_time_offset": 18.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.3551,
+      "zero_probability_raw": 0.3706,
+      "decision_threshold": 0.3691,
+      "value_prediction": 48.67,
+      "confidence_interval": {
+        "lower_10th": 30.51,
+        "median": 48.67,
+        "upper_90th": 59.0
+      }
+    },
+    {
+      "horizon": 24,
+      "target_datetime": "2025-12-08 06:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 19.5,
+      "is_valid_forecast": true,
+      "zero_probability": 0.4334,
+      "zero_probability_raw": 0.3959,
+      "decision_threshold": 0.3703,
+      "value_prediction": 55.48,
+      "confidence_interval": {
+        "lower_10th": 33.04,
+        "median": 55.48,
+        "upper_90th": 60.76
+      }
+    }
+  ]
+}
