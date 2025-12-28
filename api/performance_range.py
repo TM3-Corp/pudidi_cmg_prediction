@@ -153,16 +153,22 @@ class handler(BaseHTTPRequestHandler):
                 ml['target_date'] = target_dt.strftime('%Y-%m-%d')
                 ml['target_hour'] = target_dt.hour
 
-            # Query CMG Online (actuals) for entire range
+            # Query CMG Online (actuals) - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
             online_url = f"{supabase.base_url}/cmg_online_santiago"
-            online_params = [
-                ("date", f"gte.{start_date_str}"),
-                ("date", f"lte.{end_date_str}"),
-                ("order", "date.asc,hour.asc"),
-                ("limit", "5000")  # Max ~30 days × 24 hours × 3 nodes
-            ]
-            online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
-            cmg_online = online_response.json() if online_response.status_code == 200 else []
+            cmg_online = []
+
+            current_date = start_date
+            while current_date <= end_date:
+                date_str = current_date.strftime('%Y-%m-%d')
+                online_params = [
+                    ("date", f"eq.{date_str}"),
+                    ("order", "hour.asc"),
+                    ("limit", "1000")  # Max per day: 24 hours × 3 nodes = 72
+                ]
+                online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
+                if online_response.status_code == 200:
+                    cmg_online.extend(online_response.json())
+                current_date += timedelta(days=1)
 
             # Build actuals lookup: (date, hour) → actual CMG (average across nodes)
             actuals_raw = defaultdict(list)
