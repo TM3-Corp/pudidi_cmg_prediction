@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "last_update": "2026-01-01T23:28:44.583709-03:00",
+    "last_update": "2026-01-02T01:12:24.081765-03:00",
     "structure_version": "3.0",
     "rolling_window_days": null,
-    "total_days": 3,
+    "total_days": 4,
     "oldest_date": "2025-12-30",
-    "newest_date": "2026-01-01"
+    "newest_date": "2026-01-02"
   },
   "daily_data": {
     "2025-12-30": {
@@ -6184,6 +6184,209 @@
               "prob_zero": 0.0491,
               "threshold": 0.3686,
               "value_pred": 62.38
+            }
+          ]
+        }
+      }
+    },
+    "2026-01-02": {
+      "ml_forecasts": {
+        "0": {
+          "forecast_time": "2026-01-02 00:00:00",
+          "generated_at": "2026-01-02 04:12:21",
+          "model_version": "gpu_enhanced_v1",
+          "predictions": [
+            {
+              "horizon": 1,
+              "target_datetime": "2026-01-02 01:00:00",
+              "cmg": 51.14,
+              "prob_zero": 0.1314,
+              "threshold": 0.3621,
+              "value_pred": 51.14
+            },
+            {
+              "horizon": 2,
+              "target_datetime": "2026-01-02 02:00:00",
+              "cmg": 52.8,
+              "prob_zero": 0.3107,
+              "threshold": 0.3636,
+              "value_pred": 52.8
+            },
+            {
+              "horizon": 3,
+              "target_datetime": "2026-01-02 03:00:00",
+              "cmg": 56.11,
+              "prob_zero": 0.2802,
+              "threshold": 0.3651,
+              "value_pred": 56.11
+            },
+            {
+              "horizon": 4,
+              "target_datetime": "2026-01-02 04:00:00",
+              "cmg": 53.02,
+              "prob_zero": 0.2478,
+              "threshold": 0.3676,
+              "value_pred": 53.02
+            },
+            {
+              "horizon": 5,
+              "target_datetime": "2026-01-02 05:00:00",
+              "cmg": 53.19,
+              "prob_zero": 0.1742,
+              "threshold": 0.3691,
+              "value_pred": 53.19
+            },
+            {
+              "horizon": 6,
+              "target_datetime": "2026-01-02 06:00:00",
+              "cmg": 55.54,
+              "prob_zero": 0.2578,
+              "threshold": 0.3703,
+              "value_pred": 55.54
+            },
+            {
+              "horizon": 7,
+              "target_datetime": "2026-01-02 07:00:00",
+              "cmg": 57.46,
+              "prob_zero": 0.3697,
+              "threshold": 0.3706,
+              "value_pred": 57.46
+            },
+            {
+              "horizon": 8,
+              "target_datetime": "2026-01-02 08:00:00",
+              "cmg": 0,
+              "prob_zero": 0.4624,
+              "threshold": 0.3707,
+              "value_pred": 49.6
+            },
+            {
+              "horizon": 9,
+              "target_datetime": "2026-01-02 09:00:00",
+              "cmg": 50.91,
+              "prob_zero": 0.3241,
+              "threshold": 0.3703,
+              "value_pred": 50.91
+            },
+            {
+              "horizon": 10,
+              "target_datetime": "2026-01-02 10:00:00",
+              "cmg": 0,
+              "prob_zero": 0.5607,
+              "threshold": 0.3704,
+              "value_pred": 63.07
+            },
+            {
+              "horizon": 11,
+              "target_datetime": "2026-01-02 11:00:00",
+              "cmg": 0,
+              "prob_zero": 0.5012,
+              "threshold": 0.3701,
+              "value_pred": 81.79
+            },
+            {
+              "horizon": 12,
+              "target_datetime": "2026-01-02 12:00:00",
+              "cmg": 0,
+              "prob_zero": 0.9351,
+              "threshold": 0.3693,
+              "value_pred": 80.05
+            },
+            {
+              "horizon": 13,
+              "target_datetime": "2026-01-02 13:00:00",
+              "cmg": 0,
+              "prob_zero": 0.851,
+              "threshold": 0.3693,
+              "value_pred": 73.3
+            },
+            {
+              "horizon": 14,
+              "target_datetime": "2026-01-02 14:00:00",
+              "cmg": 0,
+              "prob_zero": 0.6761,
+              "threshold": 0.3695,
+              "value_pred": 86.41
+            },
+            {
+              "horizon": 15,
+              "target_datetime": "2026-01-02 15:00:00",
+              "cmg": 0,
+              "prob_zero": 0.4218,
+              "threshold": 0.3695,
+              "value_pred": 91.97
+            },
+            {
+              "horizon": 16,
+              "target_datetime": "2026-01-02 16:00:00",
+              "cmg": 0,
+              "prob_zero": 0.6949,
+              "threshold": 0.3694,
+              "value_pred": 70.59
+            },
+            {
+              "horizon": 17,
+              "target_datetime": "2026-01-02 17:00:00",
+              "cmg": 0,
+              "prob_zero": 0.5675,
+              "threshold": 0.3688,
+              "value_pred": 76.01
+            },
+            {
+              "horizon": 18,
+              "target_datetime": "2026-01-02 18:00:00",
+              "cmg": 0,
+              "prob_zero": 0.5027,
+              "threshold": 0.3685,
+              "value_pred": 65.7
+            },
+            {
+              "horizon": 19,
+              "target_datetime": "2026-01-02 19:00:00",
+              "cmg": 0,
+              "prob_zero": 0.3759,
+              "threshold": 0.3681,
+              "value_pred": 60.9
+            },
+            {
+              "horizon": 20,
+              "target_datetime": "2026-01-02 20:00:00",
+              "cmg": 60.82,
+              "prob_zero": 0.2772,
+              "threshold": 0.3686,
+              "value_pred": 60.82
+            },
+            {
+              "horizon": 21,
+              "target_datetime": "2026-01-02 21:00:00",
+              "cmg": 69.96,
+              "prob_zero": 0.164,
+              "threshold": 0.3682,
+              "value_pred": 69.96
+            },
+            {
+              "horizon": 22,
+              "target_datetime": "2026-01-02 22:00:00",
+              "cmg": 64.62,
+              "prob_zero": 0.2664,
+              "threshold": 0.368,
+              "value_pred": 64.62
+            },
+            {
+              "horizon": 23,
+              "target_datetime": "2026-01-02 23:00:00",
+              "cmg": 63.82,
+              "prob_zero": 0.2568,
+              "threshold": 0.368,
+              "value_pred": 63.82
+            },
+            {
+              "horizon": 24,
+              "target_datetime": "2026-01-03 00:00:00",
+              "cmg": 70.06,
+              "prob_zero": 0.1542,
+              "threshold": 0.3615,
+              "value_pred": 70.06
             }
           ]
         }
