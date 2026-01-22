@@ -95,6 +95,7 @@ jobs:
           echo "CMG Online fetch completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}/api
+          SIP_API_KEY: ${{ secrets.SIP_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
