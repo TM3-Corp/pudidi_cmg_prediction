@@ -85,43 +85,58 @@ class handler(BaseHTTPRequestHandler):
             # - So to get all forecasts targeting start_date, we need Day (start_date - 1)
             forecast_query_start = start_date - timedelta(days=1)
 
-            # Query ML forecasts - BATCH QUERY with date range filter
+            # Query ML forecasts - Use pagination to bypass 1000-row limit
             ml_url = f"{supabase.base_url}/ml_predictions_santiago"
             ml_forecasts = []
 
-            # Use PostgREST range filter for batch query
             forecast_start_str = forecast_query_start.strftime('%Y-%m-%d')
             end_date_str_query = end_date.strftime('%Y-%m-%d')
 
-            ml_params = [
-                ("forecast_date", f"gte.{forecast_start_str}"),
-                ("forecast_date", f"lte.{end_date_str_query}"),
-                ("order", "forecast_date.asc,forecast_hour.asc,horizon.asc"),
-            ]
-            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
-            ml_headers = supabase.headers.copy()
-            ml_headers['Range'] = '0-49999'  # Request up to 50,000 rows
-            ml_headers['Range-Unit'] = 'items'
-            ml_response = requests.get(ml_url, params=ml_params, headers=ml_headers)
-            if ml_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
-                ml_forecasts = ml_response.json()
+            # Paginate through ML forecasts (1000 rows per request)
+            ml_offset = 0
+            ml_batch_size = 1000
+            while True:
+                ml_params = [
+                    ("forecast_date", f"gte.{forecast_start_str}"),
+                    ("forecast_date", f"lte.{end_date_str_query}"),
+                    ("order", "forecast_date.asc,forecast_hour.asc,horizon.asc"),
+                    ("limit", str(ml_batch_size)),
+                    ("offset", str(ml_offset)),
+                ]
+                ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
+                if ml_response.status_code == 200:
+                    batch = ml_response.json()
+                    ml_forecasts.extend(batch)
+                    if len(batch) < ml_batch_size:
+                        break  # No more data
+                    ml_offset += ml_batch_size
+                else:
+                    break
 
-            # Query CMG Programado - BATCH QUERY with date range filter
+            # Query CMG Programado - Use pagination to bypass 1000-row limit
             prog_url = f"{supabase.base_url}/cmg_programado_santiago"
             prog_forecasts = []
 
-            prog_params = [
-                ("forecast_date", f"gte.{forecast_start_str}"),
-                ("forecast_date", f"lte.{end_date_str_query}"),
-                ("order", "forecast_date.asc,forecast_hour.asc,target_datetime.asc"),
-            ]
-            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
-            prog_headers = supabase.headers.copy()
-            prog_headers['Range'] = '0-99999'  # Request up to 100,000 rows
-            prog_headers['Range-Unit'] = 'items'
-            prog_response = requests.get(prog_url, params=prog_params, headers=prog_headers)
-            if prog_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
-                prog_forecasts = prog_response.json()
+            # Paginate through CMG Programado (1000 rows per request)
+            prog_offset = 0
+            prog_batch_size = 1000
+            while True:
+                prog_params = [
+                    ("forecast_date", f"gte.{forecast_start_str}"),
+                    ("forecast_date", f"lte.{end_date_str_query}"),
+                    ("order", "forecast_date.asc,forecast_hour.asc,target_datetime.asc"),
+                    ("limit", str(prog_batch_size)),
+                    ("offset", str(prog_offset)),
+                ]
+                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
+                if prog_response.status_code == 200:
+                    batch = prog_response.json()
+                    prog_forecasts.extend(batch)
+                    if len(batch) < prog_batch_size:
+                        break  # No more data
+                    prog_offset += prog_batch_size
+                else:
+                    break
 
             # Filter CMG Programado to only future forecasts and first 24 hours
             prog_filtered = []
@@ -156,22 +171,30 @@ class handler(BaseHTTPRequestHandler):
                 ml['target_date'] = target_dt.strftime('%Y-%m-%d')
                 ml['target_hour'] = target_dt.hour
 
-            # Query CMG Online (actuals) - BATCH QUERY with date range filter
+            # Query CMG Online (actuals) - Use pagination to bypass 1000-row limit
             online_url = f"{supabase.base_url}/cmg_online_santiago"
             cmg_online = []
 
-            online_params = [
-                ("date", f"gte.{start_date_str}"),
-                ("date", f"lte.{end_date_str}"),
-                ("order", "date.asc,hour.asc"),
-            ]
-            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
-            online_headers = supabase.headers.copy()
-            online_headers['Range'] = '0-9999'  # Request up to 10,000 rows
-            online_headers['Range-Unit'] = 'items'
-            online_response = requests.get(online_url, params=online_params, headers=online_headers)
-            if online_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
-                cmg_online = online_response.json()
+            # Paginate through CMG Online (1000 rows per request)
+            online_offset = 0
+            online_batch_size = 1000
+            while True:
+                online_params = [
+                    ("date", f"gte.{start_date_str}"),
+                    ("date", f"lte.{end_date_str}"),
+                    ("order", "date.asc,hour.asc"),
+                    ("limit", str(online_batch_size)),
+                    ("offset", str(online_offset)),
+                ]
+                online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
+                if online_response.status_code == 200:
+                    batch = online_response.json()
+                    cmg_online.extend(batch)
+                    if len(batch) < online_batch_size:
+                        break  # No more data
+                    online_offset += online_batch_size
+                else:
+                    break
 
             # Build actuals lookup: (date, hour) → actual CMG (average across nodes)
             actuals_raw = defaultdict(list)
