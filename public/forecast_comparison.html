@@ -156,7 +156,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">📅 Seleccionar Pronóstico</h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start mb-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Fecha</label>
                     <input type="date" id="date-selector"
@@ -170,9 +170,10 @@
                         <option value="">Seleccionar primero una fecha</option>
                     </select>
                 </div>
-                <div class="flex items-end">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2 invisible">Acción</label>
                     <button id="load-forecast-btn" onclick="loadForecast()"
-                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors font-semibold">
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 border border-transparent rounded-lg transition-colors font-semibold">
                         Cargar Pronóstico
                     </button>
                 </div>
