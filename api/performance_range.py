@@ -97,10 +97,13 @@ class handler(BaseHTTPRequestHandler):
                 ("forecast_date", f"gte.{forecast_start_str}"),
                 ("forecast_date", f"lte.{end_date_str_query}"),
                 ("order", "forecast_date.asc,forecast_hour.asc,horizon.asc"),
-                ("limit", "50000")  # Max: ~32 days × 24 hours × 24 horizons ≈ 18,432
             ]
-            ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
-            if ml_response.status_code == 200:
+            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
+            ml_headers = supabase.headers.copy()
+            ml_headers['Range'] = '0-49999'  # Request up to 50,000 rows
+            ml_headers['Range-Unit'] = 'items'
+            ml_response = requests.get(ml_url, params=ml_params, headers=ml_headers)
+            if ml_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
                 ml_forecasts = ml_response.json()
 
             # Query CMG Programado - BATCH QUERY with date range filter
@@ -111,10 +114,13 @@ class handler(BaseHTTPRequestHandler):
                 ("forecast_date", f"gte.{forecast_start_str}"),
                 ("forecast_date", f"lte.{end_date_str_query}"),
                 ("order", "forecast_date.asc,forecast_hour.asc,target_datetime.asc"),
-                ("limit", "100000")  # Max: ~32 days × 24 hours × 72 horizons ≈ 55,296
             ]
-            prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
-            if prog_response.status_code == 200:
+            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
+            prog_headers = supabase.headers.copy()
+            prog_headers['Range'] = '0-99999'  # Request up to 100,000 rows
+            prog_headers['Range-Unit'] = 'items'
+            prog_response = requests.get(prog_url, params=prog_params, headers=prog_headers)
+            if prog_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
                 prog_forecasts = prog_response.json()
 
             # Filter CMG Programado to only future forecasts and first 24 hours
@@ -158,10 +164,13 @@ class handler(BaseHTTPRequestHandler):
                 ("date", f"gte.{start_date_str}"),
                 ("date", f"lte.{end_date_str}"),
                 ("order", "date.asc,hour.asc"),
-                ("limit", "10000")  # Max: ~32 days × 24 hours × 3 nodes ≈ 2,304
             ]
-            online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
-            if online_response.status_code == 200:
+            # IMPORTANT: Use Range header to bypass Supabase's default 1000-row limit
+            online_headers = supabase.headers.copy()
+            online_headers['Range'] = '0-9999'  # Request up to 10,000 rows
+            online_headers['Range-Unit'] = 'items'
+            online_response = requests.get(online_url, params=online_params, headers=online_headers)
+            if online_response.status_code in [200, 206]:  # 206 = Partial Content (Range response)
                 cmg_online = online_response.json()
 
             # Build actuals lookup: (date, hour) → actual CMG (average across nodes)
