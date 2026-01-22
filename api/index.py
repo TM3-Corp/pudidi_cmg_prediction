@@ -8,13 +8,15 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
 from lib.utils.cache_manager_readonly import CacheManagerReadOnly as CacheManager
+from lib.utils.cors import add_cors_headers, send_cors_preflight
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Main production endpoint - fetches real CMG data and makes ML predictions"""
+        request_origin = self.headers.get('Origin', '')
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        add_cors_headers(self, request_origin, 'GET, OPTIONS')
         self.end_headers()
         
         # Initialize response data
@@ -30,7 +32,7 @@ class handler(BaseHTTPRequestHandler):
             import pytz
             santiago_tz = pytz.timezone('America/Santiago')
             now = datetime.now(santiago_tz)
-        except:
+        except Exception:
             now = datetime.now()
         
         # Try to get cached data first
@@ -43,7 +45,7 @@ class handler(BaseHTTPRequestHandler):
                 last_updated = display_data['historical']['last_updated']
             elif display_data and display_data.get('programmed', {}).get('last_updated'):
                 last_updated = display_data['programmed']['last_updated']
-        except:
+        except Exception:
             pass
         
         # Try to fetch real data from SIP API
@@ -51,7 +53,9 @@ class handler(BaseHTTPRequestHandler):
             import requests
             import numpy as np
             
-            SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
+            SIP_API_KEY = os.environ.get('SIP_API_KEY')
+            if not SIP_API_KEY:
+                raise ValueError("SIP_API_KEY environment variable not set")
             SIP_BASE_URL = 'https://sipub.api.coordinador.cl:443'
             CHILOE_NODE = 'CHILOE________220'
             
@@ -91,7 +95,7 @@ class handler(BaseHTTPRequestHandler):
                             break
                     else:
                         break
-                except:
+                except Exception:
                     break
             
             fetch_info = {
@@ -231,9 +235,5 @@ class handler(BaseHTTPRequestHandler):
     
     def do_OPTIONS(self):
         """Handle CORS preflight"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+        send_cors_preflight(self, 'GET, OPTIONS')
         return

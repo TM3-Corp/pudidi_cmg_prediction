@@ -3,6 +3,7 @@ Optimized CMG Fetcher - 4000 records/page with caching
 Based on successful tests achieving 100% coverage in < 4 minutes
 """
 
+import os
 import requests
 import time
 from datetime import datetime, timedelta
@@ -15,9 +16,9 @@ class OptimizedCMGFetcher:
     Ultra-optimized fetcher using 4000 records/page.
     Achieves 100% coverage in ~3-4 minutes.
     """
-    
+
     # Configuration
-    SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
+    SIP_API_KEY = os.environ.get('SIP_API_KEY')
     SIP_BASE_URL = 'https://sipub.api.coordinador.cl:443'
     
     # Chiloé nodes
@@ -42,6 +43,8 @@ class OptimizedCMGFetcher:
     
     def __init__(self):
         """Initialize fetcher with Santiago timezone"""
+        if not self.SIP_API_KEY:
+            raise ValueError("SIP_API_KEY environment variable not set")
         self.santiago_tz = pytz.timezone('America/Santiago')
         self.session = requests.Session()
     

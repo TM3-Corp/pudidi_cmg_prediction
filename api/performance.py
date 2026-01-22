@@ -464,7 +464,7 @@ class handler(BaseHTTPRequestHandler):
                                     date_val = value[:10]  # '2025-09-03'
                                     try:
                                         hour_val = int(value[11:13])  # Hour: 00-23
-                                    except:
+                                    except Exception:
                                         hour_val = None
                             elif 'barra' in key.lower():
                                 node_val = value
@@ -472,7 +472,7 @@ class handler(BaseHTTPRequestHandler):
                                 # Parse 'Costo Marginal [USD/MWh]' column
                                 try:
                                     price_val = float(value) if value else None
-                                except:
+                                except Exception:
                                     price_val = None
                         
                         if date_val and hour_val is not None and node_val and price_val is not None:

@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
     from lib.utils.supabase_client import SupabaseClient
+    from lib.utils.cors import add_cors_headers, send_cors_preflight
     import requests
     SUPABASE_AVAILABLE = True
 except Exception as e:
@@ -41,11 +42,10 @@ class handler(BaseHTTPRequestHandler):
         """Handle GET request for range performance analysis"""
 
         # CORS headers
+        request_origin = self.headers.get('Origin', '')
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        add_cors_headers(self, request_origin, 'GET, OPTIONS')
         self.end_headers()
 
         try:
@@ -85,40 +85,37 @@ class handler(BaseHTTPRequestHandler):
             # - So to get all forecasts targeting start_date, we need Day (start_date - 1)
             forecast_query_start = start_date - timedelta(days=1)
 
-            # Query ML forecasts - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
+            # Query ML forecasts - BATCH QUERY with date range filter
             ml_url = f"{supabase.base_url}/ml_predictions_santiago"
             ml_forecasts = []
 
-            current_date = forecast_query_start
-            while current_date <= end_date:
-                date_str = current_date.strftime('%Y-%m-%d')
-                ml_params = [
-                    ("forecast_date", f"eq.{date_str}"),
-                    ("order", "forecast_hour.asc,horizon.asc"),
-                    ("limit", "1000")  # Max per day: 24 hours × 24 horizons = 576
-                ]
-                ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
-                if ml_response.status_code == 200:
-                    ml_forecasts.extend(ml_response.json())
-                current_date += timedelta(days=1)
+            # Use PostgREST range filter for batch query
+            forecast_start_str = forecast_query_start.strftime('%Y-%m-%d')
+            end_date_str_query = end_date.strftime('%Y-%m-%d')
 
-            # Query CMG Programado - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
-            # Also use extended start date to capture forecasts targeting our range
+            ml_params = [
+                ("forecast_date", f"gte.{forecast_start_str}"),
+                ("forecast_date", f"lte.{end_date_str_query}"),
+                ("order", "forecast_date.asc,forecast_hour.asc,horizon.asc"),
+                ("limit", "50000")  # Max: ~32 days × 24 hours × 24 horizons ≈ 18,432
+            ]
+            ml_response = requests.get(ml_url, params=ml_params, headers=supabase.headers)
+            if ml_response.status_code == 200:
+                ml_forecasts = ml_response.json()
+
+            # Query CMG Programado - BATCH QUERY with date range filter
             prog_url = f"{supabase.base_url}/cmg_programado_santiago"
             prog_forecasts = []
 
-            current_date = forecast_query_start
-            while current_date <= end_date:
-                date_str = current_date.strftime('%Y-%m-%d')
-                prog_params = [
-                    ("forecast_date", f"eq.{date_str}"),
-                    ("order", "forecast_hour.asc,target_datetime.asc"),
-                    ("limit", "5000")  # Max per day: 24 hours × 72 horizons = 1,728
-                ]
-                prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
-                if prog_response.status_code == 200:
-                    prog_forecasts.extend(prog_response.json())
-                current_date += timedelta(days=1)
+            prog_params = [
+                ("forecast_date", f"gte.{forecast_start_str}"),
+                ("forecast_date", f"lte.{end_date_str_query}"),
+                ("order", "forecast_date.asc,forecast_hour.asc,target_datetime.asc"),
+                ("limit", "100000")  # Max: ~32 days × 24 hours × 72 horizons ≈ 55,296
+            ]
+            prog_response = requests.get(prog_url, params=prog_params, headers=supabase.headers)
+            if prog_response.status_code == 200:
+                prog_forecasts = prog_response.json()
 
             # Filter CMG Programado to only future forecasts and first 24 hours
             prog_filtered = []
@@ -153,22 +150,19 @@ class handler(BaseHTTPRequestHandler):
                 ml['target_date'] = target_dt.strftime('%Y-%m-%d')
                 ml['target_hour'] = target_dt.hour
 
-            # Query CMG Online (actuals) - QUERY EACH DAY SEPARATELY to avoid 1000-row limit
+            # Query CMG Online (actuals) - BATCH QUERY with date range filter
             online_url = f"{supabase.base_url}/cmg_online_santiago"
             cmg_online = []
 
-            current_date = start_date
-            while current_date <= end_date:
-                date_str = current_date.strftime('%Y-%m-%d')
-                online_params = [
-                    ("date", f"eq.{date_str}"),
-                    ("order", "hour.asc"),
-                    ("limit", "1000")  # Max per day: 24 hours × 3 nodes = 72
-                ]
-                online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
-                if online_response.status_code == 200:
-                    cmg_online.extend(online_response.json())
-                current_date += timedelta(days=1)
+            online_params = [
+                ("date", f"gte.{start_date_str}"),
+                ("date", f"lte.{end_date_str}"),
+                ("order", "date.asc,hour.asc"),
+                ("limit", "10000")  # Max: ~32 days × 24 hours × 3 nodes ≈ 2,304
+            ]
+            online_response = requests.get(online_url, params=online_params, headers=supabase.headers)
+            if online_response.status_code == 200:
+                cmg_online = online_response.json()
 
             # Build actuals lookup: (date, hour) → actual CMG (average across nodes)
             actuals_raw = defaultdict(list)
@@ -236,13 +230,21 @@ class handler(BaseHTTPRequestHandler):
             # =========================================
             # STRUCTURAL DIMENSION: Metrics by Horizon
             # =========================================
+            # NOTE: For horizon metrics, we filter by FORECAST date (not target date)
+            # This answers: "How did predictions MADE during these days perform?"
+            # This is different from temporal dimension which filters by TARGET date.
 
             # Track horizon errors: horizon → list of absolute errors
             ml_horizon_errors = defaultdict(list)
             prog_horizon_errors = defaultdict(list)
 
-            # ML predictions by horizon
+            # ML predictions by horizon - ONLY forecasts MADE during the selected range
             for forecast in ml_forecasts:
+                # Filter: only include forecasts where forecast_date is in user's range
+                forecast_date = datetime.strptime(forecast['forecast_date'], '%Y-%m-%d').date()
+                if forecast_date < start_date or forecast_date > end_date:
+                    continue  # Skip forecasts made outside the selected range
+
                 horizon = forecast['horizon']
                 target_date = forecast['target_date']
                 target_hour = forecast['target_hour']
@@ -253,8 +255,14 @@ class handler(BaseHTTPRequestHandler):
                     error = abs(predicted - actual)
                     ml_horizon_errors[horizon].append(error)
 
-            # CMG Programado by horizon
+            # CMG Programado by horizon - ONLY forecasts MADE during the selected range
             for forecast in prog_filtered:
+                # Filter: only include forecasts where forecast_date is in user's range
+                forecast_dt = datetime.fromisoformat(forecast['forecast_datetime'].replace('Z', '+00:00'))
+                forecast_date = forecast_dt.astimezone(santiago_tz).date()
+                if forecast_date < start_date or forecast_date > end_date:
+                    continue  # Skip forecasts made outside the selected range
+
                 horizon = forecast['horizon']
                 target_date = forecast['target_date']
                 target_hour = forecast['target_hour']
@@ -390,8 +398,4 @@ class handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self):
         """Handle CORS preflight"""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+        send_cors_preflight(self, 'GET, OPTIONS')

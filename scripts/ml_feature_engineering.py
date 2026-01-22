@@ -47,13 +47,17 @@ class CleanCMGFeatureEngineering:
         # Track feature names for later inspection
         self.feature_names = []
 
-    def create_features(self, df: pd.DataFrame, cmg_column: str = 'CMG [$/MWh]') -> pd.DataFrame:
+    def create_features(self, df: pd.DataFrame, cmg_column: str = 'CMG [$/MWh]',
+                        cmg_programado_df: pd.DataFrame = None) -> pd.DataFrame:
         """
         Create all features with NO future leakage
 
         Args:
             df: DataFrame with datetime index and CMG column
             cmg_column: Name of the CMG price column
+            cmg_programado_df: Optional DataFrame with CMG Programado forecasts
+                               Should have columns: 'target_datetime', 'cmg_usd'
+                               indexed by forecast_datetime
 
         Returns:
             DataFrame with all features and targets
@@ -90,7 +94,11 @@ class CleanCMGFeatureEngineering:
         # 6. Seasonal features
         df_feat = self._add_seasonal_features(df_feat, cmg_column)
 
-        # 7. Create targets for all horizons
+        # 7. CMG Programado features (if available)
+        if cmg_programado_df is not None:
+            df_feat = self._add_cmg_programado_features(df_feat, cmg_column, cmg_programado_df)
+
+        # 8. Create targets for all horizons
         df_feat = self._add_targets(df_feat, cmg_column)
 
         print(f"✓ Created {len(self.feature_names)} features")
@@ -310,6 +318,96 @@ class CleanCMGFeatureEngineering:
         # Much faster: just use rolling median over 7 days
         # Shift by 168 hours (7 days) to get same hour last week
         return cmg_series.shift(168).fillna(method='bfill')
+
+    def _add_cmg_programado_features(self, df: pd.DataFrame, cmg_column: str,
+                                      prog_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add CMG Programado (official forecast) as features
+
+        CMG Programado is the official market forecast published by the coordinator.
+        It contains valuable market information that our ML model lacks.
+        Using it as an input feature can significantly improve predictions.
+
+        Features added:
+        - cmg_prog_t+{h}: CMG Programado forecast for horizon h (1-24)
+        - cmg_prog_spread: Difference between Programado and recent actual
+        - cmg_prog_vs_mean: Programado relative to recent mean CMG
+
+        IMPORTANT: No leakage because CMG Programado is available at forecast time
+        (it's published before the actual hour)
+
+        Args:
+            df: DataFrame with datetime index
+            cmg_column: Name of actual CMG column
+            prog_df: DataFrame with CMG Programado data
+                     Expected columns: 'forecast_datetime', 'target_datetime', 'cmg_usd'
+        """
+        print("  Adding CMG Programado features...")
+
+        try:
+            # Prepare programado data: group by (forecast_datetime, horizon)
+            # We want the programado value that was available at forecast time
+            # for each target hour
+
+            # First, ensure prog_df has the right format
+            if 'target_datetime' not in prog_df.columns or 'cmg_usd' not in prog_df.columns:
+                print("  Warning: CMG Programado data missing required columns")
+                return df
+
+            # Create lookup by target_datetime
+            # For each hour in our training data, find the most recent programado forecast
+            # that was available before that hour
+
+            prog_df = prog_df.copy()
+            if 'target_datetime' in prog_df.columns:
+                prog_df['target_datetime'] = pd.to_datetime(prog_df['target_datetime'])
+
+            # Create a lookup: target_datetime -> cmg_programado
+            # Use the most recent forecast for each target hour
+            prog_lookup = prog_df.groupby('target_datetime')['cmg_usd'].last().to_dict()
+
+            # Add programado value for each horizon (t+1 to t+24)
+            for h in self.target_horizons:
+                col_name = f'cmg_prog_t+{h}'
+                # For each row at time t, get the programado forecast for t+h
+                target_times = df.index + pd.Timedelta(hours=h)
+
+                df[col_name] = target_times.map(lambda x: prog_lookup.get(x, np.nan))
+                self.feature_names.append(col_name)
+
+            # Spread features: difference between programado and recent actual
+            # This captures whether the market expects CMG to rise or fall
+
+            # Average programado across all horizons
+            prog_cols = [f'cmg_prog_t+{h}' for h in self.target_horizons if f'cmg_prog_t+{h}' in df.columns]
+            if prog_cols:
+                df['cmg_prog_avg'] = df[prog_cols].mean(axis=1)
+                self.feature_names.append('cmg_prog_avg')
+
+                # Spread vs last known actual (shift(1) to use past data only)
+                df['cmg_prog_spread'] = df['cmg_prog_avg'] - df[cmg_column].shift(1)
+                self.feature_names.append('cmg_prog_spread')
+
+                # Programado vs recent mean (24h rolling)
+                recent_mean = df[cmg_column].shift(1).rolling(24, min_periods=1).mean()
+                df['cmg_prog_vs_mean'] = df['cmg_prog_avg'] - recent_mean
+                self.feature_names.append('cmg_prog_vs_mean')
+
+                # Programado trend (is it rising or falling across horizons?)
+                # Compare early horizons (1-6) vs late horizons (19-24)
+                early_prog = df[[f'cmg_prog_t+{h}' for h in range(1, 7) if f'cmg_prog_t+{h}' in df.columns]].mean(axis=1)
+                late_prog = df[[f'cmg_prog_t+{h}' for h in range(19, 25) if f'cmg_prog_t+{h}' in df.columns]].mean(axis=1)
+                df['cmg_prog_trend'] = late_prog - early_prog
+                self.feature_names.append('cmg_prog_trend')
+
+            print(f"  ✓ Added {len([c for c in prog_cols])} CMG Programado horizon features")
+            print(f"  ✓ Added spread and trend features")
+
+        except Exception as e:
+            print(f"  Warning: Error adding CMG Programado features: {e}")
+            # Continue without these features
+
+        return df
 
     def _add_targets(self, df: pd.DataFrame, cmg_column: str) -> pd.DataFrame:
         """

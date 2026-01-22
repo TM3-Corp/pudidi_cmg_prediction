@@ -22,6 +22,7 @@ except ImportError:
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from lib.utils.cors import add_cors_headers, send_cors_preflight
 
 # GitHub Gist configuration for storing optimization results
 OPTIMIZATION_GIST_ID = 'b7c9e8f3d2a1b4c5e6f7a8b9c0d1e2f3'  # Create a new Gist for optimization results
@@ -72,7 +73,7 @@ class handler(BaseHTTPRequestHandler):
                     if 'optimization_results.json' in gist_data.get('files', {}):
                         content = gist_data['files']['optimization_results.json'].get('content', '{}')
                         existing_data = json.loads(content)
-            except:
+            except Exception:
                 pass
             
             # Add new optimization to history
@@ -116,11 +117,7 @@ class handler(BaseHTTPRequestHandler):
             return False
     
     def do_OPTIONS(self):
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-        self.end_headers()
+        send_cors_preflight(self, 'GET, POST, OPTIONS')
 
     def do_POST(self):
         try:
@@ -217,7 +214,7 @@ class handler(BaseHTTPRequestHandler):
 
                                     self.send_response(400)
                                     self.send_header('Content-Type', 'application/json')
-                                    self.send_header('Access-Control-Allow-Origin', '*')
+                                    add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
                                     self.end_headers()
 
                                     error_response = {
@@ -256,7 +253,7 @@ class handler(BaseHTTPRequestHandler):
 
                     self.send_response(400)
                     self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
+                    add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
                     self.end_headers()
 
                     error_response = {
@@ -325,7 +322,7 @@ class handler(BaseHTTPRequestHandler):
 
                             self.send_response(400)
                             self.send_header('Content-Type', 'application/json')
-                            self.send_header('Access-Control-Allow-Origin', '*')
+                            add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
                             self.end_headers()
 
                             error_response = {
@@ -358,7 +355,7 @@ class handler(BaseHTTPRequestHandler):
 
                         self.send_response(400)
                         self.send_header('Content-Type', 'application/json')
-                        self.send_header('Access-Control-Allow-Origin', '*')
+                        add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
                         self.end_headers()
 
                         error_response = {
@@ -372,7 +369,7 @@ class handler(BaseHTTPRequestHandler):
 
                     self.send_response(400)
                     self.send_header('Content-Type', 'application/json')
-                    self.send_header('Access-Control-Allow-Origin', '*')
+                    add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
                     self.end_headers()
 
                     error_response = {
@@ -439,7 +436,7 @@ class handler(BaseHTTPRequestHandler):
             # Send response
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
             self.end_headers()
             
             response = {
@@ -480,7 +477,7 @@ class handler(BaseHTTPRequestHandler):
             
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
             self.end_headers()
             
             error_response = {
@@ -630,7 +627,7 @@ class handler(BaseHTTPRequestHandler):
                     params['s0'], params['s_min'], params['s_max'],
                     params['kappa'], params['inflow'], params['horizon']
                 )
-            except:
+            except Exception:
                 pass
             
             # Try simple DP if scipy failed
@@ -643,7 +640,7 @@ class handler(BaseHTTPRequestHandler):
                         params['s0'], params['s_min'], params['s_max'],
                         params['kappa'], params['inflow'], params['horizon']
                     )
-                except:
+                except Exception:
                     pass
             
             # Fall back to greedy
@@ -659,7 +656,7 @@ class handler(BaseHTTPRequestHandler):
             # Send response
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
             self.end_headers()
             
             response = {
@@ -674,7 +671,7 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
+            add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
             self.end_headers()
             
             error_response = {

@@ -7,7 +7,11 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
+    <!-- Supabase for auth -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/auth.js"></script>
+
     <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     
@@ -125,6 +129,14 @@
                             </svg>
                             <span>📊 Rendimiento</span>
                         </a>
+                        <button onclick="logout()"
+                                class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                            </svg>
+                            <span>Salir</span>
+                        </button>
                         <!-- Actualizar button hidden
                         <button id="refresh-btn" onclick="manualRefresh()" 
                                 class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -281,8 +293,15 @@
         };
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             console.log('Initializing CMG Monitor...');
+
+            // Check authentication first
+            const session = await requireAuth();
+            if (!session) {
+                return; // Will redirect to login
+            }
+
             initializeApp();
         });
         

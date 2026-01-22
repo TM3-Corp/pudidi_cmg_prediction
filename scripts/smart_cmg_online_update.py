@@ -26,7 +26,10 @@ except Exception as e:
     SUPABASE_AVAILABLE = False
 
 # Configuration
-SIP_API_KEY = '1a81177c8ff4f69e7dd5bb8c61bc08b4'
+import os
+SIP_API_KEY = os.environ.get('SIP_API_KEY')
+if not SIP_API_KEY:
+    raise ValueError("SIP_API_KEY environment variable not set")
 SIP_BASE_URL = 'https://sipub.api.coordinador.cl:443'
 
 # Our 3 target nodes for historical data
