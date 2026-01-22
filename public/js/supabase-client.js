@@ -7,7 +7,7 @@
  */
 
 const SUPABASE_URL = 'https://btyfbrclgmphcjgrvcgd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0eWZicmNsZ21waGNqZ3J2Y2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwMDk1MjksImV4cCI6MjA3NjU4NTUyOX0.WQK2xJMa6YWUABsXq2MQwJGpOQHt5GfZJ5pLe7MZIi8';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0eWZicmNsZ21waGNqZ3J2Y2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwMDk1MjksImV4cCI6MjA3NjU4NTUyOX0.JcZZLN_uxdXojor9Z8IaA1UhdThY_y7eWO265dHzsVo';
 
 class SupabaseAPI {
     constructor() {

@@ -5,7 +5,7 @@
  */
 
 const AUTH_SUPABASE_URL = 'https://btyfbrclgmphcjgrvcgd.supabase.co';
-const AUTH_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0eWZicmNsZ21waGNqZ3J2Y2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwMDk1MjksImV4cCI6MjA3NjU4NTUyOX0.WQK2xJMa6YWUABsXq2MQwJGpOQHt5GfZJ5pLe7MZIi8';
+const AUTH_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0eWZicmNsZ21waGNqZ3J2Y2dkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwMDk1MjksImV4cCI6MjA3NjU4NTUyOX0.JcZZLN_uxdXojor9Z8IaA1UhdThY_y7eWO265dHzsVo';
 
 let authSupabase = null;
 let authStateListenerSet = false;
@@ -182,11 +182,14 @@ function createLogoutButton() {
 /**
  * Initialize auth check on page load
  * Call this at the top of DOMContentLoaded in protected pages
+ * Shows the page content only after successful authentication
  */
 async function requireAuth() {
     const session = await checkAuth();
     if (session) {
         console.log('User authenticated:', session.user.email);
+        // Show page content after successful auth
+        document.body.style.visibility = 'visible';
     }
     return session;
 }
