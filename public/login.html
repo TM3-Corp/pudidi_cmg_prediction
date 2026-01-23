@@ -6,6 +6,7 @@
     <title>CMG Monitor - Iniciar Sesion</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/auth-storage.js"></script>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen flex items-center justify-center">
     <div class="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
@@ -44,6 +45,14 @@
                        autocomplete="current-password">
             </div>
 
+            <div class="flex items-center">
+                <input type="checkbox" id="remember-me" checked
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer">
+                <label for="remember-me" class="ml-2 block text-sm text-gray-700 cursor-pointer">
+                    Recordarme en este dispositivo
+                </label>
+            </div>
+
             <button type="button" id="login-btn" onclick="handleLogin()"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors">
                 <span id="login-text">Iniciar Sesion</span>
@@ -68,22 +77,29 @@
 
         let supabaseClient = null;
 
-        // Initialize Supabase client
-        function initSupabase() {
+        // Initialize Supabase client with appropriate storage
+        function initSupabase(rememberMe = true) {
             if (typeof window.supabase === 'undefined') {
                 showError('Error: No se pudo cargar la biblioteca de autenticacion. Recarga la pagina.');
                 return false;
             }
 
-            if (!supabaseClient) {
-                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                    auth: {
-                        autoRefreshToken: true,
-                        persistSession: true,
-                        detectSessionInUrl: false
-                    }
-                });
-            }
+            // Get storage adapter based on "remember me" preference
+            const storageAdapter = rememberMe ?
+                (typeof CookieStorage !== 'undefined' ? CookieStorage : undefined) :
+                (typeof SessionOnlyStorage !== 'undefined' ? SessionOnlyStorage : undefined);
+
+            // Always recreate client with correct storage setting
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true,
+                    detectSessionInUrl: false,
+                    storage: storageAdapter,
+                    storageKey: 'sb-btyfbrclgmphcjgrvcgd-auth-token'
+                }
+            });
+
             return true;
         }
 
@@ -139,6 +155,7 @@
             // Get values
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('remember-me').checked;
 
             // Validate inputs
             if (!email) {
@@ -158,8 +175,13 @@
                 return;
             }
 
-            // Initialize Supabase
-            if (!initSupabase()) {
+            // Save remember me preference
+            if (typeof setRememberMePreference === 'function') {
+                setRememberMePreference(rememberMe);
+            }
+
+            // Initialize Supabase with appropriate storage
+            if (!initSupabase(rememberMe)) {
                 return;
             }
 
@@ -231,6 +253,12 @@
 
         // Check for existing session on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Restore "remember me" preference
+            const rememberCheckbox = document.getElementById('remember-me');
+            if (typeof getRememberMePreference === 'function') {
+                rememberCheckbox.checked = getRememberMePreference();
+            }
+
             checkExistingSession();
         });
     </script>

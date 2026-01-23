@@ -2,6 +2,7 @@
  * Supabase Auth Helper for Pudidi CMG Frontend
  * =============================================
  * Provides authentication functions for all protected pages
+ * Uses cookie-based storage for reliable iOS/PWA support
  */
 
 const AUTH_SUPABASE_URL = 'https://btyfbrclgmphcjgrvcgd.supabase.co';
@@ -12,15 +13,20 @@ let authStateListenerSet = false;
 
 /**
  * Initialize Supabase auth client
- * Sets up automatic token refresh handling
+ * Sets up automatic token refresh handling with cookie-based storage
  */
 function initAuth() {
     if (typeof window.supabase !== 'undefined' && !authSupabase) {
+        // Use cookie storage if available (more reliable on iOS)
+        const storageAdapter = (typeof CookieStorage !== 'undefined') ? CookieStorage : undefined;
+
         authSupabase = window.supabase.createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY, {
             auth: {
                 autoRefreshToken: true,      // Automatically refresh tokens before expiry
-                persistSession: true,        // Persist session in localStorage
-                detectSessionInUrl: true     // Handle OAuth redirects
+                persistSession: true,        // Persist session
+                detectSessionInUrl: true,    // Handle OAuth redirects
+                storage: storageAdapter,     // Use cookie storage for iOS reliability
+                storageKey: 'sb-btyfbrclgmphcjgrvcgd-auth-token'
             }
         });
 
@@ -119,11 +125,18 @@ async function logout() {
 
     try {
         await client.auth.signOut();
+        // Clear all auth data (cookies + localStorage + sessionStorage)
+        if (typeof clearAllAuthData === 'function') {
+            clearAllAuthData();
+        }
         localStorage.removeItem('supabase_session');
         redirectToLogin();
     } catch (error) {
         console.error('Logout error:', error);
-        // Force redirect even on error
+        // Force clear and redirect even on error
+        if (typeof clearAllAuthData === 'function') {
+            clearAllAuthData();
+        }
         redirectToLogin();
     }
 }
