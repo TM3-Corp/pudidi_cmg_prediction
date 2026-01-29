@@ -16,7 +16,7 @@ from collections import defaultdict
 import numpy as np
 
 # Add lib path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     from lib.utils.supabase_client import SupabaseClient
