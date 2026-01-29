@@ -25,6 +25,14 @@ Documentación técnica para desarrolladores y mantenimiento del sistema:
 - **[DATA_FORMAT_DOCUMENTATION.md](./internal/DATA_FORMAT_DOCUMENTATION.md)** - Formatos de datos y schemas
 - **[ML_PIPELINE_DOCUMENTATION.md](./internal/ML_PIPELINE_DOCUMENTATION.md)** - Pipeline completo de ML
 
+### 📊 [Benchmarks](./benchmarks/)
+
+Model performance documentation and experiment logs:
+
+- **[PRODUCTION_MODELS.md](./benchmarks/PRODUCTION_MODELS.md)** - Current production model specifications, architecture, and performance metrics
+- **[EXPERIMENTAL_RESULTS.md](./benchmarks/EXPERIMENTAL_RESULTS.md)** - Log of all model experiments with dates, configurations, and results
+- **[METHODOLOGY.md](./benchmarks/METHODOLOGY.md)** - Fair evaluation methodology (walk-forward validation, test periods)
+
 ### 📘 [Guías](./guides/)
 
 Tutoriales paso a paso para setup y deployment:
@@ -100,5 +108,5 @@ Para contribuir a la documentación:
 
 ---
 
-**Última actualización:** Noviembre 21, 2025
+**Última actualización:** Enero 29, 2026
 **Mantenido por:** TM3 Corp

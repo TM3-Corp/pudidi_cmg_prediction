@@ -31,7 +31,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           CMG_SNAPSHOT_GIST_ID: ${{ secrets.CMG_SNAPSHOT_GIST_ID }}
         run: |
-          python scripts/capture_5pm_cmg_snapshot.py
+          python scripts/production/capture_5pm_cmg_snapshot.py
 
       - name: Commit snapshot metadata (if created)
         run: |

@@ -34,14 +34,14 @@ jobs:
         if: ${{ github.event.inputs.run_backup == 'true' }}
         run: |
           echo "📦 Creating safety backups..."
-          python scripts/backup_gists.py
+          python scripts/production/backup_gists.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
 
       - name: Run CMG Online backfill migration
         run: |
           echo "🚀 Starting CMG Online backfill migration (Sep 2-12)..."
-          python scripts/migrate_cmg_online_backfill.py
+          python scripts/production/migrate_cmg_online_backfill.py
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
 

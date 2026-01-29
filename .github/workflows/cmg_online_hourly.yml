@@ -9,8 +9,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/cmg_online_hourly.yml'
-      - 'scripts/smart_cmg_online_update.py'
-      - 'scripts/store_historical.py'
+      - 'scripts/production/smart_cmg_online_update.py'
+      - 'scripts/production/store_*.py'
 
 # Prevent concurrent runs to avoid merge conflicts
 concurrency:
@@ -73,7 +73,7 @@ jobs:
           export GITHUB_ACTIONS=true
 
           # Run the CMG Programado pipeline
-          python scripts/cmg_programado_pipeline.py
+          python scripts/production/cmg_programado_pipeline.py
 
           echo ""
           echo "CMG Programado fetch completed at $(date)"
@@ -90,7 +90,7 @@ jobs:
           echo "========================================"
           echo "Starting at $(date)"
           echo ""
-          python scripts/smart_cmg_online_update.py
+          python scripts/production/smart_cmg_online_update.py
           echo ""
           echo "CMG Online fetch completed at $(date)"
         env:
@@ -109,7 +109,7 @@ jobs:
           echo "ML FORECAST - GENERATE PREDICTIONS"
           echo "========================================"
           echo "Starting at $(date)"
-          python scripts/ml_hourly_forecast.py
+          python scripts/production/ml_hourly_forecast.py
           echo "ML forecast completed at $(date)"
         env:
           PYTHONPATH: ${{ github.workspace }}
@@ -124,7 +124,7 @@ jobs:
           echo "ML PREDICTIONS - STORE TO SUPABASE + GIST"
           echo "========================================"
           echo "Starting at $(date)"
-          python scripts/store_ml_predictions.py
+          python scripts/production/store_ml_predictions.py
           echo "ML predictions stored at $(date)"
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
@@ -142,7 +142,7 @@ jobs:
           echo "CMG PROGRAMADO - STORE TO SUPABASE + GIST"
           echo "========================================"
           echo "Starting at $(date)"
-          python scripts/store_cmg_programado.py
+          python scripts/production/store_cmg_programado.py
           echo "CMG Programado stored at $(date)"
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
@@ -159,7 +159,7 @@ jobs:
           echo "========================================"
           echo "CMG ONLINE - STORE TO SUPABASE + GIST"
           echo "========================================"
-          python scripts/store_cmg_online_dual.py
+          python scripts/production/store_cmg_online_dual.py
           echo "CMG Online stored at $(date)"
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
