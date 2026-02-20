@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-02-20 11:43:35",
-  "base_datetime": "2026-02-20 07:00:00",
-  "data_staleness_hours": 4.7,
+  "generated_at": "2026-02-20 13:27:37",
+  "base_datetime": "2026-02-20 09:00:00",
+  "data_staleness_hours": 4.5,
   "model_version": "gpu_enhanced_v1",
   "model_performance": {
     "test_mae": 32.43,
@@ -10,386 +10,386 @@
   "forecasts": [
     {
       "horizon": 1,
-      "target_datetime": "2026-02-20 08:00:00",
-      "predicted_cmg": 57.25,
-      "real_time_offset": -3.7,
+      "target_datetime": "2026-02-20 10:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": -3.5,
       "is_valid_forecast": false,
-      "zero_probability": 0.0155,
-      "zero_probability_raw": 0.2123,
-      "decision_threshold": 0.3707,
-      "value_prediction": 57.25,
+      "zero_probability": 0.4325,
+      "zero_probability_raw": 0.4585,
+      "decision_threshold": 0.3704,
+      "value_prediction": 62.21,
       "confidence_interval": {
-        "lower_10th": 27.25,
-        "median": 57.25,
-        "upper_90th": 71.12
+        "lower_10th": 25.77,
+        "median": 62.21,
+        "upper_90th": 116.25
       }
     },
     {
       "horizon": 2,
-      "target_datetime": "2026-02-20 09:00:00",
-      "predicted_cmg": 60.45,
-      "real_time_offset": -2.7,
+      "target_datetime": "2026-02-20 11:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": -2.5,
       "is_valid_forecast": false,
-      "zero_probability": 0.3025,
-      "zero_probability_raw": 0.4156,
-      "decision_threshold": 0.3703,
-      "value_prediction": 60.45,
+      "zero_probability": 0.6295,
+      "zero_probability_raw": 0.5168,
+      "decision_threshold": 0.3701,
+      "value_prediction": 66.6,
       "confidence_interval": {
-        "lower_10th": 30.75,
-        "median": 60.45,
-        "upper_90th": 96.2
+        "lower_10th": 35.75,
+        "median": 66.6,
+        "upper_90th": 150.48
       }
     },
     {
       "horizon": 3,
-      "target_datetime": "2026-02-20 10:00:00",
+      "target_datetime": "2026-02-20 12:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": -1.7,
+      "real_time_offset": -1.5,
       "is_valid_forecast": false,
-      "zero_probability": 0.3982,
-      "zero_probability_raw": 0.4467,
-      "decision_threshold": 0.3704,
-      "value_prediction": 60.68,
+      "zero_probability": 0.4967,
+      "zero_probability_raw": 0.4764,
+      "decision_threshold": 0.3693,
+      "value_prediction": 80.14,
       "confidence_interval": {
-        "lower_10th": 23.85,
-        "median": 60.68,
-        "upper_90th": 149.32
+        "lower_10th": 33.67,
+        "median": 80.14,
+        "upper_90th": 161.45
       }
     },
     {
       "horizon": 4,
-      "target_datetime": "2026-02-20 11:00:00",
+      "target_datetime": "2026-02-20 13:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": -0.7,
+      "real_time_offset": -0.5,
       "is_valid_forecast": false,
-      "zero_probability": 0.5498,
-      "zero_probability_raw": 0.4911,
-      "decision_threshold": 0.3701,
-      "value_prediction": 69.87,
+      "zero_probability": 0.6034,
+      "zero_probability_raw": 0.506,
+      "decision_threshold": 0.3693,
+      "value_prediction": 70.22,
       "confidence_interval": {
-        "lower_10th": 29.99,
-        "median": 69.87,
-        "upper_90th": 158.42
+        "lower_10th": 40.07,
+        "median": 70.22,
+        "upper_90th": 182.24
       }
     },
     {
       "horizon": 5,
-      "target_datetime": "2026-02-20 12:00:00",
+      "target_datetime": "2026-02-20 14:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 0.3,
+      "real_time_offset": 0.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.4562,
-      "zero_probability_raw": 0.463,
-      "decision_threshold": 0.3693,
-      "value_prediction": 82.67,
+      "zero_probability": 0.4463,
+      "zero_probability_raw": 0.4573,
+      "decision_threshold": 0.3695,
+      "value_prediction": 81.37,
       "confidence_interval": {
-        "lower_10th": 29.28,
-        "median": 82.67,
-        "upper_90th": 182.8
+        "lower_10th": 31.75,
+        "median": 81.37,
+        "upper_90th": 185.8
       }
     },
     {
       "horizon": 6,
-      "target_datetime": "2026-02-20 13:00:00",
+      "target_datetime": "2026-02-20 15:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 1.3,
+      "real_time_offset": 1.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.4152,
-      "zero_probability_raw": 0.4491,
-      "decision_threshold": 0.3693,
-      "value_prediction": 89.23,
+      "zero_probability": 0.4913,
+      "zero_probability_raw": 0.4669,
+      "decision_threshold": 0.3695,
+      "value_prediction": 86.44,
       "confidence_interval": {
-        "lower_10th": 33.87,
-        "median": 89.23,
-        "upper_90th": 195.66
+        "lower_10th": 34.73,
+        "median": 86.44,
+        "upper_90th": 197.11
       }
     },
     {
       "horizon": 7,
-      "target_datetime": "2026-02-20 14:00:00",
+      "target_datetime": "2026-02-20 16:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 2.3,
+      "real_time_offset": 2.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.7553,
-      "zero_probability_raw": 0.5529,
-      "decision_threshold": 0.3695,
-      "value_prediction": 77.06,
+      "zero_probability": 0.6076,
+      "zero_probability_raw": 0.4972,
+      "decision_threshold": 0.3694,
+      "value_prediction": 75.11,
       "confidence_interval": {
-        "lower_10th": 34.4,
-        "median": 77.06,
-        "upper_90th": 207.63
+        "lower_10th": 33.53,
+        "median": 75.11,
+        "upper_90th": 199.98
       }
     },
     {
       "horizon": 8,
-      "target_datetime": "2026-02-20 15:00:00",
+      "target_datetime": "2026-02-20 17:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 3.3,
+      "real_time_offset": 3.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.6992,
-      "zero_probability_raw": 0.529,
-      "decision_threshold": 0.3695,
-      "value_prediction": 76.9,
+      "zero_probability": 0.6969,
+      "zero_probability_raw": 0.5215,
+      "decision_threshold": 0.3688,
+      "value_prediction": 74.65,
       "confidence_interval": {
-        "lower_10th": 28.58,
-        "median": 76.9,
-        "upper_90th": 209.47
+        "lower_10th": 28.14,
+        "median": 74.65,
+        "upper_90th": 198.88
       }
     },
     {
       "horizon": 9,
-      "target_datetime": "2026-02-20 16:00:00",
+      "target_datetime": "2026-02-20 18:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 4.3,
+      "real_time_offset": 4.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.6405,
-      "zero_probability_raw": 0.5057,
-      "decision_threshold": 0.3694,
-      "value_prediction": 94.24,
+      "zero_probability": 0.4791,
+      "zero_probability_raw": 0.4506,
+      "decision_threshold": 0.3685,
+      "value_prediction": 76.99,
       "confidence_interval": {
-        "lower_10th": 25.25,
-        "median": 94.24,
-        "upper_90th": 228.82
+        "lower_10th": 27.65,
+        "median": 76.99,
+        "upper_90th": 179.87
       }
     },
     {
       "horizon": 10,
-      "target_datetime": "2026-02-20 17:00:00",
+      "target_datetime": "2026-02-20 19:00:00",
       "predicted_cmg": 0,
-      "real_time_offset": 5.3,
+      "real_time_offset": 5.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.5492,
-      "zero_probability_raw": 0.4737,
-      "decision_threshold": 0.3688,
-      "value_prediction": 84.33,
+      "zero_probability": 0.5296,
+      "zero_probability_raw": 0.4609,
+      "decision_threshold": 0.3681,
+      "value_prediction": 66.94,
       "confidence_interval": {
-        "lower_10th": 22.68,
-        "median": 84.33,
-        "upper_90th": 196.2
+        "lower_10th": 31.99,
+        "median": 66.94,
+        "upper_90th": 103.44
       }
     },
     {
       "horizon": 11,
-      "target_datetime": "2026-02-20 18:00:00",
-      "predicted_cmg": 0,
-      "real_time_offset": 6.3,
+      "target_datetime": "2026-02-20 20:00:00",
+      "predicted_cmg": 72.62,
+      "real_time_offset": 6.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.7274,
-      "zero_probability_raw": 0.5262,
-      "decision_threshold": 0.3685,
-      "value_prediction": 83.56,
+      "zero_probability": 0.074,
+      "zero_probability_raw": 0.2805,
+      "decision_threshold": 0.3686,
+      "value_prediction": 72.62,
       "confidence_interval": {
-        "lower_10th": 28.76,
-        "median": 83.56,
-        "upper_90th": 175.41
+        "lower_10th": 39.78,
+        "median": 72.62,
+        "upper_90th": 100.08
       }
     },
     {
       "horizon": 12,
-      "target_datetime": "2026-02-20 19:00:00",
-      "predicted_cmg": 0,
-      "real_time_offset": 7.3,
+      "target_datetime": "2026-02-20 21:00:00",
+      "predicted_cmg": 74.47,
+      "real_time_offset": 7.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.9196,
-      "zero_probability_raw": 0.625,
-      "decision_threshold": 0.3681,
-      "value_prediction": 66.86,
+      "zero_probability": 0.1672,
+      "zero_probability_raw": 0.3346,
+      "decision_threshold": 0.3682,
+      "value_prediction": 74.47,
       "confidence_interval": {
-        "lower_10th": 18.74,
-        "median": 66.86,
-        "upper_90th": 108.56
+        "lower_10th": 37.44,
+        "median": 74.47,
+        "upper_90th": 86.66
       }
     },
     {
       "horizon": 13,
-      "target_datetime": "2026-02-20 20:00:00",
-      "predicted_cmg": 79.79,
-      "real_time_offset": 8.3,
+      "target_datetime": "2026-02-20 22:00:00",
+      "predicted_cmg": 77.36,
+      "real_time_offset": 8.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.0992,
-      "zero_probability_raw": 0.2983,
-      "decision_threshold": 0.3686,
-      "value_prediction": 79.79,
+      "zero_probability": 0.0563,
+      "zero_probability_raw": 0.2591,
+      "decision_threshold": 0.368,
+      "value_prediction": 77.36,
       "confidence_interval": {
-        "lower_10th": 31.23,
-        "median": 79.79,
-        "upper_90th": 81.73
+        "lower_10th": 36.58,
+        "median": 77.36,
+        "upper_90th": 86.07
       }
     },
     {
       "horizon": 14,
-      "target_datetime": "2026-02-20 21:00:00",
-      "predicted_cmg": 68.09,
-      "real_time_offset": 9.3,
+      "target_datetime": "2026-02-20 23:00:00",
+      "predicted_cmg": 72.37,
+      "real_time_offset": 9.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.0294,
-      "zero_probability_raw": 0.2237,
-      "decision_threshold": 0.3682,
-      "value_prediction": 68.09,
+      "zero_probability": 0.0286,
+      "zero_probability_raw": 0.2204,
+      "decision_threshold": 0.368,
+      "value_prediction": 72.37,
       "confidence_interval": {
-        "lower_10th": 34.17,
-        "median": 68.09,
-        "upper_90th": 83.95
+        "lower_10th": 39.18,
+        "median": 72.37,
+        "upper_90th": 79.7
       }
     },
     {
       "horizon": 15,
-      "target_datetime": "2026-02-20 22:00:00",
-      "predicted_cmg": 75.77,
-      "real_time_offset": 10.3,
+      "target_datetime": "2026-02-21 00:00:00",
+      "predicted_cmg": 66.03,
+      "real_time_offset": 10.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.0082,
-      "zero_probability_raw": 0.1633,
-      "decision_threshold": 0.368,
-      "value_prediction": 75.77,
+      "zero_probability": 0.0228,
+      "zero_probability_raw": 0.2084,
+      "decision_threshold": 0.3615,
+      "value_prediction": 66.03,
       "confidence_interval": {
-        "lower_10th": 38.03,
-        "median": 75.77,
-        "upper_90th": 81.73
+        "lower_10th": 41.64,
+        "median": 66.03,
+        "upper_90th": 85.46
       }
     },
     {
       "horizon": 16,
-      "target_datetime": "2026-02-20 23:00:00",
-      "predicted_cmg": 62.09,
-      "real_time_offset": 11.3,
+      "target_datetime": "2026-02-21 01:00:00",
+      "predicted_cmg": 57.35,
+      "real_time_offset": 11.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.018,
-      "zero_probability_raw": 0.1967,
-      "decision_threshold": 0.368,
-      "value_prediction": 62.09,
+      "zero_probability": 0.0366,
+      "zero_probability_raw": 0.2329,
+      "decision_threshold": 0.3621,
+      "value_prediction": 57.35,
       "confidence_interval": {
-        "lower_10th": 41.09,
-        "median": 62.09,
-        "upper_90th": 83.66
+        "lower_10th": 42.62,
+        "median": 57.35,
+        "upper_90th": 63.46
       }
     },
     {
       "horizon": 17,
-      "target_datetime": "2026-02-21 00:00:00",
-      "predicted_cmg": 67.99,
-      "real_time_offset": 12.3,
+      "target_datetime": "2026-02-21 02:00:00",
+      "predicted_cmg": 63.28,
+      "real_time_offset": 12.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.1057,
-      "zero_probability_raw": 0.2955,
-      "decision_threshold": 0.3615,
-      "value_prediction": 67.99,
+      "zero_probability": 0.0653,
+      "zero_probability_raw": 0.2669,
+      "decision_threshold": 0.3636,
+      "value_prediction": 63.28,
       "confidence_interval": {
-        "lower_10th": 28.03,
-        "median": 67.99,
-        "upper_90th": 86.18
+        "lower_10th": 32.84,
+        "median": 63.28,
+        "upper_90th": 64.04
       }
     },
     {
       "horizon": 18,
-      "target_datetime": "2026-02-21 01:00:00",
-      "predicted_cmg": 57.01,
-      "real_time_offset": 13.3,
+      "target_datetime": "2026-02-21 03:00:00",
+      "predicted_cmg": 58.0,
+      "real_time_offset": 13.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.1685,
-      "zero_probability_raw": 0.3292,
-      "decision_threshold": 0.3621,
-      "value_prediction": 57.01,
+      "zero_probability": 0.0708,
+      "zero_probability_raw": 0.2733,
+      "decision_threshold": 0.3651,
+      "value_prediction": 58.0,
       "confidence_interval": {
-        "lower_10th": 27.62,
-        "median": 57.01,
-        "upper_90th": 64.76
+        "lower_10th": 37.72,
+        "median": 58.0,
+        "upper_90th": 71.36
       }
     },
     {
       "horizon": 19,
-      "target_datetime": "2026-02-21 02:00:00",
-      "predicted_cmg": 57.32,
-      "real_time_offset": 14.3,
+      "target_datetime": "2026-02-21 04:00:00",
+      "predicted_cmg": 58.98,
+      "real_time_offset": 14.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.3542,
-      "zero_probability_raw": 0.397,
-      "decision_threshold": 0.3636,
-      "value_prediction": 57.32,
+      "zero_probability": 0.1961,
+      "zero_probability_raw": 0.3474,
+      "decision_threshold": 0.3676,
+      "value_prediction": 58.98,
       "confidence_interval": {
-        "lower_10th": 28.43,
-        "median": 57.32,
-        "upper_90th": 70.7
+        "lower_10th": 32.1,
+        "median": 58.98,
+        "upper_90th": 59.96
       }
     },
     {
       "horizon": 20,
-      "target_datetime": "2026-02-21 03:00:00",
-      "predicted_cmg": 0,
-      "real_time_offset": 15.3,
+      "target_datetime": "2026-02-21 05:00:00",
+      "predicted_cmg": 60.92,
+      "real_time_offset": 15.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.6005,
-      "zero_probability_raw": 0.4706,
-      "decision_threshold": 0.3651,
-      "value_prediction": 57.72,
+      "zero_probability": 0.3518,
+      "zero_probability_raw": 0.4044,
+      "decision_threshold": 0.3691,
+      "value_prediction": 60.92,
       "confidence_interval": {
-        "lower_10th": 31.86,
-        "median": 57.72,
-        "upper_90th": 65.31
+        "lower_10th": 39.29,
+        "median": 60.92,
+        "upper_90th": 61.41
       }
     },
     {
       "horizon": 21,
-      "target_datetime": "2026-02-21 04:00:00",
-      "predicted_cmg": 54.61,
-      "real_time_offset": 16.3,
+      "target_datetime": "2026-02-21 06:00:00",
+      "predicted_cmg": 59.89,
+      "real_time_offset": 16.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.2998,
-      "zero_probability_raw": 0.3837,
-      "decision_threshold": 0.3676,
-      "value_prediction": 54.61,
+      "zero_probability": 0.0999,
+      "zero_probability_raw": 0.302,
+      "decision_threshold": 0.3703,
+      "value_prediction": 59.89,
       "confidence_interval": {
-        "lower_10th": 34.48,
-        "median": 54.61,
-        "upper_90th": 61.07
+        "lower_10th": 40.49,
+        "median": 59.89,
+        "upper_90th": 65.26
       }
     },
     {
       "horizon": 22,
-      "target_datetime": "2026-02-21 05:00:00",
-      "predicted_cmg": 0,
-      "real_time_offset": 17.3,
+      "target_datetime": "2026-02-21 07:00:00",
+      "predicted_cmg": 68.18,
+      "real_time_offset": 17.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.3935,
-      "zero_probability_raw": 0.4153,
-      "decision_threshold": 0.3691,
-      "value_prediction": 55.89,
+      "zero_probability": 0.1024,
+      "zero_probability_raw": 0.306,
+      "decision_threshold": 0.3706,
+      "value_prediction": 68.18,
       "confidence_interval": {
-        "lower_10th": 27.95,
-        "median": 55.89,
-        "upper_90th": 67.21
+        "lower_10th": 39.24,
+        "median": 68.18,
+        "upper_90th": 75.59
       }
     },
     {
       "horizon": 23,
-      "target_datetime": "2026-02-21 06:00:00",
-      "predicted_cmg": 0,
-      "real_time_offset": 18.3,
+      "target_datetime": "2026-02-21 08:00:00",
+      "predicted_cmg": 53.43,
+      "real_time_offset": 18.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.5002,
-      "zero_probability_raw": 0.4489,
-      "decision_threshold": 0.3703,
-      "value_prediction": 56.37,
+      "zero_probability": 0.2255,
+      "zero_probability_raw": 0.3688,
+      "decision_threshold": 0.3707,
+      "value_prediction": 53.43,
       "confidence_interval": {
-        "lower_10th": 30.19,
-        "median": 56.37,
-        "upper_90th": 68.53
+        "lower_10th": 31.04,
+        "median": 53.43,
+        "upper_90th": 68.41
       }
     },
     {
       "horizon": 24,
-      "target_datetime": "2026-02-21 07:00:00",
-      "predicted_cmg": 60.99,
-      "real_time_offset": 19.3,
+      "target_datetime": "2026-02-21 09:00:00",
+      "predicted_cmg": 0,
+      "real_time_offset": 19.5,
       "is_valid_forecast": true,
-      "zero_probability": 0.1544,
-      "zero_probability_raw": 0.3342,
-      "decision_threshold": 0.3706,
-      "value_prediction": 60.99,
+      "zero_probability": 0.5345,
+      "zero_probability_raw": 0.4671,
+      "decision_threshold": 0.3703,
+      "value_prediction": 53.37,
       "confidence_interval": {
-        "lower_10th": 28.49,
-        "median": 60.99,
-        "upper_90th": 80.95
+        "lower_10th": 24.53,
+        "median": 53.37,
+        "upper_90th": 107.4
       }
     }
   ]
