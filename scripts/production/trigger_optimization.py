@@ -25,7 +25,7 @@ def trigger_optimization():
         "s_min": 1000,
         "s_max": 50000,
         "kappa": 0.667,
-        "inflow": 2.5
+        "inflow": 1.1
     }
     
     try:

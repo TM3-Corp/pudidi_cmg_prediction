@@ -17,6 +17,15 @@ from typing import Dict, List, Optional
 santiago_tz = pytz.timezone('America/Santiago')
 GIST_ID = "d68bb21360b1ac549c32a80195f99b09"  # Gist ID for CMG Programado data
 
+
+def _format_timestamp(date_str: str, hour: int) -> str:
+    """Format a timestamp with the correct dynamic timezone offset for Santiago."""
+    dt = santiago_tz.localize(datetime(
+        int(date_str[:4]), int(date_str[5:7]), int(date_str[8:10]), hour
+    ))
+    offset = dt.strftime('%z')  # e.g. "-0300" or "-0400"
+    return f"{date_str}T{hour:02d}:00:00{offset[:3]}:{offset[3:]}"
+
 def read_latest_csv() -> Optional[Path]:
     """Find the most recent CMG Programado CSV file"""
     downloads_dir = Path("downloads")
@@ -129,7 +138,7 @@ def update_gist(pmontt_data: Dict) -> bool:
                     existing_data['historical_data'][date][hour_int] = {
                         'value': value,
                         'node': 'PMontt220',
-                        'timestamp': f"{date}T{hour}:00:00-03:00",
+                        'timestamp': _format_timestamp(date, int(hour)),
                         'source': 'CMG Programado',
                         'update_time': datetime.now(santiago_tz).isoformat()
                     }
@@ -215,10 +224,9 @@ def save_local_cache(pmontt_data: Dict):
     for date, hours_data in pmontt_data.items():
         for hour, value in hours_data.items():
             hour_int = int(hour)
-            # FIXED: Include timezone suffix to preserve Santiago timezone (UTC-3)
-            # This prevents Supabase from defaulting to UTC when parsing TIMESTAMPTZ columns
+            # Dynamic timezone offset via pytz (handles DST correctly)
             api_data.append({
-                "datetime": f"{date}T{hour}:00:00-03:00",
+                "datetime": _format_timestamp(date, hour_int),
                 "date": date,
                 "hour": hour_int,
                 "node": "PMontt220",

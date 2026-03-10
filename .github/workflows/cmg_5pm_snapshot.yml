@@ -2,8 +2,9 @@ name: CMG Programado 5PM Daily Snapshot
 
 on:
   schedule:
-    # Run at 5PM Chilean time (20:00 UTC = 17:00 Chile UTC-3)
-    - cron: '0 20 * * *'
+    # Dual cron to cover both DST states for 17:00 Chilean time
+    - cron: '0 20 * * *'  # 17:00 CLT (winter, Apr-Sep, UTC-4)
+    - cron: '0 21 * * *'  # 17:00 CLST (summer, Sep-Apr, UTC-3)
 
   workflow_dispatch:  # Allow manual trigger for testing
 
@@ -12,21 +13,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Check if correct DST window
+        id: dst_check
+        run: |
+          SANTIAGO_HOUR=$(TZ='America/Santiago' date +%H)
+          echo "Santiago hour: $SANTIAGO_HOUR"
+
+          if [ "$SANTIAGO_HOUR" -ge 16 ] && [ "$SANTIAGO_HOUR" -le 17 ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "Wrong DST window (Santiago hour=$SANTIAGO_HOUR). Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
+        if: steps.dst_check.outputs.skip != 'true'
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Full history for proper git operations
+          fetch-depth: 0
 
       - name: Set up Python
+        if: steps.dst_check.outputs.skip != 'true'
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Install dependencies
+        if: steps.dst_check.outputs.skip != 'true'
         run: |
           pip install requests pytz
 
       - name: Capture 5PM CMG Programado Snapshot
+        if: steps.dst_check.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.CMG_GIST_TOKEN }}
           CMG_SNAPSHOT_GIST_ID: ${{ secrets.CMG_SNAPSHOT_GIST_ID }}
@@ -34,6 +52,7 @@ jobs:
           python scripts/production/capture_5pm_cmg_snapshot.py
 
       - name: Commit snapshot metadata (if created)
+        if: steps.dst_check.outputs.skip != 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -51,19 +70,24 @@ jobs:
           fi
 
       - name: Push changes
+        if: steps.dst_check.outputs.skip != 'true'
         run: |
           git push origin main || echo "Nothing to push"
 
       - name: Workflow Summary
         run: |
-          echo "## 📸 5PM CMG Programado Snapshot Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Time:** $(date -u +%Y-%m-%d\ %H:%M\ UTC)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ -f .cmg_snapshot_gist_id ]; then
-            GIST_ID=$(cat .cmg_snapshot_gist_id)
-            echo "**Snapshot Gist:** https://gist.github.com/$GIST_ID" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.dst_check.outputs.skip }}" == "true" ]; then
+            echo "## ⏭️ Skipped (wrong DST window)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "**Status:** Saved locally (no Gist configured yet)" >> $GITHUB_STEP_SUMMARY
+            echo "## 📸 5PM CMG Programado Snapshot Complete" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Time:** $(date -u +%Y-%m-%d\ %H:%M\ UTC)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            if [ -f .cmg_snapshot_gist_id ]; then
+              GIST_ID=$(cat .cmg_snapshot_gist_id)
+              echo "**Snapshot Gist:** https://gist.github.com/$GIST_ID" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Status:** Saved locally (no Gist configured yet)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi

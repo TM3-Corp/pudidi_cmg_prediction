@@ -180,11 +180,9 @@ class handler(BaseHTTPRequestHandler):
                     # For ML predictions: Use ALL available predictions
                     # ML predictions may start earlier than t+1 due to CMG Online API lag
                     # User confirmed this is expected behavior
-                    current_unix = int(time.time())
-                    santiago_offset = -3 * 3600  # Santiago is UTC-3
-                    current_santiago_unix = current_unix + santiago_offset
-                    current_struct = time.gmtime(current_santiago_unix)
-                    current_time_str = time.strftime('%Y-%m-%d %H:%M:%S', current_struct)
+                    santiago_tz = pytz.timezone('America/Santiago')
+                    now_santiago = datetime.now(santiago_tz)
+                    current_time_str = now_santiago.strftime('%Y-%m-%d %H:%M:%S')
 
                     print(f"[OPTIMIZER] Current Santiago time: {current_time_str}")
                     print(f"[OPTIMIZER] Using ALL available ML predictions (no t+1 filtering)")
@@ -271,21 +269,13 @@ class handler(BaseHTTPRequestHandler):
                 from lib.utils.cache_manager_readonly import CacheManagerReadOnly
                 import time
 
-                # Calculate t+1 using Unix timestamps only (no datetime module)
-                current_unix = int(time.time())
-                santiago_offset = -3 * 3600  # Santiago is UTC-3
-                current_santiago_unix = current_unix + santiago_offset
+                santiago_tz = pytz.timezone('America/Santiago')
+                now_santiago = datetime.now(santiago_tz)
+                current_time_str = now_santiago.strftime('%Y-%m-%d %H:%M:%S')
 
                 # Round up to next full hour
-                seconds_into_hour = current_santiago_unix % 3600
-                next_hour_santiago_unix = current_santiago_unix + (3600 - seconds_into_hour)
-
-                # Convert Unix timestamp to time struct and format as string (with 'T' for CMG)
-                next_hour_struct = time.gmtime(next_hour_santiago_unix)
-                cutoff_time_str = time.strftime('%Y-%m-%dT%H:%M:%S', next_hour_struct)
-
-                current_struct = time.gmtime(current_santiago_unix)
-                current_time_str = time.strftime('%Y-%m-%d %H:%M:%S', current_struct)
+                next_hour = (now_santiago + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+                cutoff_time_str = next_hour.strftime('%Y-%m-%dT%H:%M:%S')
 
                 print(f"[OPTIMIZER] Current Santiago time: {current_time_str}")
                 print(f"[OPTIMIZER] Filtering CMG Programado >= t+1: {cutoff_time_str}")
@@ -379,9 +369,26 @@ class handler(BaseHTTPRequestHandler):
                     self.wfile.write(json.dumps(error_response).encode())
                     return
             
+            # Feasibility check
+            max_discharge = kappa * p_max
+            feasibility_warnings = []
+            if inflow > max_discharge:
+                net_excess = inflow - max_discharge
+                feasibility_warnings.append({
+                    'type': 'infeasible_inflow',
+                    'message': (
+                        f'Caudal de entrada ({inflow:.2f} m³/s) excede la capacidad máxima de descarga '
+                        f'({max_discharge:.3f} m³/s). El optimizador modelará vertimiento automático.'
+                    ),
+                    'inflow': inflow,
+                    'max_discharge': max_discharge,
+                    'excess': net_excess
+                })
+                print(f"[OPTIMIZER] WARNING: Inflow {inflow} > max discharge {max_discharge:.3f}. Spillage will be modeled.")
+
             # Try proper LP optimization first
             print(f"[OPTIMIZER] Starting optimization...")
-            
+
             solution = None
             
             # Try scipy LP first only if available
@@ -439,11 +446,15 @@ class handler(BaseHTTPRequestHandler):
             add_cors_headers(self, self.headers.get('Origin', ''), 'GET, POST, OPTIONS')
             self.end_headers()
             
+            # Collect all warnings
+            all_warnings = feasibility_warnings + solution.get('warnings', [])
+
             response = {
                 'success': True,
                 'solution': solution,
                 'prices': prices,
-                'timestamps': timestamps,  # Include actual timestamps from data
+                'timestamps': timestamps,
+                'warnings': all_warnings,
                 'parameters': {
                     'node': node,
                     'horizon': horizon,
@@ -463,7 +474,7 @@ class handler(BaseHTTPRequestHandler):
                     'data_source': 'ML Predictions (Railway Backend)' if data_source_used == 'ml_predictions' else 'CMG Programado (Coordinador)',
                     'data_source_selected': data_source,
                     'data_source_used': data_source_used,
-                    'all_real_data': True,  # Always true now, no synthetic data
+                    'all_real_data': True,
                     'using_ml_predictions': data_source_used == 'ml_predictions'
                 }
             }

@@ -374,6 +374,7 @@ async function runOptimization() {
             const solution = result.solution;
             const prices = result.prices;
             const dataInfo = result.data_info || {};
+            const warnings = result.warnings || solution.warnings || [];
 
             console.log('[RUN] Optimization method:', solution.optimization_method);
             console.log('[RUN] Solver success:', solution.solver_success);
@@ -434,6 +435,9 @@ async function runOptimization() {
                     `;
                 }
             }
+
+            // Display warnings if any
+            displayOptimizerWarnings(warnings, solution);
 
             // Update metrics
             document.getElementById('totalRevenue').textContent = solution.revenue.toFixed(0);
@@ -660,6 +664,38 @@ function updateCharts(solution, prices, params, timestamps = []) {
     });
 }
 
+function displayOptimizerWarnings(warnings, solution) {
+    // Remove any existing warning banner
+    const existing = document.getElementById('optimizerWarnings');
+    if (existing) existing.remove();
+
+    if (!warnings || warnings.length === 0) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'optimizerWarnings';
+    banner.style.cssText = 'background:#fef3c7;border:1px solid #f59e0b;border-radius:8px;padding:12px 16px;margin-bottom:16px;';
+
+    let html = '<div style="font-weight:600;color:#92400e;margin-bottom:8px;">Advertencias del Optimizador</div>';
+
+    for (const w of warnings) {
+        html += `<div style="color:#78350f;margin-bottom:4px;font-size:0.9em;">- ${w.message}</div>`;
+    }
+
+    const spillHours = solution.spill_hours || [];
+    const totalSpill = solution.total_spill_m3 || 0;
+    if (spillHours.length > 0) {
+        html += `<div style="color:#78350f;margin-top:8px;font-size:0.85em;font-style:italic;">Horas con vertimiento marcadas en la tabla con fondo celeste.</div>`;
+    }
+
+    banner.innerHTML = html;
+
+    // Insert before metrics grid
+    const metricsGrid = document.getElementById('metricsGrid');
+    if (metricsGrid && metricsGrid.parentNode) {
+        metricsGrid.parentNode.insertBefore(banner, metricsGrid);
+    }
+}
+
 function populateResultsTable(solution, prices, dateTimeLabels) {
     const tbody = document.getElementById('resultsTableBody');
     tbody.innerHTML = ''; // Clear existing rows
@@ -695,8 +731,12 @@ function populateResultsTable(solution, prices, dateTimeLabels) {
         priceCell.textContent = formatChilean(prices[i], 2);
         priceCell.style.textAlign = 'right';
 
-        // Add subtle row styling
-        if (i % 2 === 1) {
+        // Highlight spillage hours
+        const spillHours = solution.spill_hours || [];
+        if (spillHours.includes(i)) {
+            row.style.backgroundColor = '#dbeafe';
+            row.title = `Vertimiento: ${((solution.spill || [])[i] || 0).toFixed(3)} m³/s`;
+        } else if (i % 2 === 1) {
             row.style.backgroundColor = '#f8fafc';
         }
         row.style.borderBottom = '1px solid #e2e8f0';

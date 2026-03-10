@@ -2,9 +2,9 @@ name: Daily Optimization at 17:00 Chilean Time
 
 on:
   schedule:
-    # Run at 17:00 Chilean time (21:00 UTC in summer, 20:00 UTC in winter)
-    # Using 21:00 UTC as default (Chilean summer time)
-    - cron: '0 21 * * *'
+    # Dual cron to cover both DST states for 17:00 Chilean time
+    - cron: '0 20 * * *'  # 17:00 CLT (winter, Apr-Sep, UTC-4)
+    - cron: '0 21 * * *'  # 17:00 CLST (summer, Sep-Apr, UTC-3)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
@@ -12,44 +12,67 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
+      - name: Check if correct DST window
+        id: dst_check
+        run: |
+          # Get current Santiago time and check if this cron trigger is correct
+          SANTIAGO_HOUR=$(TZ='America/Santiago' date +%H)
+          SANTIAGO_OFFSET=$(TZ='America/Santiago' date +%z)
+          echo "Santiago hour: $SANTIAGO_HOUR, offset: $SANTIAGO_OFFSET"
+
+          # Only proceed if Santiago time is between 16:30 and 17:30
+          if [ "$SANTIAGO_HOUR" -ge 16 ] && [ "$SANTIAGO_HOUR" -le 17 ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "Wrong DST window (Santiago hour=$SANTIAGO_HOUR). Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
+        if: steps.dst_check.outputs.skip != 'true'
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set up Python
+        if: steps.dst_check.outputs.skip != 'true'
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-      
+
       - name: Install dependencies
+        if: steps.dst_check.outputs.skip != 'true'
         run: |
           pip install requests pytz numpy
-      
+
       - name: Run Daily Optimization
+        if: steps.dst_check.outputs.skip != 'true'
         timeout-minutes: 5
         run: |
           cd ${{ github.workspace }}
           echo "========================================"
           echo "DAILY OPTIMIZATION RUN"
           echo "Time: $(date)"
+          echo "Santiago: $(TZ='America/Santiago' date)"
           echo "========================================"
-          
+
           # Run the optimization
           python scripts/production/trigger_optimization.py
-          
+
           echo "========================================"
           echo "Optimization completed"
         env:
           PYTHONPATH: ${{ github.workspace }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Log optimization status
         if: always()
         run: |
-          if [ "${{ job.status }}" == "success" ]; then
+          if [ "${{ steps.dst_check.outputs.skip }}" == "true" ]; then
+            echo "⏭️ Skipped (wrong DST window)"
+          elif [ "${{ job.status }}" == "success" ]; then
             echo "✅ Daily optimization completed successfully"
           else
             echo "❌ Daily optimization failed"
