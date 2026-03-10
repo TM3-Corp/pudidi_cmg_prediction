@@ -698,7 +698,22 @@ function displayOptimizerWarnings(warnings, solution) {
 
 function populateResultsTable(solution, prices, dateTimeLabels) {
     const tbody = document.getElementById('resultsTableBody');
-    tbody.innerHTML = ''; // Clear existing rows
+    tbody.innerHTML = '';
+
+    // Add/remove spillage legend above table
+    const tableCard = tbody.closest('.chart-card');
+    const existingLegend = document.getElementById('spillageLegend');
+    if (existingLegend) existingLegend.remove();
+
+    const spillHours = solution.spill_hours || [];
+    if (spillHours.length > 0 && tableCard) {
+        const legend = document.createElement('div');
+        legend.id = 'spillageLegend';
+        legend.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:0.85em;color:#475569;';
+        legend.innerHTML = '<span style="display:inline-block;width:16px;height:16px;background:#dbeafe;border:1px solid #93c5fd;border-radius:3px;"></span> Hora con vertimiento (agua descartada por vertedero)';
+        const scrollDiv = tableCard.querySelector('div[style*="max-height"]');
+        if (scrollDiv) tableCard.insertBefore(legend, scrollDiv);
+    }
 
     for (let i = 0; i < solution.P.length; i++) {
         const row = tbody.insertRow();
