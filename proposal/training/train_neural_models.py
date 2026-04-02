@@ -14,7 +14,7 @@ Resultado del benchmark actual (produccion LGB+XGB):
   - Largo plazo (t+13..t+24): MAE = $36.54
 
 Uso:
-    python proposal/train_neural_models.py
+    python proposal/training/train_neural_models.py
 """
 
 import sys
@@ -28,12 +28,11 @@ from datetime import timedelta
 
 warnings.filterwarnings('ignore')
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-sys.path.insert(0, str(PROJECT_ROOT / "proposal"))
 
-from data_loader import CMGDataLoader
+from proposal.utils.data_loader import CMGDataLoader
 
 # NeuralForecast
 from neuralforecast import NeuralForecast

@@ -22,13 +22,13 @@ Cada fold:
 Al final: media +/- std de MAE por modelo, horizonte y hora.
 
 Ejecutar en 2 fases para evitar OOM (torch + lightgbm):
-    python proposal/eval_timeseries_cv.py --phase train
-    python proposal/eval_timeseries_cv.py --phase eval
+    python proposal/evaluation/eval_timeseries_cv.py --phase train
+    python proposal/evaluation/eval_timeseries_cv.py --phase eval
 
 Uso:
     export $(grep -v '^#' .env | xargs)
-    python proposal/eval_timeseries_cv.py --phase train
-    python proposal/eval_timeseries_cv.py --phase eval
+    python proposal/evaluation/eval_timeseries_cv.py --phase train
+    python proposal/evaluation/eval_timeseries_cv.py --phase eval
 """
 
 import sys
@@ -44,10 +44,9 @@ from datetime import timedelta
 
 warnings.filterwarnings('ignore')
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-sys.path.insert(0, str(PROJECT_ROOT / "proposal"))
 
 MODELS_DIR = PROJECT_ROOT / "models_24h"
 RESULTS_DIR = PROJECT_ROOT / "proposal" / "results"
@@ -71,7 +70,7 @@ HIST = ['cmg_mean_24h', 'cmg_std_24h', 'cmg_mean_168h', 'cmg_std_168h',
 
 def load_full_series():
     """Carga serie completa (local + supabase)."""
-    from data_loader import CMGDataLoader
+    from proposal.utils.data_loader import CMGDataLoader
 
     loader = CMGDataLoader()
     df_local = loader.load_cmg_online()
@@ -283,9 +282,9 @@ def phase_train():
 
 def phase_eval():
     """Corre produccion en cada fold, ensambla, reporta."""
-    from benchmark import ProductionModelEvaluator
+    from proposal.utils.benchmark import ProductionModelEvaluator
     from ml_feature_engineering import CleanCMGFeatureEngineering
-    from eval_ensemble_with_zero_detection import ZeroDetector
+    from proposal.evaluation.eval_zero_detection import ZeroDetector
 
     series = load_full_series()
     folds = compute_folds(series)

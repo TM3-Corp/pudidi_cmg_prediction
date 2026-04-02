@@ -32,7 +32,7 @@ Simula como el modelo hubiera funcionado en produccion dia a dia:
     - Captura degradacion del modelo en el tiempo
 
 Uso:
-    python proposal/benchmark.py
+    python proposal/utils/benchmark.py
 """
 
 import sys
@@ -47,7 +47,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 # Project root
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
@@ -676,7 +676,7 @@ def save_results(result: BacktestResult, output_dir: Optional[Path] = None):
 
 def main():
     """Ejecuta benchmark completo: modelo de produccion + baselines."""
-    from data_loader import CMGDataLoader
+    from proposal.utils.data_loader import CMGDataLoader
 
     print("=" * 80)
     print("BENCHMARK CMG PREDICTION - BACKTESTING ROLLING")

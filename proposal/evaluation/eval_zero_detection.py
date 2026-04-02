@@ -13,7 +13,7 @@ Compara MAE y metricas de deteccion de zeros contra:
 - TiDE solo (continuo)
 
 Uso:
-    python proposal/eval_ensemble_with_zero_detection.py
+    python proposal/evaluation/eval_zero_detection.py
 """
 
 import sys
@@ -25,10 +25,9 @@ import pandas as pd
 from pathlib import Path
 from datetime import timedelta
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-sys.path.insert(0, str(PROJECT_ROOT / "proposal"))
 
 MODELS_DIR = PROJECT_ROOT / "models_24h"
 RESULTS_DIR = PROJECT_ROOT / "proposal" / "results"
@@ -118,8 +117,8 @@ def run_full_backtesting(test_days: int = 45):
     4. TiDE solo SIN zero detection
     5. TiDE solo CON zero detection
     """
-    from data_loader import CMGDataLoader
-    from benchmark import ProductionModelEvaluator
+    from proposal.utils.data_loader import CMGDataLoader
+    from proposal.utils.benchmark import ProductionModelEvaluator
     from ml_feature_engineering import CleanCMGFeatureEngineering
 
     # Cargar datos

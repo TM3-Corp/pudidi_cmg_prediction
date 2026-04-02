@@ -1,0 +1,593 @@
+{
+  "best_mae_fold0": 36.817582189571844,
+  "best_params": {
+    "input_size": 336,
+    "hidden_size": 256,
+    "num_encoder_layers": 3,
+    "num_decoder_layers": 4,
+    "decoder_output_dim": 32,
+    "temporal_decoder_dim": 128,
+    "dropout": 0.35000000000000003,
+    "layernorm": true,
+    "learning_rate": 0.0019009846860828365,
+    "batch_size": 32,
+    "max_steps": 500,
+    "early_stop_patience": 8,
+    "scaler_type": "minmax"
+  },
+  "n_trials": 30,
+  "fold0_train": "2025-10-31",
+  "fold0_test": "2025-11-30",
+  "all_trials": [
+    {
+      "number": 0,
+      "value": 40.45859063456897,
+      "params": {
+        "input_size": 120,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.2,
+        "layernorm": true,
+        "learning_rate": 0.0016738085788752138,
+        "batch_size": 64,
+        "max_steps": 1000,
+        "early_stop_patience": 7,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 1,
+      "value": 39.922880602823895,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 32,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.2,
+        "layernorm": false,
+        "learning_rate": 0.0035503048581283078,
+        "batch_size": 16,
+        "max_steps": 500,
+        "early_stop_patience": 3,
+        "scaler_type": "robust"
+      }
+    },
+    {
+      "number": 2,
+      "value": 36.98904023217784,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.05,
+        "layernorm": true,
+        "learning_rate": 0.0004589824181495653,
+        "batch_size": 64,
+        "max_steps": 1500,
+        "early_stop_patience": 6,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 3,
+      "value": 47.926806613997236,
+      "params": {
+        "input_size": 120,
+        "hidden_size": 32,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 2,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.1,
+        "layernorm": false,
+        "learning_rate": 0.004132765459466366,
+        "batch_size": 32,
+        "max_steps": 1000,
+        "early_stop_patience": 9,
+        "scaler_type": "standard"
+      }
+    },
+    {
+      "number": 4,
+      "value": 37.59962860833162,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 64,
+        "num_encoder_layers": 1,
+        "num_decoder_layers": 2,
+        "decoder_output_dim": 8,
+        "temporal_decoder_dim": 64,
+        "dropout": 0.1,
+        "layernorm": true,
+        "learning_rate": 0.00037126241790405356,
+        "batch_size": 32,
+        "max_steps": 1500,
+        "early_stop_patience": 4,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 5,
+      "value": 45.39166060928783,
+      "params": {
+        "input_size": 168,
+        "hidden_size": 32,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 8,
+        "temporal_decoder_dim": 64,
+        "dropout": 0.2,
+        "layernorm": false,
+        "learning_rate": 0.00022321987366901572,
+        "batch_size": 64,
+        "max_steps": 1000,
+        "early_stop_patience": 10,
+        "scaler_type": "standard"
+      }
+    },
+    {
+      "number": 6,
+      "value": 37.83562898354746,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 128,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 2,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 16,
+        "dropout": 0.4,
+        "layernorm": true,
+        "learning_rate": 0.00015956700210656633,
+        "batch_size": 16,
+        "max_steps": 1000,
+        "early_stop_patience": 4,
+        "scaler_type": "standard"
+      }
+    },
+    {
+      "number": 7,
+      "value": 39.78362195128145,
+      "params": {
+        "input_size": 168,
+        "hidden_size": 32,
+        "num_encoder_layers": 1,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 16,
+        "dropout": 0.05,
+        "layernorm": true,
+        "learning_rate": 0.0001118489555166451,
+        "batch_size": 64,
+        "max_steps": 500,
+        "early_stop_patience": 3,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 8,
+      "value": 41.88736536006738,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 32,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 16,
+        "dropout": 0.30000000000000004,
+        "layernorm": false,
+        "learning_rate": 0.00052357910022993,
+        "batch_size": 64,
+        "max_steps": 1000,
+        "early_stop_patience": 7,
+        "scaler_type": "standard"
+      }
+    },
+    {
+      "number": 9,
+      "value": 42.424447477371096,
+      "params": {
+        "input_size": 120,
+        "hidden_size": 64,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 2,
+        "decoder_output_dim": 8,
+        "temporal_decoder_dim": 16,
+        "dropout": 0.30000000000000004,
+        "layernorm": false,
+        "learning_rate": 0.00014814770564945435,
+        "batch_size": 64,
+        "max_steps": 1500,
+        "early_stop_patience": 7,
+        "scaler_type": "robust"
+      }
+    },
+    {
+      "number": 10,
+      "value": 37.177651327396696,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.0,
+        "layernorm": true,
+        "learning_rate": 0.0010733897092517735,
+        "batch_size": 16,
+        "max_steps": 1500,
+        "early_stop_patience": 5,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 11,
+      "value": 37.18964007142932,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.0,
+        "layernorm": true,
+        "learning_rate": 0.0011364695031944965,
+        "batch_size": 16,
+        "max_steps": 1500,
+        "early_stop_patience": 5,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 12,
+      "value": 37.128464927180566,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.0,
+        "layernorm": true,
+        "learning_rate": 0.0006337411963587618,
+        "batch_size": 16,
+        "max_steps": 1500,
+        "early_stop_patience": 6,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 13,
+      "value": 36.98007800478229,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 1,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 32,
+        "dropout": 0.1,
+        "layernorm": true,
+        "learning_rate": 0.00048584079538871564,
+        "batch_size": 16,
+        "max_steps": 1500,
+        "early_stop_patience": 6,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 14,
+      "value": 36.90025654275546,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.1,
+        "layernorm": true,
+        "learning_rate": 0.00031099611002469244,
+        "batch_size": 32,
+        "max_steps": 1500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 15,
+      "value": 37.22745187708229,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 128,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.15000000000000002,
+        "layernorm": true,
+        "learning_rate": 0.00852049911662979,
+        "batch_size": 32,
+        "max_steps": 1500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 16,
+      "value": 37.636740036234364,
+      "params": {
+        "input_size": 72,
+        "hidden_size": 256,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.1,
+        "layernorm": true,
+        "learning_rate": 0.0002689464102770744,
+        "batch_size": 32,
+        "max_steps": 1500,
+        "early_stop_patience": 9,
+        "scaler_type": "robust"
+      }
+    },
+    {
+      "number": 17,
+      "value": 36.9505705761989,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.30000000000000004,
+        "layernorm": true,
+        "learning_rate": 0.0018184797194140986,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 18,
+      "value": 36.951989806822986,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.30000000000000004,
+        "layernorm": true,
+        "learning_rate": 0.0017789768314297688,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 19,
+      "value": 37.21955890155573,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 64,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 8,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.4,
+        "layernorm": true,
+        "learning_rate": 0.0028651526264582847,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 10,
+        "scaler_type": "robust"
+      }
+    },
+    {
+      "number": 20,
+      "value": 37.22214725287636,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 128,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 16,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.25,
+        "layernorm": true,
+        "learning_rate": 0.0007686375417785865,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 21,
+      "value": 36.817582189571844,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.35000000000000003,
+        "layernorm": true,
+        "learning_rate": 0.0019009846860828365,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 22,
+      "value": 36.94746126199246,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.35000000000000003,
+        "layernorm": true,
+        "learning_rate": 0.0019071670866591074,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 9,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 23,
+      "value": 37.13593410557146,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.35000000000000003,
+        "layernorm": true,
+        "learning_rate": 0.005067984567781723,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 9,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 24,
+      "value": 37.02371117505206,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.35000000000000003,
+        "layernorm": true,
+        "learning_rate": 0.002490780439773504,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 9,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 25,
+      "value": 37.81024392930977,
+      "params": {
+        "input_size": 168,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.35000000000000003,
+        "layernorm": true,
+        "learning_rate": 0.006347991138966947,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 10,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 26,
+      "value": 39.48417280758346,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 4,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 64,
+        "dropout": 0.25,
+        "layernorm": false,
+        "learning_rate": 0.0009336977231773491,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    },
+    {
+      "number": 27,
+      "value": 37.2211491605614,
+      "params": {
+        "input_size": 336,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 3,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.25,
+        "layernorm": true,
+        "learning_rate": 0.001514372594667672,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 9,
+        "scaler_type": "robust"
+      }
+    },
+    {
+      "number": 28,
+      "value": 37.61177740106224,
+      "params": {
+        "input_size": 168,
+        "hidden_size": 64,
+        "num_encoder_layers": 2,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.15000000000000002,
+        "layernorm": true,
+        "learning_rate": 0.002443428588808494,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 7,
+        "scaler_type": "standard"
+      }
+    },
+    {
+      "number": 29,
+      "value": 40.25990428064953,
+      "params": {
+        "input_size": 120,
+        "hidden_size": 256,
+        "num_encoder_layers": 3,
+        "num_decoder_layers": 4,
+        "decoder_output_dim": 32,
+        "temporal_decoder_dim": 128,
+        "dropout": 0.4,
+        "layernorm": true,
+        "learning_rate": 0.0014240799657869103,
+        "batch_size": 32,
+        "max_steps": 500,
+        "early_stop_patience": 8,
+        "scaler_type": "minmax"
+      }
+    }
+  ]
+}

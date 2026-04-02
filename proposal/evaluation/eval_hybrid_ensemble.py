@@ -7,7 +7,7 @@ Combina TiDE (mejor en corto plazo) con Produccion (mejor en largo plazo)
 en distintas configuraciones y evalua cual es optima.
 
 Uso:
-    python proposal/eval_hybrid_ensemble.py
+    python proposal/evaluation/eval_hybrid_ensemble.py
 """
 
 import pandas as pd
@@ -15,7 +15,7 @@ import numpy as np
 import json
 from pathlib import Path
 
-RESULTS_DIR = Path(__file__).parent / "results"
+RESULTS_DIR = Path(__file__).parent.parent / "results"
 
 
 def load_and_merge():

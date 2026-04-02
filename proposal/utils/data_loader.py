@@ -8,7 +8,7 @@ listo para entrenar/evaluar modelos de prediccion de CMG.
 No requiere conexion a Supabase. Usa los JSON cacheados localmente.
 
 Uso:
-    from proposal.data_loader import CMGDataLoader
+    from proposal.utils.data_loader import CMGDataLoader
 
     loader = CMGDataLoader()
     df = loader.load_cmg_online()
@@ -26,7 +26,7 @@ from typing import Tuple, Optional
 from pathlib import Path
 
 # Add project root to path
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 # Paths

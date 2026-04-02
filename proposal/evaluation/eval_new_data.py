@@ -10,10 +10,10 @@ Separado en 2 fases para evitar OOM con torch + lightgbm simultaneo.
 
 Uso:
     # Fase 1: Entrenar TiDE y generar CV
-    python proposal/eval_new_data_full.py --phase train
+    python proposal/evaluation/eval_new_data.py --phase train
 
     # Fase 2: Produccion + ensemble + reporte
-    python proposal/eval_new_data_full.py --phase eval
+    python proposal/evaluation/eval_new_data.py --phase eval
 """
 
 import sys
@@ -29,10 +29,9 @@ from datetime import timedelta
 
 warnings.filterwarnings('ignore')
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-sys.path.insert(0, str(PROJECT_ROOT / "proposal"))
 
 MODELS_DIR = PROJECT_ROOT / "models_24h"
 RESULTS_DIR = PROJECT_ROOT / "proposal" / "results"
@@ -42,7 +41,7 @@ CV_FILE = RESULTS_DIR / "cv_tide_new_data.csv"
 
 def load_series():
     """Carga train (local) + test (supabase) y devuelve series."""
-    from data_loader import CMGDataLoader
+    from proposal.utils.data_loader import CMGDataLoader
 
     # Train
     loader = CMGDataLoader()
@@ -171,9 +170,9 @@ def phase_train():
 
 def phase_eval():
     """Evalua produccion + ensemble + zero detection sobre datos nuevos."""
-    from benchmark import ProductionModelEvaluator
+    from proposal.utils.benchmark import ProductionModelEvaluator
     from ml_feature_engineering import CleanCMGFeatureEngineering
-    from eval_ensemble_with_zero_detection import ZeroDetector
+    from proposal.evaluation.eval_zero_detection import ZeroDetector
     import lightgbm as lgb
     import xgboost as xgb
 
